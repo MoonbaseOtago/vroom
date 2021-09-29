@@ -18,4 +18,4 @@ paul@taniwha.com @moonbaseotago
 
 [Detailed architectural presentation](https://moonbaseotago.github.io/talk/index.html)
 
-![Moonbase Logo](https://moonbaseotago.github.io/talk/assets/moonbase.png)
+![Moonbase Logo](https://moonbaseotago.github.io/talk/assets/moonbase_small.png)

@@ -1,5 +1,7 @@
 # VRoom! RISC-V CPU
 
+![Moonbase Logo](https://moonbaseotago.github.io/talk/assets/moonbase_small.png)
+
 ## A new high-end RISC-V implementation
 Paul Campbell - October 2021
 
@@ -18,4 +20,3 @@ paul@taniwha.com @moonbaseotago
 
 [Detailed architectural presentation](https://moonbaseotago.github.io/talk/index.html)
 
-![Moonbase Logo](https://moonbaseotago.github.io/talk/assets/moonbase_small.png)

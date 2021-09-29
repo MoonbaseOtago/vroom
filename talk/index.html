@@ -1,0 +1,476 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/solarized.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+
+					<h2>VROOM!</h2>
+					<h4>A new high-end RISC-V implementation</h4>
+					<p>Paul Campbell - October 2021</p>
+					<p>paul@taniwha.com @moonbaseotago</p>
+					<img width="300" src="assets/moonbase.png"><br>
+					<small>
+						<p>(C) Copyright Moonbase Otago 2021)</p>
+					</small>
+				</section>
+				<section>
+					<h2>Executive summary</h2>
+					<small>
+					<ul>
+						<li>Very high end RISC-V implementation – cloud server class</li>
+						<li>Out of order, super scalar, speculative</li>
+						<li>RV64-IMAFDCHB</li>
+						<li>Up to 8 IPC (instructions per clock) peak  </li>
+						<li>2-way simultaneous multithreading capable</li>
+						<li>Multi-core</li>
+						<li>GPL3 – dual licensing possible</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+					<h2>Making something big and fast ...</h2>
+					<small>
+					<ul>
+			
+						<li>Our goal is &gt;4 IPC (average) with &gt;97% branch prediction and lots of cache, deep out-of-order pipelines and speculative execution for managing cache and branch miss latency </li>
+						<li>General long term goal is a high end server class CPU, 5GHz+, multithreaded, 100+ instructions in flight at any one time</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+					<h2>1-3 Fetch and decoder</h2>
+					<div class="r-hstack">
+					<small>
+					<ul>
+						<li>4 32-bit 
+						<br>instructions</li>
+						<li>Or 8 16-bit 
+						<br>instructions</li>
+						<li>Or a mix</li>
+						<li>Some instructions
+						<br>swallowed (no-ops,
+						<br>jumps)</li>
+					</ul>
+					</small>
+					<img width="500" src="assets/decode.svg">
+					</div>
+				</section>
+				<section>
+					<h2>Instruction Bundles</h2>
+					<div align="left">
+					<small>
+					<p>Decoded instructions are passed between stages in bundles containing:</p>
+					<ul>
+						<li>Functional unit type</li>
+						<li>Command information (add/sub load/store etc)</li>
+						<li>Source and dest registers (and renamed source registers)</li>
+						<li>Immediate constant</li>
+						<li>PC</li>
+						<li>Branch target</li>
+					</ul>
+					<p>Eventually we'll do some instruction combining using this information (best place may be at entry to I$0 trace cache), or possibly at the rename stage</p> 
+					</small>
+					</div>
+				</section>
+				<section>
+
+					<h2>Registers</h2>
+					<div class="r-stack">
+					<div class="r-hstack" valign="top">
+						<img width="350" valign="top" src="assets/blank.png">
+						<img width="400" valign="top" src="assets/registers.svg">
+					</div>
+					<small>
+					<ul>
+						<li>We use a combined 
+							<br>register file</li>
+						<li>Commit registers are
+							<br>for instruction’s results
+							<br>and are either 
+							<br>eventually written to real 
+							<br>registers or abandoned, one
+							<br>commit register for every<br>commitQ entry</li>
+						<li>Once a commitQ entry is commited it’s value is transfered to an
+							architectural register </li>
+						<li>Commit registers are shared between integer and FP regs</li>
+					</ul>
+					</small>
+					</div>
+				</section>
+				<section>
+
+					<h2>4 Renaming Stage</h2>
+					<div class="r-stack">
+					<div class="r-hstack" valign="top">
+						<img width="350" valign="top" src="assets/blank.png">
+						<img width="300" valign="top" src="assets/rename.svg">
+					</div>
+					<small>
+					<ul>
+						<li>Packs instruction
+							<br>bundles</li>
+						<li>Renames source
+							<br>registers to pick up
+							<br>speculative results
+							<br>from commit registers,
+							<br>scoreboard keeps track of
+							<br>where the latest version
+							<br>of each architectural register will be stored</li>
+						<li>Keeps track of state when we do speculative misses</li>
+					</ul>
+					</small>
+					</div>
+				</section>
+				<section>
+
+					<h2>5+ Commit Queue</h2>
+					<div class="r-stack">
+					<div class="r-hstack" valign="top">
+						<img width="300" valign="top" src="assets/blank.png">
+						<img width="400" valign="top" src="assets/commit.svg">
+					</div>
+					<small>
+					<ul>
+						<li>Circular queue of pending 
+							<br>instructions</li>
+						<li>At some point
+							<br>they are assigned
+							<br>ALUs</li>
+						<li>When near the end 
+							<br>they are commited
+							<br>(currently last 8 can be 
+							<br>commited per clock)</li>
+						<li>A resolved mispredicted branch or a trap can cause a partial or full commitQ flush</li>
+					</ul>
+					</small>
+					</div>
+				</section>
+				<section>
+
+					<h2>ALUs (functional units)</h2>
+					<small>
+					<ul>
+						<li>3 arithmetic (add/sub/and/or/xor/etc) [currently 2]</li>
+						<li>1 shift</li>
+						<li>1 multiply/divide</li>
+						<li>&gt;=1 FP	[a work in progress]</li>
+						<li>1 branch [may be merged into arithmetic units]</li>
+						<li>1 CSR/TRAP/privileged </li>
+						<li>1 Load/Store (3 load/2 store per clock) [currently 2/1]</li>
+						<li>Each commitQ entry is tagged for one of these</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+
+					<h2>ALUs (functional units) 2</h2>
+					<div align = left>
+					<small>
+					<p>Inputs to a functional unit can be:</p>
+					<ul>
+						<li align="left">Result of 1 or two register reads                              </li>
+						<li>An immediate constant</li>
+						<li>PC of the instruction</li>
+					</ul>
+					<p>An instruction will not trigger execution until all its input registers are available.</p>
+					</small>
+					</div>
+
+				</section>
+				<section>
+
+					<h2>Schedulers</h2>
+					<small>
+					<ul>
+						<li>Each type of functional unit has a scheduler</li>
+						<li>Looks for instructions ready to execute (ie who’s source registers will have been calculated in the next clock)</li>
+						<li>Schedules the N instructions ready to run closest to the commit end of the commitQ</li>
+						<li>Load/Store scheduler wont re-order stores past stores, or loads past stores (but will reorder loads) – once scheduled (and virt-&gt;phys translation) further reordering can happen</li>
+					</ul>
+					</small>
+				</section//>
+				<section>
+
+					<h2>6-7-8 schedulers</h2>
+					<div class="r-hstack" valign="top">
+					<small>
+					<ul>
+						<li>Basic ALU flow
+							<br>looks like this</li>
+						<li>Heavily pipelined
+							<br>(input to reg write
+							<br>can be bypassed 
+							<br>to output of reg 
+							<br>Basic ALU flow
+							<br>read)</li>
+					</ul>
+					</small>
+					<img width="200" valign="top" src="assets/alu.svg">
+					</div>
+				</section>
+				<section>
+					<h2>Load/Store/Fence Unit</h2>
+					<small>
+					<ul>
+						<li>Single Unit</li>
+						<li>Can handle 3 concurrent loads and 2 concurrent stores</li>
+						<li>Loads can run in 1 clock if in cache (or snooped from storeQ) and in TLBs</li>
+						<li>Also 1 clock speculatively if in storeQ</li>
+						<li>Stores/Fences go in the storeQ, are executed in order, but only once their commitQ instructions are committed</li>
+						<li>Loads go in storeQ if they miss in cache, are fenced, or blocked by a pending access to the same cache line</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+
+					<h2>Load/Store Unit</h2>
+					<img width="300" valign="top" src="assets/ls.svg">
+				</section>
+				<section>
+
+					<h2>Virtual Memory</h2>
+					<small>
+					<ul>
+						<li>Separate Instruction and Data 32 entry fully associative L1 TLBs</li>
+
+						<li>Shared L2 TLB and table walker – 4 way associative 128+ entries</li>
+
+						<li>Small cache of page data (to avoid upper page table refetches, takes part in cache coherency protocol)</li>
+
+						<li>Table walker shares the instruction fetch port to the cache fabric (both are read only – I$1 cache coherency ports can have up to 8 concurrent transactions running at the same time)</li>	
+					</ul>
+					</small>
+				</section>
+				<section>
+
+					<h2>Branch Unit</h2>
+					<small>
+					<ul>
+						<li>Conditional branches - compares 2 register values, if their relationship is not as predicted, forces a partial commitQ (after the branch instruction) flush and a new PC</li>
+						<li>Subroutine calls – writes PC+2/4 to register as output</li>
+						<li>Indirect branches (if not as predicted forces a partial commitQ flush and a new PC)</li>
+						<li>(may yet merge this into the integer ALU allowing us to resolve mutiple branches/clock)</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+
+					<h2>CSR Unit</h2>
+					<small>
+					<ul>
+						<li>Creates most system CSRs (some are in other units FP/Vect)</li>
+						<li>IRET, syscall instructions</li>
+						<li>Interrupts and traps – equivalent to a branch with system state change</li>
+						<li>load/stores that fail get converted into traps in the commitQ</li>
+						<li>Interrupts and fetch/decode traps get forced into the instruction stream, instruction fetch then stops</li>
+						<li>Always handled at last spot in commitQ – traps can flush subsequent instructions</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+
+					<h2>Performance</h2>
+					<div align="left">
+					<small>
+					<p> Still a work in progress. Observed in the current simulation:</p>
+					<ul>
+						<li>Peak 8 instructions decoded per clock</li>
+						<li>Peak 8 commited per clock</li>
+						<li>5 clock branch misprediction penalty (often less or zero depending on what’s in the pipeline - mispredictions caught deep in the pipline can be resolved at 0 cost)</li>
+					</ul>
+					<p>Theoretical:</p>
+					<ul>
+						<li>Max 88 instructions in flight (104 if you count pending stores)</li>
+						<li>(currently) 8 concurrent 512bit cache line fetches per L1 cache</li>
+					</ul>
+					</small>
+					</div>
+				</section>
+				<section>
+
+					<h2>Putting it all together</h2>
+					<img width="600" valign="top" src="assets/cpu1.svg">
+				</section>
+				<section>
+
+					<h2>Multithreading</h2>
+					<img width="600" valign="top" src="assets/cpu2.svg">
+				</section>
+				<section>
+
+					<h2>A little further ...</h2>
+					<p>This is what we have working today (without the L2)</p>
+					<img width="600" valign="top" src="assets/sys1.svg">
+				</section>
+				<section>
+
+					<h2>Die Size</h2>
+					<img width="600" valign="top" src="assets/sys3.svg">
+				</section>
+				<section>
+
+					<h2>Building Systems</h2>
+					<img width="600" valign="top" src="assets/sys2.svg">
+				</section>
+				<section>
+					<h2>Current System</h2>
+					<small>
+					<ul>
+						<li>Written in Verilog, some parts autogenerated in C</li>
+						<li>Currently being tested on an AWS FPGA instance - boots linux</li>
+						<li>Xilinx VU9P Ultrascale (which is really 3 dies) </li>
+						<li>Cut down to fit: 2 load 1 store units, 2 ALUs, 1 MULT, 1 shifter, 32 entry commitQ, 8 entry storeQ 32k I$1, 32k D$1, no L2, small BTC max 56 instructions in flight</li>
+						<li>Uses our cache coherency fabric, AWS’s DRAM controller</li>
+						<li>Runs at 25MHz (for faster synthesis/routing times)</li>
+						<li>Software support for serial and minimal hard drive, no networking yet</li>
+					<ul>
+					<img width="600" src="assets/chip.png">
+					</small>
+
+				</section>
+				<section>
+					<h2>Eventual Goal</h2>
+					<small>
+					<p align="left">Much of the design is parameterized, we can change stuff easily, here’s a back of the envelope sketch of our goal:</p>	
+					<ul>
+						<li>1-5GHz (will likely involve adding ~2 pipe stages to the above description)</li>
+						<li>2 HARTS (multithreaded)
+						<li>CommitQ 64 entries</li>
+						<li>StoreQ 32 entries</li>
+						<li>I$0 64 entries of 8 instruction bundles</li>
+						<li>I$1 64kbtytes</li>
+						<li>D$1 64kbytes</li>
+						<li>Combined L2 2-4Mb</li>
+						<li>This means ~192 max instructions in flight</li>
+						<li>3 integer ALUs</li>
+						<li>1 shifter</li>
+						<li>3 load 2 store (per clock) load store unit</li>
+						<li>1 or 2 multipliers</li>
+						<li>1 or 2 FPUs</li>
+						<li>1 vector unit</li>
+						<li>PLIC/CLIC/CLNT</li>
+						<li>Bit manipulation/crypto extensions	</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+					<h2>Meltdown/Spectre etc</h2>
+					<div align="left">
+					<small>
+					<p>We’re not perfect (yet, still a work in progress), we do do the following mitigations:</p>
+					<ul>
+						<li>Separate BTCs between M/S/U operating modes</li>
+						<li>BTC flushed on VM switch</li>
+						<li>No speculative fetches to L1/2 caches until they pass VM access</li>
+						<li>Fully associative TLB L1 with random replacement</li>
+						<li>Wide D$1/I$1 way-ness (currently 32-way – also allows for large L1 caches with parallel TLB lookup) combined with random way replacement this muddys any signal an attacker is receiving</li>
+						<li>Optional D$1 random replacement </li>
+					</ul>
+					</small>
+					</div>
+				</section>
+				<section>
+					<h2>Where are we up to?</h2>
+					<small>
+					<ul>
+						<li>Most of the design is in place</li>
+						<li>PLIC/CLIC/CLNT</li>
+						<li>uart/faux disk/timers</li>
+						<li>Coherent caching fabric</li>
+						<li>Boots Linux on AWS FPGA instance</li>
+						<li>Coded for multithreading (very not tested) and multiple CPUs, again not tested – like cache/btc/queue sizes these are simple build options</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+
+					<h2>Next steps</h2>
+					<small>
+					<p align="left">Planned work:</p>
+					<ul>
+						<li>Finish FPU – about 50% done</li>
+						<li>Work on BTC (currently deliberately broken to stress and debug pipeline commitQ shootdown)</li>
+						<li>I$0 trace cache</li>
+						<li>Expand LS unit to 3/2 from 2/1 load/store</li>
+						<li>Rewrite cache coherency fabric with L2</li>
+						<li>Spend some time on timing, we’ve purposely avoided spending too much time on low level timing – the current FPGA is big and slow, and nets that cross between dies kind of mess with any hope of representative timing – but it’s worth spending some time to hunt down particularly bad paths, we expect to repipe the final design by a couple of pipe stages to get to the Ghz range so some early warning would be useful</li>
+						<li>B – bit manipulation – coded, not tested</li>
+						<li>H - Virtualisation – about 50% done</li>
+						<li>V - Vector Unit (waiting for FP)</li>
+						<li>Debug</li>
+						<li>Crypto</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+					<h2>Research</h2>
+					<div align="left">
+					<small>
+					<p>One of the shorter term goals has been to get a system working well enough so that we can do benchmarks enabling us to optimise things like</p>
+					<ul>
+						<li>Cache sizes</li>
+						<li>BTC size and architecture</li>
+						<li>commitQ size</li>
+						<li>storeQ size</li>
+						<li>Test a multithreaded system</li>
+						<li>Look at merging branch units and ALUs (this allows us to resolve multiple branches/clock)</li>
+						<li>Investigate splitting out TLB lookup from the load/store unit into it’s own ALU – while it adds a clock it potentially allows us to do smart stuff with instruction reordering, it also may help reach Ghz speeds</li>
+					</ul>
+					<p>We’re at a point now though where the size of the AWS FPGA instances may limit what we can test at large scale</p>
+					</small>
+					</div>
+				</section>
+				<section>
+					<h2>Trace cache</h2>
+					<small>
+					<p align="left">This is probably the most interesting enhancement we can do to the current system to up the issue rate in inner loops to a fixed 8 bundles/clock no matter what size the original instruction was</p>
+					<ul>
+						<li>Virtually tagged</li>
+						<li>Contains instruction bundles recorded from the commit stage of the commitQ</li>
+						<li>This is a great place to do instruction combining (timing wise)</li>
+						<li>Bundles issue directly to the renamer saving a few clocks in the pipeline</li>
+					</ul>
+					</small>
+				</section>
+				<section>
+					<h2>Licensing</h2>
+					<p align="left">Once it’s usable by others:</p>
+					<ul>
+						<li>GPL 3</li>
+						<li>Dual licensing available – looking for partners to actually build one</li>
+					</ul>
+				</section>
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>

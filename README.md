@@ -16,6 +16,6 @@ paul@taniwha.com @moonbaseotago
 * Multi-core
 * GPL3 – dual licensing possible
 
-[Detailed architectural presentation](/talk/index.html)
+[Detailed architectural presentation](https://moonbaseotago.github.io/talk/index.html)
 
-![Moonbase Logo](/talk/assets/moonbase.png)
+![Moonbase Logo](https://moonbaseotago.github.io/talk/assets/moonbase.png)

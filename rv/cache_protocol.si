@@ -1,0 +1,67 @@
+//
+// (c) Paul Campbell 2019 paul@taniwha.com
+//  All Rights Reserved
+//
+
+// cache states
+	parameter C_M = 3'b100;
+	parameter C_O = 3'b011;
+	parameter C_E = 3'b010;
+	parameter C_S = 3'b001;
+	parameter C_I = 3'b000;
+	
+
+// cache protocol
+
+// read interface snoop
+
+	parameter	RSNOOP_UNCACHED				= 3'b000;		// uncached access (not to main memory)
+	parameter	RSNOOP_READ_LINE			= 3'b001;		// read an entire line, snoop if required, don't mark shared
+															//		TLBs, DMA
+	parameter	RSNOOP_READ_LINE_SHARED		= 3'b010;		// read an entire line for reading, snoop if required, mark shared
+															//		code fetch, read data
+	parameter	RSNOOP_READ_LINE_EXCLUSIVE	= 3'b011;		// read an entire line for reading, snoop if required, invalidate in other caches
+															//		write partial line
+	parameter	RSNOOP_READ_LINE_INV_SHARED	= 3'b100;		// read an entire line for reading, always snoop if required, invalidate in other caches, don't read main mamoey
+	parameter   RSNOOP_READ_CANCEL			= 3'b101;		// cancel an existing read
+															//		write partial line
+// read interface snoop response
+	parameter	RSNOOP_RESP_DATA_INCLUDED	= 0;			// data is included with this response
+	parameter	RSNOOP_RESP_EXCLUSIVE		= 1;			// cache has the only copy (can be exclusive)
+	parameter	RSNOOP_RESP_DATA_DIRTY		= 2;			// data is dirty, needs to be written back it's now your hot potato
+
+// write interface snoop
+
+	parameter	WSNOOP_UNCACHED				= 2'b00;		// uncached access (not to main memory)
+	parameter	WSNOOP_WRITE_LINE			= 2'b01;		// write entire line, snooped for invalidate
+															//		DMA
+	parameter	WSNOOP_WRITE_LINE_OWNED		= 2'b10;		// write entire line - we own it no need to invalidate
+															//		cache line eviction  
+	parameter	WSNOOP_WRITE_LINE_OWNED_L2	= 2'b11;		// write entire line - we own it no need to invalidate
+															//		cache line eviction (L2 hint) 
+		
+//	snoop interface
+
+	parameter	SNOOP_READ_UNSHARED			= 2'b00;		// read line don't mark shared
+	parameter	SNOOP_READ_SHARED			= 2'b01;		// read line mark shared
+	parameter	SNOOP_READ_EXCLUSIVE		= 2'b10;		// read line mark invalid
+	parameter	SNOOP_READ_INVALID			= 2'b11;		// read line mark invalid
+
+// snoop response
+
+	parameter	SNOOP_RESP_DATA_INCLUDED	= 0;			// data included in response
+	parameter	SNOOP_RESP_DATA_EXCLUSIVE	= 1;			// this is the only copy in a cache
+	parameter	SNOOP_RESP_DATA_DIRTY		= 2;			// data is dirty, requestor must 
+
+/* For Emacs:
+ * Local Variables:
+ * mode:c
+ * indent-tabs-mode:t
+ * tab-width:4
+ * c-basic-offset:4
+ * End:
+ * For VIM:
+ * vim:set softtabstop=4 shiftwidth=4 tabstop=4:
+ */
+
+

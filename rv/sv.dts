@@ -1,0 +1,112 @@
+/dts-v1/;
+
+/{
+  #address-cells = <1>;
+  #size-cells = <1>;
+  model = "MoonBase VROOM!";
+
+  cpus {
+     #address-cells = <2>;
+     #size-cells = <1>;
+
+
+     cpu@0 {
+           device_type = "cpu";
+	   reg = <0 0 0>;
+           status = "okay";
+           compatible = "riscv";
+           riscv,isa = "rv64imac";
+           mmu-type = "riscv,sv39";
+
+	   i-cache-block-size = <64>;
+           i-cache-sets = <32>;
+           i-cache-size = <32768>;
+           i-tlb-sets = <32>;
+           i-tlb-size = <32>;
+
+	   d-cache-block-size = <64>;
+           d-cache-sets = <32>;
+           d-cache-size = <32768>;
+           d-tlb-sets = <32>;
+           d-tlb-size = <32>;
+
+           clock-frequency = <100000000>;
+           cpu0_int0: interrupt-controller {
+                #interrupt-cells = <0x00000001>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+           };
+     };
+  };
+
+  SDRAM: memory@0 {
+	device_type = "memory";
+	reg = < 0x0  0x00000000 0x20000000 >;
+  };
+
+  io {
+  	#address-cells = <2>;
+  	#size-cells = <1>;
+        compatible = "simple-bus";
+        ranges;
+
+  	clint@f2000000 {
+      		compatible = "riscv,clint0";
+      		interrupts-extended = <&cpu0_int0 3 &cpu0_int0 7 >;
+      		reg = <0xffffffff 0xff000000 0x100000>;
+    	};
+
+	plic: interrupt-controller@f4000000 {
+      		#interrupt-cells = <1>;
+      		interrupt-controller;
+      		compatible = "riscv,plic0";
+      		riscv,ndev = <16>;
+      		interrupts-extended = <&cpu0_int0 9 &cpu0_int0 11>;
+      		reg = <0xffffffff 0xf4000000  0x4000000>;
+      		interrupt-parent = <&cpu0_int0>;
+    	};
+
+  	serial0: serial@0{
+      		compatible = "ns16550a";
+      		reg = <0xffffffff 0xffffc000 0x40>;
+		reg-shift = <3>;
+		interrupt-parent = <&plic>;
+		interrupts = <2>;
+		clock-frequency = <6000000>;
+  	};
+	mb: mb@ffffe000{
+               compatible = "mb";
+               reg = <0xffffffff 0xffffe000 0x40>;
+               interrupt-parent = <&plic>;
+               interrupts = <3>;
+               clock-frequency = <6000000>;
+               status = "enabled";
+       };
+
+  };
+
+};
+
+/ {
+  	#address-cells = <2>;
+  	#size-cells = <1>;
+
+	aliases {
+                uart0 = &serial0;
+ 	};
+
+        chosen {
+                stdout-path = "uart0:115200n8";
+		bootargs = "console=ttyS0,115200  debug loglevel=7";
+        };
+
+        config {
+                u-boot,spl-payload-offset = <0x105000>;
+        };
+
+        memory@0{
+                u-boot,dm-spl;
+        };
+};
+
+

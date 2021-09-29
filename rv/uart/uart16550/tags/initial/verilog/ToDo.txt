@@ -1,0 +1,8 @@
+TODO:
+(+ done, ! working)
+
+! * Interrupts
+! * Status registers
++ * Break detection
++ * RX fifo overrun detection
+  * Timeout detection

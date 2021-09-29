@@ -1,11 +1,13 @@
 # VRoom! RISC-V CPU
 
-A new high-end RISC-V implementation
+## A new high-end RISC-V implementation
 Paul Campbell - October 2021
+
 paul@taniwha.com @moonbaseotago
+
 (C) Copyright Moonbase Otago 2021
 
-##Executive summary
+## Executive summary
 * Very high end RISC-V implementation – cloud server class
 * Out of order, super scalar, speculative
 * RV64-IMAFDCHB
@@ -16,4 +18,4 @@ paul@taniwha.com @moonbaseotago
 
 [Detailed architectural presentation](/talk/index.html)
 
-[Moonbase Logo](/talk/assets/moonbase.png)
+![Moonbase Logo](/talk/assets/moonbase.png)

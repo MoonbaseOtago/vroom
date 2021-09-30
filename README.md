@@ -10,12 +10,13 @@ paul@taniwha.com @moonbaseotago
 (C) Copyright Moonbase Otago 2021
 
 ## Executive summary
-* Very high end RISC-V implementation – cloud server class
+* Very high end RISC-V implementation – goal cloud server class
 * Out of order, super scalar, speculative
-* RV64-IMAFDCHB
+* RV64-IMAFDCHB(V)
 * Up to 8 IPC (instructions per clock) peak  
 * 2-way simultaneous multithreading capable
 * Multi-core
+* Currently boots Linux on an AWS-FPGA instance
 * GPL3 – dual licensing possible
 
 [Detailed architectural presentation](https://moonbaseotago.github.io/talk/index.html)

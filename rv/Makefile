@@ -52,13 +52,6 @@ UART = rvuart.sv uart/raminfr.v uart/uart_receiver.v uart/uart_regs.v uart/uart_
 UART_DEF1 = +incdir+uart 
 UART_DEF2 = -Iuart 
 
-SPID=spi/spimaster/trunk/RTL
-SPI=spi.sv $(SPID)/ctrlStsRegBI.v $(SPID)/initSD.v $(SPID)/spiMaster.v $(SPID)/sm_dpMem_dc.v $(SPID)/sm_fifoRTL.v $(SPID)/sm_RxFifoBI.v $(SPID)/sm_TxFifoBI.v $(SPID)/sm_RxFifo.v $(SPID)/sm_TxFifo.v $(SPID)/readWriteSPIWireData.v $(SPID)/readWriteSDBlock.v $(SPID)/sendCmd.v $(SPID)/spiCtrl.v $(SPID)/spiTxRxData.v $(SPID)/spiMasterWishBoneBI.v
-SPI_DEF1 = +incdir+spi/spimaster/trunk/RTL
-SPI_DEF2 = -Ispi/spimaster/trunk/RTL
-
-
-
 VERILATOR= /opt/verilator-4.026/bin/verilator
 
 MX = mkinc4.inc mkinc8.inc mkinc16.inc

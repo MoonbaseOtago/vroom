@@ -104,4 +104,8 @@ fvv
 fpt
 bextdep.v
 bextdep_pps.v
-
+rfile_*.sv
+boot0.sv
+boot1.sv
+dtbrom.sv
+test

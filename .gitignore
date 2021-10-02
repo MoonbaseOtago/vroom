@@ -109,3 +109,4 @@ boot0.sv
 boot1.sv
 dtbrom.sv
 test
+*.bak

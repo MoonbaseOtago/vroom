@@ -132,13 +132,13 @@ module tcache_l2(	// TLB cache second level (looks like an icache level 1
 	genvar S, E;
 	generate 
 
-		reg [NPHYS-1:12]s_paddr[0:NSETS-1];
-		reg [ 6: 0]s_gaduwrx[0:NSETS-1];
+		wire [NPHYS-1:12]s_paddr[0:NSETS-1];
+		wire [ 6: 0]s_gaduwrx[0:NSETS-1];
 		reg [NSETS-1:0]match;
 
 		reg   [NENTRIES-1:0]r_valid[0:NSETS-1];
 		for (S=0; S < NSETS; S=S+1) begin: s
-			reg [VA_SZ-1:12+$clog2(NENTRIES)]inv_addr;
+			wire [VA_SZ-1:12+$clog2(NENTRIES)]inv_addr;
 			reg   [15:0]r_asid[0:NENTRIES-1];
 			wire   [15:0]s_asid = r_asid[index];
 

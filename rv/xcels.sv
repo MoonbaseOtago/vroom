@@ -69,7 +69,7 @@ module tc2_xdata(
 	assign pout_0 = pout[raddr_0[$clog2(NENTRIES)-1:6]];
 	assign vout_0 = vout0[raddr_0[$clog2(NENTRIES)-1:6]];
 	assign gout_0 = gout[raddr_0[$clog2(NENTRIES)-1:6]];
-	assign vout_1 = vout1[raddr_0[$clog2(NENTRIES)-1:6]];
+	assign vout_1 = vout1[raddr_1[$clog2(NENTRIES)-1:6]];
 	generate
 		for (J = 0; J < (NENTRIES/64); J = J + 1) begin
 			wire wenx = wen && waddr[$clog2(NENTRIES)-1:6] == J;

@@ -39,6 +39,7 @@ This directory is set up for simulation testing, the bulk of the code is in .sv
 	tc2.sv		- L2 TLB cache
 	test.sv     	- embedded test fixture
 	tlbf.sv		- TLB table walker
+	xcels.sv	- AWS RAM cells
 
 Module hierarchy
 ----------------
@@ -151,3 +152,6 @@ will build a verilator simulation that will load from x.bin (or any named file),
 	-s N      - start making .vcd files at clock N
 	-l N	  - simulate for N clocks
 	
+Verilog defines: PSYNTH is for building for the AWS fpga instances, in particular making RAMs for caches/etc. AWS_DEBUG
+is for including Xilinx debug stuff - the ila_* and vio_* instances are debug instances, xxtrig 
+is a signal passed around for triggering signal capture - these are not part of the CPU.

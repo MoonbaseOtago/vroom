@@ -1,0 +1,219 @@
+state: loaded
+Vendor ID: 0x110b
+Device ID: 0xf00f
+
+U-Boot SPL 2020.10-rc2-00006-gb298720900-dirty (May 19 2021 - 09:46:36 +1200)
+Trying to boot from RAM
+
+OpenSBI v0.8-64-g2677324
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name             : MoonBase VROOM!
+Platform Features         : timer,mfdeleg
+Platform HART Count       : 1
+Firmware Base             : 0x0
+Firmware Size             : 68 KB
+Runtime SBI Version       : 0.2
+
+Domain0 Name              : root
+Domain0 Boot HART         : 0
+Domain0 HARTs             : 0*
+Domain0 Region00          : 0x0000000000000000-0x000000000001ffff ()
+Domain0 Region01          : 0x0000000000000000-0xffffffffffffffff (R,W,X)
+Domain0 Next Address      : 0x0000000000400000
+Domain0 Next Arg1         : 0x0000000000486428
+Domain0 Next Mode         : S-mode
+Domain0 SysReset          : yes
+
+Boot HART ID              : 0
+Boot HART Domain          : root
+Boot HART ISA             : rv64imacnsu
+Boot HART Features        : scounteren,mcounteren,time
+Boot HART PMP Count       : 16
+Boot HART PMP Granularity : 4
+Boot HART PMP Address Bits: 54
+Boot HART MHPM Count      : 0
+Boot HART MHPM Count      : 0
+Boot HART MIDELEG         : 0x0000000000000222
+Boot HART MEDELEG         : 0x000000000000b109
+
+
+U-Boot 2020.10-rc2-00006-gb298720900-dirty (May 19 2021 - 09:46:36 +1200)
+
+CPU:   rv64imac
+Model: moonbase,a0
+DRAM:  512 MiB
+In:    serial@0
+Out:   serial@0
+Err:   serial@0
+Net:   No ethernet found.
+RISC-V # boot
+
+Reset MB: 
+17241876 bytes read in 3487 ms (4.7 MiB/s)
+Moving Image from 0x20000 to 0x200000, end=12c1a20
+## Flattened Device Tree blob at 1feca230
+   Booting using the fdt blob at 0x1feca230
+   Loading Device Tree to 000000001fffa000, end 000000001ffffbd7 ... OK
+## Transferring control to kernel (at address 00200000) ...
+
+Starting kernel ...
+
+[    0.000000] OF: fdt: Ignoring memory range 0x0 - 0x200000
+[    0.000000] Linux version 5.9.8 (paul@rata) (riscv64-unknown-linux-gnu-gcc (GCC) 10.2.0, GNU ld (GNU Binutils) 2.35) #322 SMP Mon Oct 4 22:17:23 NZDT 2021
+[    0.000000] earlycon: ns16550a0 at MMIO 0xffffffffffffc000 (options '115200')
+[    0.000000] printk: bootconsole [ns16550a0] enabled
+[    0.000000] Zone ranges:
+[    0.000000]   DMA32    [mem 0x0000000000200000-0x000000001fffffff]
+[    0.000000]   Normal   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000200000-0x000000001fffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000200000-0x000000001fffffff]
+[    0.000000] software IO TLB: mapped [mem 0x1b8fa000-0x1f8fa000] (64MB)
+[    0.000000] SBI specification v0.2 detected
+[    0.000000] SBI implementation ID=0x1 Version=0x8
+[    0.000000] SBI v0.2 TIME extension detected
+[    0.000000] SBI v0.2 IPI extension detected
+[    0.000000] SBI v0.2 RFENCE extension detected
+[    0.000000] SBI v0.2 HSM extension detected
+[    0.000000] riscv: ISA extensions acim
+[    0.000000] riscv: ELF capabilities acim
+[    0.000000] percpu: Embedded 17 pages/cpu s32040 r8192 d29400 u69632
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 128775
+[    0.000000] Kernel command line: console=ttyS0,115200 earlycon debug loglevel=7 root=/dev/mb1
+[    0.000000] Dentry cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    0.000000] Sorting __ex_table...
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] Memory: 431132K/522240K available (6942K kernel code, 3693K rwdata, 4096K rodata, 187K init, 318K bss, 91108K reserved, 0K cma-reserved)
+[    0.000000] Virtual kernel memory layout:
+[    0.000000]       fixmap : 0xffffffcefee00000 - 0xffffffceff000000   (2048 kB)
+[    0.000000]       pci io : 0xffffffceff000000 - 0xffffffcf00000000   (  16 MB)
+[    0.000000]      vmemmap : 0xffffffcf00000000 - 0xffffffcfffffffff   (4095 MB)
+[    0.000000]      vmalloc : 0xffffffd000000000 - 0xffffffdfffffffff   (65535 MB)
+[    0.000000]       lowmem : 0xffffffe000000000 - 0xffffffe01fe00000   ( 510 MB)
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] rcu: Hierarchical RCU implementation.
+[    0.000000] rcu:     RCU restricting CPUs from NR_CPUS=8 to nr_cpu_ids=1.
+[    0.000000] rcu:     RCU debug extended QS entry/exit.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=1
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] of_irq_init: init ffffffe01fdfd760OF (ffffffe01fdfd760), parent 0
+[    0.000000] riscv-intc: 64 local interrupts mapped
+[    0.000000] of_irq_init: init ffffffe01fdfe0a0OF (ffffffe01fdfe0a0), parent ffffffe01fdfd760
+[    0.000000] interrupt-controller@f4000000: mapped 16 interrupts with 1 handlers for 2 contexts.
+[    0.000000] plic: interrupt-controller@f4000000: mapped 16 interrupts with 1 handlers for 2 contexts.
+[    0.000000] random: get_random_bytes called from start_kernel+0x4c0/0x77c with crng_init=0
+[    0.000000] riscv_timer_init_dt: Registering clocksource cpuid [0] hartid [0]
+[    0.000000] clocksource: riscv_clocksource: mask: 0xffffffffffffffff max_cycles: 0x171024e6b, max_idle_ns: 3526361618415 ns
+[    0.000138] sched_clock: 64 bits at 781kHz, resolution 1280ns, wraps every 4398046510720ns
+[    0.004715] Console: colour dummy device 80x25
+[    0.006501] Calibrating delay loop (skipped), value calculated using timer frequency.. 1.56 BogoMIPS (lpj=3125)
+[    0.009726] pid_max: default: 32768 minimum: 301
+[    0.015130] Mount-cache hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.017483] Mountpoint-cache hash table entries: 1024 (order: 1, 8192 bytes, linear)
+[    0.051358] rcu: Hierarchical SRCU implementation.
+[    0.060623] smp: Bringing up secondary CPUs ...
+[    0.062272] smp: Brought up 1 node, 1 CPU
+[    0.070318] devtmpfs: initialized
+[    0.098401] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.101475] futex hash table entries: 256 (order: 2, 16384 bytes, linear)
+[    0.112366] NET: Registered protocol family 16
+[    0.515377] vgaarb: loaded
+[    0.524426] SCSI subsystem initialized
+[    0.534987] usbcore: registered new interface driver usbfs
+[    0.537847] usbcore: registered new interface driver hub
+[    0.540532] usbcore: registered new device driver usb
+[    0.563484] clocksource: Switched to clocksource riscv_clocksource
+[    0.731123] NET: Registered protocol family 2
+[    0.745704] tcp_listen_portaddr_hash hash table entries: 256 (order: 1, 10240 bytes, linear)
+[    0.748776] TCP established hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.753991] TCP bind hash table entries: 4096 (order: 5, 131072 bytes, linear)
+[    0.759820] TCP: Hash tables configured (established 4096 bind 4096)
+[    0.763873] UDP hash table entries: 256 (order: 2, 24576 bytes, linear)
+[    0.766453] UDP-Lite hash table entries: 256 (order: 2, 24576 bytes, linear)
+[    0.772291] NET: Registered protocol family 1
+[    0.783746] RPC: Registered named UNIX socket transport module.
+[    0.785497] RPC: Registered udp transport module.
+[    0.787183] RPC: Registered tcp transport module.
+[    0.788593] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.790494] PCI: CLS 0 bytes, default 64
+[    0.809154] workingset: timestamp_bits=62 max_order=17 bucket_order=0
+[    1.137162] NFS: Registering the id_resolver key type
+[    1.139315] Key type id_resolver registered
+[    1.140592] Key type id_legacy registered
+[    1.145583] nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[    1.151110] 9p: Installing v9fs 9p2000 file system support
+[    1.162524] NET: Registered protocol family 38
+[    1.164803] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 252)
+[    1.167176] io scheduler mq-deadline registered
+[    1.168551] io scheduler kyber registered
+[    3.273733] Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
+[    3.313369] printk: console [ttyS0] disabled
+[    3.315653] ffffffffffffc000.serial: ttyS0 at MMIO 0xffffffffffffc000 (irq = 1, base_baud = 375000) is a 16550A
+[    3.319077] printk: console [ttyS0] enabled
+[    3.319077] printk: console [ttyS0] enabled
+[    3.321423] printk: bootconsole [ns16550a0] disabled
+[    3.321423] printk: bootconsole [ns16550a0] disabled
+[    3.341038] [drm] radeon kernel modesetting enabled.
+[    3.553024] loop: module loaded
+[    3.555287] Moonbase A0 disk Version 0.1 (2020-11-16)
+[    3.572102]  mb: mb1
+[    3.591456] Error: Driver 'mb' is already registered, aborting...
+[    3.624578] libphy: Fixed MDIO Bus: probed
+[    3.645383] e1000e: Intel(R) PRO/1000 Network Driver
+[    3.647015] e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
+[    3.651293] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+[    3.653121] ehci-pci: EHCI PCI platform driver
+[    3.655464] ehci-platform: EHCI generic platform driver
+[    3.657864] ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+[    3.660229] ohci-pci: OHCI PCI platform driver
+[    3.662384] ohci-platform: OHCI generic platform driver
+[    3.670608] usbcore: registered new interface driver uas
+[    3.673757] usbcore: registered new interface driver usb-storage
+[    3.680326] mousedev: PS/2 mouse device common for all mice
+[    3.695142] usbcore: registered new interface driver usbhid
+[    3.696723] usbhid: USB HID core driver
+[    3.722403] NET: Registered protocol family 10
+[    3.745337] Segment Routing with IPv6
+[    3.748463] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+[    3.766248] NET: Registered protocol family 17
+[    3.773551] 9pnet: Installing 9P2000 support
+[    3.776014] Key type dns_resolver registered
+[    3.780156] debug_vm_pgtable: [debug_vm_pgtable         ]: Validating architecture page table helpers
+[    3.887284] EXT4-fs (mb1): mounted filesystem with ordered data mode. Opts: (null)
+[    3.890058] VFS: Mounted root (ext4 filesystem) readonly on device 253:1.
+[    3.897653] devtmpfs: mounted
+[    3.902672] Freeing unused kernel memory: 184K
+[    3.905493] Run /sbin/init as init process
+[    4.776622] EXT4-fs (mb1): re-mounted. Opts: (null)
+Starting syslogd: OK
+Starting klogd: OK
+Running sysctl: OK
+Saving random seed: [    7.281203] random: dd: uninitialized urandom read (512 bytes read)
+OK
+Starting network: OK
+
+Welcome to Buildroot
+buildroot login: root
+# cat /proc/cpuinfo
+processor       : 0
+hart            : 0
+isa             : rv64imac
+mmu             : sv39
+
+# ls /
+Image       lib         media       root        tmp
+bin         lib64       mnt         run         usr
+dev         linuxrc     opt         sbin        var
+etc         lost+found  proc        sys         vmlinux
+# 

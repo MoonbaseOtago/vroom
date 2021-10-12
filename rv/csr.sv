@@ -2300,24 +2300,57 @@ module csr(input clk, input reset,
 	if (r_control[1]) r_sprv <= r_sprv|in[0]; else
 	if (r_control[2]) r_sprv <= r_sprv&~in[0]; else r_sprv <= in[0];
 
+	reg	r_inh_branches_predicted, r_inh_branches_retired, r_inh_retired, r_inh_cycle;
+
+	always @(posedge clk)
+	if (reset) r_inh_cycle <= 0; else
+	if (csr_write && (r_immed[11:0] == 12'h320))
+	if (r_control[1]) r_inh_cycle <= r_inh_cycle|in[0]; else
+	if (r_control[2]) r_inh_cycle <= r_inh_cycle&~in[0]; else r_inh_cycle <= in[0];
+
+	always @(posedge clk)
+	if (reset) r_inh_retired <= 0; else
+	if (csr_write && (r_immed[11:0] == 12'h320))
+	if (r_control[1]) r_inh_retired <= r_inh_retired|in[2]; else
+	if (r_control[2]) r_inh_retired <= r_inh_retired&~in[2]; else r_inh_retired <= in[2];
+
+	always @(posedge clk)
+	if (reset) r_inh_branches_retired <= 0; else
+	if (csr_write && (r_immed[11:0] == 12'h320))
+	if (r_control[1]) r_inh_branches_retired <= r_inh_branches_retired|in[3]; else
+	if (r_control[2]) r_inh_branches_retired <= r_inh_branches_retired&~in[3]; else r_inh_branches_retired <= in[3];
+
+	always @(posedge clk)
+	if (reset) r_inh_branches_predicted  <= 0; else
+	if (csr_write && (r_immed[11:0] == 12'h320))
+	if (r_control[1]) r_inh_branches_predicted <= r_inh_branches_predicted|in[4]; else
+	if (r_control[2]) r_inh_branches_predicted <= r_inh_branches_predicted&~in[4]; else r_inh_branches_predicted <= in[4];
 
 	reg	[63:0]r_cycle, r_retired, r_htimedelta;	
 	always @(posedge clk) 
 	if (reset) r_cycle <= 0; else
-	if (csr_write && (r_immed[11:0] == 12'hb00)) r_cycle <= in; else r_cycle <= r_cycle+1;
+	if (csr_write && (r_immed[11:0] == 12'hb00)) r_cycle <= in; else
+	if (!r_inh_cycle)
+		r_cycle <= r_cycle+1;
 		
 	always @(posedge clk) 
 	if (reset) r_retired <= 0; else 
-	if (csr_write && (r_immed[11:0] == 12'hb02)) r_retired <= in; else r_retired <= r_retired+num_retired;
+	if (csr_write && (r_immed[11:0] == 12'hb02)) r_retired <= in; else
+	if (!r_inh_retired)
+		r_retired <= r_retired+num_retired;
 
 	reg [31:0]r_branches_retired, r_branches_predicted;
 	always @(posedge clk) 
 	if (reset) r_branches_retired <= 0; else 
-	if (csr_write && (r_immed[11:0] == 12'hb04)) r_branches_retired <= in; else r_branches_retired <= r_branches_retired+num_branches_retired;
+	if (csr_write && (r_immed[11:0] == 12'hb04)) r_branches_retired <= in; else
+	if (!r_inh_branches_retired)
+		r_branches_retired <= r_branches_retired+num_branches_retired;
 
 	always @(posedge clk) 
 	if (reset) r_branches_predicted <= 0; else 
-	if (csr_write && (r_immed[11:0] == 12'hb05)) r_branches_predicted <= in; else r_branches_predicted <= r_branches_predicted+num_branches_predicted;
+	if (csr_write && (r_immed[11:0] == 12'hb05)) r_branches_predicted <= in; else
+	if (!r_inh_branches_predicted)
+		r_branches_predicted <= r_branches_predicted+num_branches_predicted;
 
 	always @(posedge clk) 
 	if (reset) r_htimedelta <= 0; else
@@ -3239,6 +3272,9 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		13'b?_11_00_1001_????,		//  performance monitoring counter
 		13'b?_10_11_1001_????:		//  performance monitoring counter
 					c_res = 0;
+
+		13'b?_00_11_0010_0000:		//  performance counter inhibit
+					c_res = {32'b0, 27'b0, r_inh_branches_predicted, r_inh_branches_retired, r_inh_retired, 1'b0, r_inh_cycle};
 			
 		// sup mode
 		13'b0_00_01_0000_0000:		//	sup status register
@@ -3786,6 +3822,12 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
              .xxtrig_sel(xxtrig_sel),
              .xxtrig_cmp(xxtrig_cmp)
             );
+
+	vio_perf vio_perf(.clk(clk),
+		.r_cycle(r_cycle[31:0]),
+		.r_retired(r_retired[31:0]),
+		.r_branches_retired(r_branches_retired[31:0]),
+		.r_branches_predicted(r_branches_predicted[31:0]));
 
 `endif
 endmodule

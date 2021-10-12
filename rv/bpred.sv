@@ -66,6 +66,11 @@ module bpred(input clk,  input reset,
 	parameter NDEC=4;
 	parameter BDEC=4;
 	parameter CALL_STACK_SIZE=32;
+`ifdef PSYNTH
+	parameter MCALL_STACK_SIZE = CALL_STACK_SIZE / 2;	// might do this for real chips
+`else
+	parameter MCALL_STACK_SIZE = CALL_STACK_SIZE; 
+`endif
 
 `ifdef PSYNTH
 	parameter	NUM_GLOBAL = 9;			// size of the global history tables (log entries)
@@ -133,18 +138,18 @@ module bpred(input clk,  input reset,
 
 	generate
 		for (M = 0; M < 3; M=M+1) begin: callstack
-			reg [RV-1:1]r_call_stack[0:(M==2?CALL_STACK_SIZE/2:CALL_STACK_SIZE)-1];
-			reg [$clog2((M==2?CALL_STACK_SIZE/2:CALL_STACK_SIZE))-1:0]r_cs_top, r_cs_bottom;
+			reg [RV-1:1]r_call_stack[0:(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1];
+			reg [$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1:0]r_cs_top, r_cs_bottom;
 			assign cs_top_x[M] = r_cs_top;
-			wire [$clog2((M==2?CALL_STACK_SIZE/2:CALL_STACK_SIZE))-1:0]cs_top_inc=r_cs_top+1;
-			wire [$clog2(M==2?CALL_STACK_SIZE/2:CALL_STACK_SIZE)-1:0]cs_top_dec=r_cs_top-1;
+			wire [$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1:0]cs_top_inc=r_cs_top+1;
+			wire [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]cs_top_dec=r_cs_top-1;
 			reg			r_empty;
 			assign pop_available_x[M] = !r_empty;
 			assign return_branch_valid_x[M] = pop_cs_stack&&!r_empty;
 			assign return_branch_pc_x[M] = r_call_stack[r_cs_top];
 		
-			wire		[$clog2((M==2?CALL_STACK_SIZE/2:CALL_STACK_SIZE))-1:0]sc_diff = r_cs_top-r_cs_bottom;
-			wire		fullish = sc_diff[$clog2((M==2?CALL_STACK_SIZE/2:CALL_STACK_SIZE))-1];
+			wire		[$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1:0]sc_diff = r_cs_top-r_cs_bottom;
+			wire		fullish = sc_diff[$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1];
 		
 		
 			always @(posedge clk) begin

@@ -163,6 +163,7 @@ module dcache_l1(
 	reg [NSETS-1:0]wl;
 	reg [NSETS-1:0]wm;
 	wire [NSETS-1:0]match_ok_write[0:WRITEPORTS-1];		// we can write to this in this clock
+	wire [NSETS-1:0]writing_set[0:WRITEPORTS-1];		// we WILL write to this set in this clock
 
 	genvar S, R, W, B, M;
 	generate
@@ -275,11 +276,11 @@ module dcache_l1(
 		if (reset) begin
 			r_rand <= 1;	
 		end else begin
-			r_rand <= {irand^r_rand[18]^r_rand[11]^r_rand[0], r_rand[18:1]};
+			r_rand <= {r_rand[17:0], irand^r_rand[18]^r_rand[11]^r_rand[0]};
 		end
 		//wire [$clog2(NSETS)-1:0]next_evict = r_next_evict^r_rand;
 		wire [$clog2(NSETS)-1:0]next_evict = (wenable0 && match_ok_write[0][r_next_evict] ? r_next_evict^1:r_next_evict); // avoid replacing entries that are being written - FIXME - handle multiple write ports
-		wire [$clog2(NSETS)-1:0]update_evict = ((r_next_evict^r_rand[$clog2(NSETS)-1:0]) == r_last_evict ? r_next_evict+1: r_next_evict^r_rand[$clog2(NSETS)-1:0]);
+		wire [$clog2(NSETS)-1:0]update_evict = ((r_next_evict^r_rand[$clog2(NSETS)-1:0]) == r_last_evict ? r_next_evict^5'h9: r_next_evict^r_rand[$clog2(NSETS)-1:0]);
 
 		reg [2:0]incoming_moesi;
 
@@ -292,7 +293,7 @@ module dcache_l1(
 				wl = 0;
 				wm = 0;
 				c_next_evict = (r_dc_waddr_req&dc_waddr_ack?update_evict:r_next_evict);
-				c_last_evict = (r_dc_waddr_req&dc_waddr_ack?r_next_evict:r_last_evict);
+				c_last_evict = (r_dc_waddr_req&dc_waddr_ack?next_evict:r_last_evict);
 				c_dc_waddr_req = (reset?0:r_dc_waddr_req&!dc_waddr_ack);
 				incoming_moesi = 3'bx;
 				casez(dc_rdata_resp) // synthesis full_case parallel_case
@@ -321,7 +322,7 @@ module dcache_l1(
 					16'b????_????_????_???1:	wm[0] = 1;
 					16'b0000_0000_0000_0000: 
 						if (dc_rdata_resp[0]) begin
-							casez (match_vacant) // synthesis full_case parallel_case
+							casez (match_vacant&~writing_set[0]) // synthesis full_case parallel_case		// FIXME for more write ports
 							16'b1000_0000_0000_0000:	wl[15] = 1;
 							16'b?100_0000_0000_0000:	wl[14] = 1;
 							16'b??10_0000_0000_0000:	wl[13] = 1;
@@ -368,7 +369,7 @@ module dcache_l1(
 				wl = 0;
 				wm = 0;
 				c_next_evict = (r_dc_waddr_req&dc_waddr_ack?update_evict:r_next_evict);
-				c_last_evict = (r_dc_waddr_req&dc_waddr_ack?r_next_evict:r_last_evict);
+				c_last_evict = (r_dc_waddr_req&dc_waddr_ack?next_evict:r_last_evict);
 				c_dc_waddr_req = (reset?0:r_dc_waddr_req&!dc_waddr_ack);
 				incoming_moesi = 3'bx;
 				casez(dc_rdata_resp) // synthesis full_case parallel_case
@@ -413,7 +414,7 @@ module dcache_l1(
 					32'b????_????_????_????_????_????_????_???1:	wm[0] = 1;
 					32'b0000_0000_0000_0000_0000_0000_0000_0000: 
 						if (dc_rdata_resp[0]) begin
-							casez (match_vacant) // synthesis full_case parallel_case
+							casez (match_vacant&~writing_set[0]) // synthesis full_case parallel_case		// FIXME for more write ports
 							32'b1000_0000_0000_0000_0000_0000_0000_0000:	wl[31] = 1;
 							32'b?100_0000_0000_0000_0000_0000_0000_0000:	wl[30] = 1;
 							32'b??10_0000_0000_0000_0000_0000_0000_0000:	wl[29] = 1;
@@ -545,6 +546,7 @@ wire [31:0]match_1=match[1];
 				endcase
 			end
 			assign whit_ok_write[W] = |match_ok_write[W];
+			assign writing_set[W] = wenable[W]?match_ok_write[W]:0;
 			assign whit_must_invalidate[W] = |match_must_invalidate[W];
 			//assign wwait[W] = |(wl&match_ok_write[W]);
 			assign wwait[W] = |(wl&match_ok_write[W]);// || (dc_snoop_addr_req&&dc_snoop_addr_ack&&|match_ok_write[W]&&dc_snoop_addr[NPHYS-1:ACACHE_LINE_SIZE]==waddr[W][NPHYS-1:ACACHE_LINE_SIZE]);
@@ -866,3 +868,13 @@ ila_dc ila_dc(.clk(clk),
 
 endmodule
 
+/* For Emacs:
+ * Local Variables:
+ * mode:c
+ * indent-tabs-mode:t
+ * tab-width:4
+ * c-basic-offset:4
+ * End:
+ * For VIM:
+ * vim:set softtabstop=4 shiftwidth=4 tabstop=4:
+ */

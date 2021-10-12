@@ -104,11 +104,8 @@ module pc(input clk,  input reset,
 	reg	[RV-1:1]r_pc_fetch, c_pc_fetch;
 	assign pc_fetch = r_pc_fetch;
 
-	reg c_pop_available;
-	assign pop_available = c_pop_available;
 	reg [RV-1:1]ret_addr;
 	reg	 [BDEC:1]in_v;
-	wire mach_pop_available, super_pop_available, user_pop_available;
 	reg  push_cs_stack, pop_cs_stack;
 	
 
@@ -325,16 +322,7 @@ module pc(input clk,  input reset,
 	always @(*) begin
 		in_v = dec_br_offset+(subr_inc2?1:2);
 		ret_addr = {in_v[BDEC]?fetch_inc:r_pc_fetch[RV-1:BDEC], in_v[BDEC-1:1]};
-		casez (cpu_mode) // synthesis full_case parallel_case
-		4'b1???: c_pop_available = mach_pop_available;
-		4'b??1?: c_pop_available = super_pop_available;
-		4'b???1: c_pop_available = user_pop_available;
-		default: c_pop_available = 'bx;
-		endcase
 	end
-
-
-
 
 	always @(posedge clk) begin
 		r_fetch_state <= c_fetch_state;

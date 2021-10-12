@@ -749,6 +749,8 @@ module decode(input clk,
 			12'b00_11_0000_0110,		//  mach counter enable
 			12'b00_11_0000_0111,		//  mach tvt 
 
+			12'b00_11_0010_0000,		//  mach counter inhibit 
+
 			12'b00_11_0100_0000,		//  scratch reg for mach trap handlers
 			12'b00_11_0100_0001,		//  mach MEPC
 			12'b00_11_0100_0010,		//  mach trap cause
@@ -786,8 +788,8 @@ module decode(input clk,
 			12'b11_00_1000_0011,		//  performance monitoring counter
 			12'b11_00_1000_01??,		//  performance monitoring counter
 			12'b11_00_1000_1???,		//  performance monitoring counter
-			12'b11_00_1001_????,		//  performance monitoring counter
-
+			12'b11_00_1001_????:		//  performance monitoring counter
+						badcsr = 0;
 			12'b00_11_0001_0000,
 			12'b10_11_1000_0000,		//  cycle counter for RDCYCLE
 			12'b10_11_1000_0001,		//  timer for RDTime

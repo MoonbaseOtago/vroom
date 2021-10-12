@@ -78,10 +78,6 @@ module icache_l1(
 
 	assign ic_snoop_addr_ack = 1;
 
-wire val_0=r_valid[0][7];
-wire val_1=r_valid[1][7];
-wire val_2=r_valid[2][7];
-
 	genvar S, R, W, B, M;
 	generate
 		wire [NSETS-1:0]match_snoop;
@@ -413,3 +409,13 @@ wire val_2=r_valid[2][7];
 
 endmodule
 
+/* For Emacs:
+ * Local Variables:
+ * mode:c
+ * indent-tabs-mode:t
+ * tab-width:4
+ * c-basic-offset:4
+ * End:
+ * For VIM:
+ * vim:set softtabstop=4 shiftwidth=4 tabstop=4:
+ */

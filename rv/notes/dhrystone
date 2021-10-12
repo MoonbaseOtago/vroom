@@ -1,0 +1,43 @@
+Dhrystone output over time:
+
+9/10/21 - hardware - usermode
+Microseconds for one run through Dhrystone: 13
+Dhrystones per Second:                      73766
+DMips:                                      41
+DMips/(25)MHZ:                              1.67
+cycle = 169465566
+instret = 203815083
+hpmcounter4 = 44592158
+hpmcounter5 = 33098481
+
+IPC = 1.20
+BTC hit rate = %74
+
+
+11/10/21 - simulator m-mode
+
+Microseconds for one run through Dhrystone: 12
+Dhrystones per Second:                      79682
+DMips:                                      45.3
+DMips/(25)MHZ:                              1.81
+mcycle = 156941
+minstret = 195033
+hpmcounter4 = 43006
+hpmcounter5 = 33246
+
+IPC = 1.24
+BTC hit rate = %77
+
+11/10/21 - simulator m-mode - after fixing call return prediction bug
+Microseconds for one run through Dhrystone: 11
+Dhrystones per Second:                      87639
+DMips:                                      49.8
+DMips/(25)MHZ:                              1.99
+mcycle = 142695
+minstret = 195033
+hpmcounter4 = 43006
+hpmcounter5 = 37437
+
+IPC = 1.36
+BTC hit rate = %87
+

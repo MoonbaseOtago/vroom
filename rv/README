@@ -100,7 +100,8 @@ test--|--chip--|--cpu[N]--|--fetch--|--ic1 (icache)
 Physical Memory layout
 ----------------------
 
-As a rule physical memory consists of coherent DRAM from address 0 to the end of the bottom half of physical memory (56-bit addressing), and IO in the upper half of physical memory (or the system bootstrap for instruction fetches)
+As a rule physical memory consists of coherent DRAM from address 0 to the end of the bottom half of physical
+memory (56-bit addressing), and IO in the upper half of physical memory (or the system bootstrap for instruction fetches)
 
 Instruction
 
@@ -109,23 +110,23 @@ A few notes about coding rules
 
 - no latches
 - we avoid passing arrays of wires to modules as some of the tools we're using can't yet handle that
-	this results in occasional tackiness at module boundaries
+  this results in occasional tackiness at module boundaries
 - we use small C programs to generate random logic that if made by hand might be buggy or might
-	be different between different numbers of modules/HARTs/CPUs etc - this verilog mostly lives in
-	.inc files built by the Makefile, we often build a number of options, include them all and let
-	generates choose which one we actually use
+  be different between different numbers of modules/HARTs/CPUs etc - this verilog mostly lives in
+  .inc files built by the Makefile, we often build a number of options, include them all and let
+  generates choose which one we actually use
 - one clock
 - synchronous reset
 - variables whose names begin with r_ are real flops and assigned with some variant of
-  	"always @(posedge clk) r_XXX <= c_XXXX;"
+  "always @(posedge clk) r_XXX <= c_XXX;"
 - variables whose names begin with c_ are combinatorial and in almost cases are used to assign to a corresponding r_ register
 - registers are only set with "always @(posedge clk)" and <= (some exceptions for explicitly instantiated cells)
 - combinatorials are either:
-	- declared as wire/input/output and set with 'assign', or
-	- declared "reg" and only set with "always @(*)" - they must be defined in all if/else/cases of the
-		always statement 
+  - declared as wire/input/output and set with 'assign', or
+  - declared "reg" and only set with "always @(*)" - they must be defined in all if/else/cases of the
+    always statement 
 - we use X values for cases that can't/shouldn't happen both to give synthesis some leeway and also to trigger
-	errors if they do actually happen (sadly verilator doesn't offer this as an option)
+    errors if they do actually happen (sadly verilator doesn't offer this as an option)
 
 Building
 --------

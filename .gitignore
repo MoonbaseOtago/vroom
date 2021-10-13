@@ -111,3 +111,6 @@ dtbrom.sv
 test
 *.bak
 .*.swp
+.*.swo
+.*.swn
+*.vcd.fst

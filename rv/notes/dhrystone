@@ -1,8 +1,8 @@
 Dhrystone output over time - notes
 
-Hardware: caches 32k/32k - cut down BTC - runs in user mode
+Hardware: caches 32k/32k - cut down BTC - runs in linux user mode 50000 runs
 
-Simulator: caches 64k/64k - larger BTC - runs in machine mode
+Simulator: caches 64k/64k - larger BTC - runs in standalone machine mode 500 runs
 
 - at this point the combined BTC predictor is broken, the bimodal
 	predictor seems to be working well, the global history
@@ -15,13 +15,13 @@ Simulator: caches 64k/64k - larger BTC - runs in machine mode
 - IPC does not include unconditional branches (which never get past
 	the decode unit)
 
-- hpmcounter4 is the number of committed branches, hpmcounter5 is the number
-	that were predicted correctly
+- hpmcounter4 is the number of committed branches, includes subroutine calls,
+	returns, indirect jumps and conditional branches
 
-- "committed branches" includes subroutine calls, returns, indirect jumps and 
-	conditional branches
+- hpmcounter5 is the number that were predicted correctly
 
-- cache siz and main memory speed are largely moot here as dhrystone fits in both caches
+- cache size and main memory speed are largely moot here as dhrystone fits
+	in both sized caches
 
 ==================================
 9/10/21 - hardware - usermode
@@ -38,6 +38,7 @@ IPC = 1.20
 BTC hit rate = %74
 
 
+==================================
 11/10/21 - simulator m-mode
 
 Microseconds for one run through Dhrystone: 12
@@ -52,6 +53,7 @@ hpmcounter5 = 33246
 IPC = 1.24
 BTC hit rate = %77
 
+==================================
 11/10/21 - simulator m-mode - after fixing call return prediction bug
 Microseconds for one run through Dhrystone: 11.08
 Dhrystones per Second:                      90093
@@ -65,4 +67,17 @@ hpmcounter5 = 37905
 IPC = 1.40
 BTC hit rate = %88
 
+==================================
+13/10/21 - hardware - usermode
+Microseconds for one run through Dhrystone: 12 - after fixing call return prediction bug
+Dhrystones per Second:                      81831
+DMips:                                      46.5
+DMips/(25)MHZ:                              1.86
+cycle = 152756851
+instret = 202471684
+hpmcounter4 = 44417492
+hpmcounter5 = 37995926
+
+IPC = 1.32
+BTC hit rate = %85
 

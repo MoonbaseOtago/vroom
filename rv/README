@@ -139,10 +139,11 @@ or:
 
 	make sv
 
-This will build all the include files and then compile sv and svd - svd is just sv with pipeline trace enabled - they
-read a single binary 'x.bin' that is loaded into simulated DRAM and boots from address 0. Both make .vcd files.
+This will build all the include files and then compile sv and svd with Icarus Verilog - svd is just sv with pipeline
+trace enabled - they read a single binary 'x.bin' that is loaded into simulated DRAM and boots from address 0.
+Both make .vcd files - they're not fast.
 
-You can also use verilator for faster simulation:
+You can also use Verilator for faster simulation:
 
 	make svv
 

@@ -68,16 +68,16 @@ IPC = 1.40
 BTC hit rate = %88
 
 ==================================
-13/10/21 - hardware - usermode
-Microseconds for one run through Dhrystone: 12 - after fixing call return prediction bug
-Dhrystones per Second:                      81831
-DMips:                                      46.5
+13/10/21 - hardware - usermode - after fixing call return prediction bug
+Microseconds for one run through Dhrystone: 12.17
+Dhrystones per Second:                      82101
+DMips:                                      46.7
 DMips/(25)MHZ:                              1.86
-cycle = 152756851
-instret = 202471684
-hpmcounter4 = 44417492
-hpmcounter5 = 37995926
+cycle = 152261334
+instret = 202759632
+hpmcounter4 = 44452141
+hpmcounter5 = 38007478
 
-IPC = 1.32
+IPC = 1.33
 BTC hit rate = %85
 

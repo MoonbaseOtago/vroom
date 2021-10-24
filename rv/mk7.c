@@ -152,7 +152,8 @@ err:
         printf("	reg [%d:0]c_update_br;\n", nbranch-1);
         printf("	assign commit_update_br = c_update_br;\n");	
 	printf("	wire [%d:0]branch_mask = commit_branch_shift&commit_mask;\n", NRESOLVE-1);
-	printf("	assign is_branch  = branch_mask;\n");
+	//printf("	assign is_branch  = branch_mask;\n");
+	printf("	assign current_commit_mask  = commit_mask;\n");
 	printf("	wire [%d:0]branch_ok_mask = commit_branch_shift&commit_mask&commit_branch_ok_shift;\n", NRESOLVE-1);
 
 	printf("	reg [3:0]c_num_branches_retired;\n");

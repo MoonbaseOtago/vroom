@@ -16,6 +16,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+`include "pred_context.si"
+
 module pc(input clk,  input reset,
 `ifdef AWS_DEBUG
 	input			xxtrig,
@@ -132,6 +134,10 @@ module pc(input clk,  input reset,
 	wire				  predict_branch_valid;
 	wire  [$clog2(2*NDEC)-1:0]predict_branch_decoder;
 
+	reg					  prediction_used, prediction_taken;	
+	reg					  prediction_wrong, prediction_wrong_taken;	
+	reg			[BDEC-1:1]prediction_wrong_dec;
+
 	wire	[$clog2(NUM_PENDING)-1:0]push_token;
 
 	wire		  [RV-1:1]return_branch_pc;
@@ -153,6 +159,46 @@ module pc(input clk,  input reset,
 	reg					push_noissue;
 	reg					push_taken;
 	reg		    [RV-1:1]push_dest;
+
+	PRED_STATE			prediction_context;
+	PRED_STATE			r_fetch_prediction_context, c_fetch_prediction_context;
+	PRED_STATE			push_context;
+	reg					push_force_default = 0;
+	reg					push_force_taken = 0;
+	
+	always @(*) begin
+		push_context.global_history = r_fetch_prediction_context.global_history;
+		push_context.bimodal_prediction_dec = r_fetch_prediction_context.bimodal_prediction_dec;
+		push_context.global_prediction_dec = r_fetch_prediction_context.global_prediction_dec;
+		casez({push_force_taken, push_force_default}) // synthesis full_case parallel_case
+		2'b1?:	begin
+					push_context.global_history[3:0] = {dec_br_offset, 1'b1};
+					push_context.bimodal_prediction_prev = 2;		// mispredict use branch dir
+					push_context.global_prediction_prev = 2;
+					push_context.combined_prediction_prev = 1;
+					push_context.global_prediction_dec = dec_br_offset;
+					push_context.bimodal_prediction_dec = dec_br_offset;
+				end
+		2'b?1:	begin
+					push_context.global_history[3:0] = 4'b0;
+					push_context.bimodal_prediction_prev = 1;
+					push_context.global_prediction_prev = 1;
+					push_context.combined_prediction_prev = 1;
+					push_context.global_prediction_dec = 0;
+					push_context.bimodal_prediction_dec = 0;
+				end
+		2'b00:	begin
+					push_context.bimodal_prediction_prev = r_fetch_prediction_context.bimodal_prediction_prev;
+					push_context.global_prediction_prev = r_fetch_prediction_context.global_prediction_prev;
+					push_context.combined_prediction_prev = r_fetch_prediction_context.combined_prediction_prev;
+					push_context.global_prediction_dec = r_fetch_prediction_context.global_prediction_dec;
+					push_context.bimodal_prediction_dec = r_fetch_prediction_context.bimodal_prediction_dec;
+				end
+		endcase
+	end
+
+	reg		fixup_dest;
+		
 	
 	bpred #(.RV(RV), .NUM_PENDING(NUM_PENDING), .BDEC(BDEC), .NDEC(NDEC), .CALL_STACK_SIZE(CALL_STACK_SIZE))pred(
 		.clk(clk),
@@ -169,6 +215,13 @@ module pc(input clk,  input reset,
 		.predict_branch_valid(predict_branch_valid),
 		.predict_branch_decoder(predict_branch_decoder),
 
+		.prediction_used(prediction_used),
+		.prediction_taken(prediction_taken),
+		.prediction_wrong(prediction_wrong),
+		.prediction_wrong_taken(prediction_wrong_taken),
+		.prediction_wrong_dec(prediction_wrong_dec),
+		.prediction_context(prediction_context),
+
 		.push_enable(push_enable),
 		.push_noissue(push_noissue),
 		.push_pc(r_pc_fetch),
@@ -176,6 +229,11 @@ module pc(input clk,  input reset,
 		.push_branch_decoder(push_branch_decoder),
 		.push_taken(push_taken),
 		.push_token(push_token),
+		.push_context(push_context),
+
+		.fixup_dest(fixup_dest),
+		.fixup_dest_pc(dec_branch),
+		.fixup_dest_dec(dec_br_offset),
 
 		.trap_shootdown(trap_br_enable),			// trap
 		.trap_shootdown_token(trap_branch_token),
@@ -205,6 +263,7 @@ module pc(input clk,  input reset,
 	//	pipe stage input to icache 
 	reg			r_pc_br_default, c_pc_br_default;
 	reg			r_pc_br_taken, c_pc_br_taken;
+	reg			r_pc_restart, c_pc_restart;
 	reg	[$clog2(2*NDEC)-1:0]r_pc_br_predict_dec, c_pc_br_predict_dec;
 	wire 	[RV-1:BDEC]inc = r_pc[RV-1:BDEC]+1;
 	wire [RV-1:1]branch_next = {inc, {BDEC-1{1'b0}}};
@@ -232,6 +291,7 @@ module pc(input clk,  input reset,
 	reg		    r_fetch_br_taken, c_fetch_br_taken;
 	reg		    r_pc_br_valid, c_pc_br_valid;
 	reg [2*NDEC-1:0]expanded_r_pc_br_predict;
+	reg			r_fetch_restart, c_fetch_restart;
 	always @(*)
 	if (!c_fetch_br_valid || !c_fetch_br_taken) begin
 		 c_fetch_br_predict_dec_exp = 8'b0000_0000;
@@ -343,12 +403,15 @@ module pc(input clk,  input reset,
 			r_pc_dest_dec <= c_pc_dest_dec;
 		end
 		r_pc_branched <= c_pc_branched;
+		r_pc_restart <= c_pc_restart;
 		r_fetch_branched <= c_fetch_branched;
 		r_fetch_br_default <= c_fetch_br_default;
+		r_fetch_prediction_context <= c_fetch_prediction_context;
 		r_fetch_br_predict_dec <= c_fetch_br_predict_dec;
 		r_fetch_br_predict_dec_exp <= c_fetch_br_predict_dec_exp;
 		r_fetch_br_taken <= c_fetch_br_taken;
 		r_fetch_br_valid <= c_fetch_br_valid;
+		r_fetch_restart <= c_fetch_restart;
 		r_read_stall <= c_read_stall;
 		r_pend_int <= c_pend_int;
 		r_issue_interrupt <= c_issue_interrupt;
@@ -403,16 +466,26 @@ module pc(input clk,  input reset,
 	//		
 
 	always @(*) begin
+		fixup_dest = 0;
+		prediction_used = 0;
+		prediction_taken = 'bx;
+		prediction_wrong = 0;
+		prediction_wrong_taken = 'bx;
+		prediction_wrong_dec = 'bx;
 		push_enable = 0;
 		push_noissue = 'bx;
 		push_branch_decoder = 'bx;
 		push_taken = 1'bx;
 		push_dest = 'bx;
+		push_force_default = 0;
+		push_force_taken = 0;
 		c_pc_stall = r_pc_stall;
 		c_fetch_br_default = r_fetch_br_default;
+		c_fetch_prediction_context = r_fetch_prediction_context;
 		c_fetch_br_predict_dec = r_fetch_br_predict_dec;
 		c_fetch_br_valid = r_fetch_br_valid;
 		c_fetch_br_taken = r_fetch_br_taken;
+		c_fetch_restart = (reset?0:r_fetch_restart);
 		c_pc_br_valid = r_pc_br_valid;
 		c_pc_dest_dec = r_pc_dest_fetch;
 		c_pc_dest_fetch = r_pc_dest_fetch;
@@ -426,6 +499,7 @@ module pc(input clk,  input reset,
 		c_pc_br_default = r_pc_br_default;
 		c_pc_br_taken = r_pc_br_taken;
 		c_pc_br_predict_dec = r_pc_br_predict_dec;
+		c_pc_restart = r_pc_restart;
 		c_pend_int = reset?0:int_br_enable|trap_br_enable|commit_br_enable?0:!rename_stall&&r_issue_interrupt&&!r_pend_int?1:r_pend_int;
 		c_pend_trap = r_pend_trap&!reset;
 		//c_interrupt_reloading = !reset && commit_br_enable&r_issue_interrupt&interrupt_pending;
@@ -443,6 +517,7 @@ module pc(input clk,  input reset,
 			c_pc_br_taken = 1'bx;
 			c_pc_br_predict_dec = 'bx;
 			c_fetch_br_predict_dec = 'bx;
+			c_pc_restart = !commit_br_taken;
 			casez ({reset, int_br_enable, trap_br_enable, commit_br_enable})	// synthesis full_case parallel_case
 			4'b01??,																// interrupt service
 			4'b0?1?: c_pc = trap_br;							// trap 
@@ -485,13 +560,17 @@ module pc(input clk,  input reset,
 			if (fetch_ok) begin		// we will have fetch data in next clock
 				c_fetch_state = 3'b010;
 				c_dec_stall = 0;
+				c_pc_restart = 0;
 				c_pc_fetch = r_pc;
 				c_fetch_branched = r_pc_branched;
-				c_fetch_br_default = r_pc_br_default;
-				c_fetch_br_taken = r_pc_br_taken;
-				c_fetch_br_valid = r_pc_br_valid;
+				c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+				c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+				c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
 				c_pc_dest_dec = r_pc_dest_dec;
 				c_pc_br_valid = predict_branch_valid;
+				prediction_used = !r_pc_restart;
+				c_fetch_restart = r_pc_restart;
+				c_fetch_prediction_context = prediction_context;
 				if (predict_branch_valid) begin
 					if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
 						c_pc = predict_branch_pc;
@@ -501,6 +580,7 @@ module pc(input clk,  input reset,
 						c_pc_dest_fetch = predict_branch_pc;
 						c_fetch_br_predict_dec = predict_branch_decoder;
 						c_pc_br_predict_dec = predict_branch_decoder;
+						prediction_taken = 1;
 					end else begin
 						c_pc = branch_next;
 						c_pc_branched = 0;
@@ -509,6 +589,7 @@ module pc(input clk,  input reset,
 						c_pc_dest_fetch = branch_next;
 						c_pc_br_predict_dec = 'bx;
 						c_fetch_br_predict_dec = 'bx;
+						prediction_taken = 0;
 					end
 				end else begin
 					c_pc = branch_next;
@@ -518,6 +599,7 @@ module pc(input clk,  input reset,
 					c_pc_dest_fetch = branch_next;
 					c_pc_br_predict_dec = 'bx;
 					c_fetch_br_predict_dec = 'bx;
+					prediction_taken = 0;
 				end
 			end else begin			// waiting for cache data (probably doing a cache-miss)
 				c_fetch_state = 3'b001;	
@@ -547,7 +629,8 @@ module pc(input clk,  input reset,
 						push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_valid && r_fetch_br_taken ? r_fetch_br_predict_dec : dec_br_offset;
 						push_dest = return_branch_pc;
-						c_fetch_br_default = r_pc_br_default;
+					//	c_fetch_br_default = r_pc_br_default;
+						c_fetch_br_default = 1;
 						c_fetch_br_taken = r_pc_br_taken;
 						c_fetch_br_valid = r_pc_br_valid;
 						c_fetch_br_predict_dec = r_pc_br_predict_dec;
@@ -582,10 +665,12 @@ module pc(input clk,  input reset,
 							c_pc_dest_dec = return_branch_pc;
 							c_pc_fetch = r_pc;
 							c_fetch_branched = 1;
-							c_fetch_br_default = r_pc_br_default;
+							c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
 							c_fetch_br_taken = r_pc_br_taken;
-							c_fetch_br_valid = r_pc_br_valid;
+							c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
 							c_pc_br_valid = predict_branch_valid;
+							prediction_used = 1;
+							c_fetch_prediction_context = prediction_context;
 							if (predict_branch_valid) begin
 								if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
 									c_pc = predict_branch_pc;
@@ -595,6 +680,7 @@ module pc(input clk,  input reset,
 									c_fetch_br_predict_dec = predict_branch_decoder;
 									c_pc_br_predict_dec = predict_branch_decoder;
 									c_pc_dest_fetch = predict_branch_pc;
+									prediction_taken = 1;
 								end else begin
 									c_pc = branch_next;
 									c_pc_branched = 0;
@@ -602,6 +688,7 @@ module pc(input clk,  input reset,
 									c_pc_br_taken = 0;
 									c_pc_br_predict_dec = 'bx;
 									c_fetch_br_predict_dec = 'bx;
+									prediction_taken = 0;
 								end
 							end else begin
 								c_pc = branch_next;
@@ -611,6 +698,7 @@ module pc(input clk,  input reset,
 								c_pc_dest_fetch = branch_next;
 								c_pc_br_predict_dec = 'bx;
 								c_fetch_br_predict_dec = 'bx;
+								prediction_taken = 0;
 							end
 						end
 					end
@@ -627,11 +715,13 @@ module pc(input clk,  input reset,
 
 						c_pc_fetch = r_pc;
 						c_fetch_branched = r_pc_branched;
-						c_fetch_br_default = r_pc_br_default;
-						c_fetch_br_taken = r_pc_br_taken;
-						c_fetch_br_valid = r_pc_br_valid;
+						c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+						c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+						c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
 
 						c_pc_br_valid = predict_branch_valid;
+						prediction_used = 1;
+						c_fetch_prediction_context = prediction_context;
 						if (predict_branch_valid) begin
 							if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
 								c_pc = predict_branch_pc;
@@ -641,6 +731,7 @@ module pc(input clk,  input reset,
 								c_pc_br_predict_dec = predict_branch_decoder;
 								c_fetch_br_predict_dec = predict_branch_decoder;
 								c_pc_dest_fetch = predict_branch_pc;
+								prediction_taken = 1;
 							end else begin
 								c_pc = branch_next;
 								c_pc_branched = 0;
@@ -649,6 +740,7 @@ module pc(input clk,  input reset,
 								c_pc_br_predict_dec = 'bx;
 								c_fetch_br_predict_dec = 'bx;
 								c_pc_dest_fetch = branch_next;
+								prediction_taken = 0;
 							end
 						end else begin
 							c_pc = branch_next;
@@ -658,6 +750,7 @@ module pc(input clk,  input reset,
 							c_pc_br_predict_dec = 'bx;
 							c_fetch_br_predict_dec = 'bx;
 							c_pc_dest_fetch = branch_next;
+							prediction_taken = 0;
 						end
 					end else begin
 						c_pc_dest_fetch = r_pc_dest_fetch;
@@ -695,17 +788,27 @@ module pc(input clk,  input reset,
 				end
 			end else	/* !jumping_stall */
 			if (fetch_ok) begin
+				if (!rename_stall) begin
+					c_fetch_restart = 0;
+					if (r_fetch_restart && dec_br_enable) begin	// pix up pushed entry
+						fixup_dest = 1;
+					end
+				end
 				if (dec_br_enable && r_pc != dec_branch) begin	// local mispredict
-					c_fetch_br_default = r_pc_br_default;
-					c_fetch_br_taken = r_pc_br_taken;
-					c_fetch_br_valid = r_pc_br_valid;
+					c_fetch_br_default = 1;
+					c_fetch_br_valid = 0;
 					c_pc_dest_dec = dec_branch;
+					prediction_wrong = 1;
+					prediction_wrong_taken = 1;
+					prediction_wrong_dec = dec_br_offset;
+					c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
 					if (!rename_stall) begin
-						push_enable = 1;
+						push_enable = !r_fetch_restart;
 						push_noissue = unconditional_jmp && !might_branch;
 						push_taken = 1;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
 						push_dest = dec_branch;
+						push_force_taken = 1;
 						c_pc_br_valid = 0;
 						c_pc = dec_branch;
 						c_pc_branched = 1;
@@ -730,12 +833,16 @@ module pc(input clk,  input reset,
 					end
 				end else
 				if (!dec_br_enable && r_pc != branch_next_fetch) begin	// local mispredict
+					prediction_wrong = 1;
+					prediction_wrong_taken = 0;
+					c_fetch_prediction_context.global_history[3:0] = 4'b0;
 					if (!rename_stall) begin
-						push_enable = |has_jmp;
+						push_enable = |has_jmp&&!r_fetch_restart;
 						push_noissue = 0;
 						push_taken = 0;
 						push_branch_decoder = 'bx;
 						push_dest = branch_next_fetch;
+						push_force_default = 1;
 						c_pc_br_valid = 1;
 						c_pc_br_taken = 0;
 						c_pc = branch_next_fetch;
@@ -748,8 +855,9 @@ module pc(input clk,  input reset,
 						c_fetch_branched = 0;
 						c_fetch_state = 3'b001;
 					end else begin
-						c_pc = r_pc;
-						c_pc_branched = r_pc_branched;
+						c_pc = branch_next_fetch;
+						c_pc_dest_fetch = branch_next_fetch;
+						c_pc_branched = 0;
 						c_dec_stall = 0;            // invalidate current fetch
 						c_pc_fetch = r_pc_fetch;
 						c_fetch_branched = r_fetch_branched;
@@ -767,7 +875,7 @@ module pc(input clk,  input reset,
 						c_fetch_branched = r_fetch_branched;
 						c_fetch_br_default = r_fetch_br_default;
 					end else begin
-						push_enable = |has_jmp;
+						push_enable = |has_jmp && !r_fetch_restart;
 						push_noissue = unconditional_jmp && !might_branch && (r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
 						push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
@@ -775,10 +883,24 @@ module pc(input clk,  input reset,
 						c_dec_stall = 0;
 						c_pc_fetch = r_pc;
 						c_fetch_branched = dec_br_enable;
-						c_fetch_br_default = r_pc_br_default;
-						c_fetch_br_taken = r_pc_br_taken;
-						c_fetch_br_valid = r_pc_br_valid;
+						c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+						c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+						c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
 						c_pc_br_valid = predict_branch_valid;
+						prediction_wrong = r_fetch_br_default;
+						prediction_wrong_taken = dec_br_enable;
+						prediction_wrong_dec = dec_br_offset;
+						if (r_fetch_br_default) begin
+							if (dec_br_enable) begin
+								c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
+								push_force_taken = 1;
+							end else begin
+								c_fetch_prediction_context.global_history[3:0] = 4'b0;
+								push_force_default = 1;
+							end
+						end
+						prediction_used = 1;
+						c_fetch_prediction_context = prediction_context;
 						if (predict_branch_valid) begin
 							if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
 								c_pc = predict_branch_pc;
@@ -788,6 +910,7 @@ module pc(input clk,  input reset,
 								c_pc_br_predict_dec = predict_branch_decoder;
 								c_fetch_br_predict_dec = predict_branch_decoder;
 								c_pc_dest_fetch = predict_branch_pc;
+								prediction_taken = 1;
 							end else begin
 								c_pc = branch_next;
 								c_pc_branched = 0;
@@ -795,6 +918,7 @@ module pc(input clk,  input reset,
 								c_pc_br_taken = 0;
 								c_pc_br_predict_dec = 'bx;
 								c_pc_dest_fetch = branch_next;
+								prediction_taken = 0;
 							end
 						end else begin
 //							if (dec_br_enable && r_pc[3:1] < dec_br_offset) begin
@@ -813,17 +937,25 @@ module pc(input clk,  input reset,
 								c_pc_br_default = 1;
 								c_pc_br_taken = 0;
 								c_pc_dest_fetch = branch_next;
+								prediction_taken = 0;
 //							end
 						end
 					end
 				end
 			end else begin	// !fetch_ok
 				if (dec_br_enable && r_pc != dec_branch) begin	// local mispredict
+					prediction_wrong = r_fetch_br_default;
+					prediction_wrong_taken = 1;
+					prediction_wrong_dec = dec_br_offset;
+					if (r_fetch_br_default) begin
+						c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
+					end
 					c_pc_dest_dec = dec_branch;
 					if (!rename_stall) begin
-						push_enable = 1;
+						push_enable = !r_fetch_restart;
 						push_noissue = unconditional_jmp && !might_branch;
 						push_taken = 1;
+						push_force_taken = r_fetch_br_default;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
 						push_dest = dec_branch;
 						c_pc_br_valid = 0;
@@ -850,12 +982,19 @@ module pc(input clk,  input reset,
 					end
 				end else
 				if (!dec_br_enable && r_pc != branch_next_fetch) begin	// local mispredict
+					prediction_wrong = r_fetch_br_default;
+					prediction_wrong_taken = 0;
+					prediction_wrong_dec = 0;
+					if (r_fetch_br_default) begin
+						c_fetch_prediction_context.global_history[3:0] = 4'b0;
+					end
 					if (!rename_stall) begin
-						push_enable = |has_jmp;
+						push_enable = |has_jmp && !r_fetch_restart;
 						push_noissue = 0;
 						push_taken = 0;
 						push_branch_decoder = 'bx;
 						push_dest = branch_next_fetch;
+						push_force_default = r_fetch_br_default;
 						c_pc = branch_next_fetch;
 						c_pc_dest_fetch = branch_next_fetch;
 						c_pc_branched = 0;
@@ -883,6 +1022,18 @@ module pc(input clk,  input reset,
 						c_pc_fetch = r_pc_fetch;
 						c_fetch_branched = r_fetch_branched;
 					end else begin
+						prediction_wrong = r_fetch_br_default;
+						prediction_wrong_taken = dec_br_enable;
+						prediction_wrong_dec = dec_br_offset;
+						if (r_fetch_br_default) begin
+							if (dec_br_enable) begin
+								c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
+								push_force_taken = 1;
+							end else begin
+								c_fetch_prediction_context.global_history[3:0] = 4'b0;
+								push_force_default = 1;
+							end
+						end
 						c_fetch_state = 3'b001;	
 						c_dec_stall = 1;
 						c_pc_fetch = 63'bx;

@@ -1147,13 +1147,13 @@ end
 
 			reg [NUM_PENDING-1:0]r_commit_token;
 			assign commit_token[H] = r_commit_token;
-			wire [NUM_TRANSFER_PORTS-1:0]is_branch;
+			wire [NUM_TRANSFER_PORTS-1:0]current_commit_mask;
 			wire [NUM_TRANSFER_PORTS-1:0]token_match[0:NUM_PENDING-1];
 			for (I = 0; I < NUM_TRANSFER_PORTS; I=I+1) begin
 				wire [$clog2(NCOMMIT)-1:0]ind = current_start[H]+I;
 				wire [$clog2(NUM_PENDING)-1:0]tok = branch_token_commit[ind][H];
 				for (J = 0; J < NUM_PENDING; J = J + 1) begin
-					assign token_match[J][I] = is_branch[(NUM_TRANSFER_PORTS-1)-I] && tok == J;
+					assign token_match[J][I] = current_commit_mask[(NUM_TRANSFER_PORTS-1)-I] && tok == J;
 				end
 			end
 			for (I = 0; I < NUM_PENDING; I = I + 1) begin
@@ -1163,7 +1163,7 @@ end
 
 //			always @(posedge clk) begin
 //				integer i;
-//				$display("%d: cs=0x%h is_branch=0x%h", 	$time,	current_start[H], is_branch);
+//				$display("%d: cs=0x%h current_commit_mask=0x%h", 	$time,	current_start[H], current_commit_mask);
 //				for (i = 0; i < NUM_PENDING; i=i+1) begin
 //					$display("token_match[%d] = 0x%h", i, token_match[i]);
 //				end
@@ -1181,7 +1181,7 @@ end
 
 				.commit_branch(commit_branch),
 				.commit_branch_ok(commit_branch_ok),
-				.is_branch(is_branch),
+				.current_commit_mask(current_commit_mask),
 
 				.commit_write_enable(reg_transfer_enable[H]),
 				.commit_write_port_0(reg_transfer_source_addr[0][H]),

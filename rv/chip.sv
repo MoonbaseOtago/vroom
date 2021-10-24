@@ -16,8 +16,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
-
-
 module chip (input ireset, 
 `ifdef SIMD
 	input simd_enable,

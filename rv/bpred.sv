@@ -18,6 +18,11 @@
 
 //module bpred_state(input clk,  input reset,
 
+`include "pred_context.si"
+
+`ifndef VSYNTH2
+`define XDEBUG 1
+`endif
 
 module bpred(input clk,  input reset,
 		input			[3:0]cpu_mode,					// protection state
@@ -30,6 +35,14 @@ module bpred(input clk,  input reset,
 		output		 [RV-1:1]predict_branch_pc,			// predicted destination
 	    output [$clog2(2*NDEC)-1:0]predict_branch_decoder,	// predict decoder
 
+		input				 prediction_used,			// we used a prediction
+		input				 prediction_taken,			//   and we took it
+
+		input				 prediction_wrong,		    // that prdiction was wrong
+		input				 prediction_wrong_taken,    //   what we did instead
+		input	   [BDEC-1:1]prediction_wrong_dec,		//	 and where (only valid if 'taken')
+		output PRED_STATE	 prediction_context,
+
 		input				 push_enable,				// true if there's one or more branches here
 		input		 [RV-1:1]push_pc,					// pc we fetched with
 		input				 push_noissue,				// it is an unconditional branch - it wont show up in the 
@@ -38,6 +51,12 @@ module bpred(input clk,  input reset,
 		input		 [RV-1:1]push_dest,					// branch dest (if taken)
 		input				 push_taken,				// true if branch was taken
 		output [$clog2(NUM_PENDING)-1:0]push_token,		// token for when we fail
+		input PRED_STATE	 push_context,
+
+        input				 fixup_dest,				// fix up prediction
+        input	     [RV-1:1]fixup_dest_pc,
+        input	   [BDEC-1:1]fixup_dest_dec,
+
 
 		input				 trap_shootdown,			// trap
 		input [$clog2(NUM_PENDING)-1:0]trap_shootdown_token,	// latest killed entry
@@ -82,9 +101,9 @@ module bpred(input clk,  input reset,
 	parameter	NUM_COMBINED = 12;		// size of the combined tables (log entries)
 `endif
 	parameter	NUM_PENDING = 32;		// probably should be the same size as the commitQ
-	parameter	GLOBAL_HISTORY = 6;		// size of the global history (bits)
 	parameter	VTAG_SIZE = 8;			// we don't keep a full tag for gl/bi entries
 
+	parameter	GLOBAL_HISTORY = `GH;		// size of the global history (bits)
 
 	reg		[2:0]r_mode;
 	always @(posedge clk) begin
@@ -223,6 +242,11 @@ module bpred(input clk,  input reset,
 		end
 	endgenerate
 
+
+	wire [NUM_PENDING-1:0]commit_token_done;
+	assign commit_token_done = {commit_token[0], commit_token[NUM_PENDING-1:1]};	// because multiple may signal we
+																					// wait until all are done
+
 	//
 	// global history
 	//
@@ -230,45 +254,61 @@ module bpred(input clk,  input reset,
 	
 
 	wire	[1:0]global_xprediction[0:2];
-	wire	[1:0]global_xprediction_push[0:2];
 	wire [2:0]global_tag_hit;
-	wire [2:0]global_tag_push_hit;
 	wire	[BDEC-1-1:0]global_xdec[0:2];
 	wire	[RV-1:1]global_xdest[0:2];
 	reg	[$clog2(NUM_PENDING)-1:0]global_pred_index;
-	reg	[$clog2(NUM_PENDING)-1:0]global_pred_push_index;
-	wire [GLOBAL_HISTORY-1:0]global_xhistory[0:2];
+	wire [GLOBAL_HISTORY*4-1:0]global_xhistory[0:2];
 
 	wire  [NUM_GLOBAL-1:0]global_index_g = pc[BDEC+NUM_GLOBAL-1:BDEC]^{pc[BDEC-1:1],{(NUM_GLOBAL-(BDEC-2)){1'b0}}};
-	wire [NUM_GLOBAL-1:0]global_push_index_g = push_pc[BDEC+NUM_GLOBAL-1:BDEC]^{push_pc[BDEC-1:1],{(NUM_GLOBAL-(BDEC-2)){1'b0}}};
+	wire  [NUM_GLOBAL-1:0]global_xindex[0:2];
 	
 	generate
 		for (M = 0; M < 3; M=M+1) begin : gl
-			wire  [NUM_GLOBAL-1:0]global_index;
-			wire  [NUM_GLOBAL-1:0]global_push_index;
-			reg	 [GLOBAL_HISTORY-1:0]r_global_history;						// actual global history
+			reg	 [GLOBAL_HISTORY*4-1:0]r_global_history;						// actual global history
+			wire [NUM_GLOBAL-1:0]xindex;
+			if (GLOBAL_HISTORY == 6) begin		// hand built mappings of history to hashes
+				if (NUM_GLOBAL == 12) begin
+					assign xindex = r_global_history[11:0]^{3'b0, r_global_history[18:12], 2'b0}^{2'b0, r_global_history[23:19], 5'b0};
+				end else
+				if (NUM_GLOBAL == 10) begin
+					assign xindex = r_global_history[10:0]^{2'b0, r_global_history[18:11], 2'b0}^{2'b0, r_global_history[23:19], 5'b0};
+				end else
+				if (NUM_GLOBAL == 9) begin
+					assign xindex = r_global_history[8:0]^{r_global_history[16:9], 1'b0}^{r_global_history[23:17], 2'b0};
+				end else begin
+					assign xindex = 'bx;
+				end
+			end else begin
+				assign xindex = 'bx;
+			end
 			assign global_xhistory[M] = r_global_history;
 			reg		[2*(1<<NUM_GLOBAL)-1:0]r_global_tables;					// global history tables (counter 0-3 >=2 means taken)
 			reg		[RV-1:1]r_global_dest[0:(1<<NUM_GLOBAL)-1];				// dest target
 			reg		[VTAG_SIZE-1:0]r_global_tag[0:(1<<NUM_GLOBAL)-1];
 			reg		[(1<<NUM_GLOBAL)-1:0]r_global_tag_valid;
-			reg		[BDEC-1-1:0]r_global_dec[0:(1<<NUM_GLOBAL)-1];	// global history tables decoder offset
-			assign	global_index      = {{(BDEC-1){1'b0}}, r_global_history, {(NUM_GLOBAL-GLOBAL_HISTORY-(BDEC-1)){1'b0}}}^global_index_g;
-			assign	global_push_index = {{(BDEC-1){1'b0}}, r_global_history, {(NUM_GLOBAL-GLOBAL_HISTORY-(BDEC-1)){1'b0}}}^global_push_index_g;
-			assign	global_xprediction[M]      = {r_global_tables[{global_index, 1'b1}], r_global_tables[{global_index, 1'b0}]};
-			assign	global_xprediction_push[M] = {r_global_tables[{global_push_index, 1'b1}], r_global_tables[{global_push_index, 1'b0}]};
-			assign	global_tag_hit[M] = r_mode[M] && r_global_tag_valid[global_index] && r_global_tag[global_index] == pc[BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL] && (!r_global_tables[{global_index, 1'b1}] || r_global_dec[global_index] >= pc[BDEC-1:1]);
-			assign	global_tag_push_hit[M] = r_global_tag_valid[global_push_index] && r_global_tag[global_push_index] == push_pc[BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL] && (!r_global_tables[{global_push_index, 1'b1}] || r_global_dec[global_push_index] >= push_pc[BDEC-1:1]);
+			reg		[BDEC-1-1:0]r_global_dec[0:(1<<NUM_GLOBAL)-1];			// global history tables decoder offset
+			assign	global_xindex[M]		   = xindex^global_index_g;
+			assign	global_xprediction[M]      = {r_global_tables[{global_xindex[M], 1'b1}], r_global_tables[{global_xindex[M], 1'b0}]};
+			assign	global_tag_hit[M] = r_mode[M] && r_global_tag_valid[global_xindex[M]] && r_global_tag[global_xindex[M]] == pc[BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL] && (!r_global_tables[{global_xindex[M], 1'b1}] || r_global_dec[global_xindex[M]] >= pc[BDEC-1:1]);
 
-			assign 	global_xdec[M] = r_global_dec[global_index];
-			assign 	global_xdest[M] = r_global_dest[global_index];
+			assign 	global_xdec[M] = r_global_dec[global_xindex[M]];
+			assign 	global_xdest[M] = r_global_dest[global_xindex[M]];
 
 			always @(posedge clk) begin
 				if (reset || clear[M]) begin
 					r_global_history <= 0;
-				end else 
-				if (r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out] && r_pend_mode[r_pend_out][M]) begin
-					r_global_history <= r_pend_global_history[r_pend_out];
+				end else	
+				if (r_mode[M]) begin
+					if (commit_shootdown) begin
+						r_global_history <= {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], (commit_shootdown_taken?commit_shootdown_dec:3'b0), commit_shootdown_taken}; 
+					end else
+					case ({prediction_used, prediction_wrong}) // synthesis full_case parallel_case
+					2'b11: r_global_history <= {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken};
+					2'b10: r_global_history <= {r_global_history[GLOBAL_HISTORY*4-4-1:0], (prediction_taken?predict_branch_decoder:3'b0), prediction_taken};
+					2'b01: r_global_history <= {r_global_history[GLOBAL_HISTORY*4-1:4], prediction_wrong_dec, prediction_wrong_taken};
+					2'b00: ;
+					endcase
 				end
 			end
 
@@ -287,57 +327,87 @@ module bpred(input clk,  input reset,
 			always @(posedge clk) begin
 				if (r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out] && r_pend_mode[r_pend_out][M]) begin
 					r_global_tag[pend_global_index[r_pend_out]] <= r_pend_pc[r_pend_out][BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL];
-					if (r_pend_taken[r_pend_out]) begin
+					if (r_pend_taken[r_pend_out] && r_pend_global_pred[r_pend_out][1]) begin
 						r_global_dec[pend_global_index[r_pend_out]] <= r_pend_dec[r_pend_out];
 						r_global_dest[pend_global_index[r_pend_out]] <= r_pend_dest[r_pend_out];
 					end
 				end
 			end
+
+`ifdef XDEBUG
+			always @(posedge clk) begin
+				if (prediction_used && r_mode[M]) begin
+					if (prediction_wrong) begin
+						$display("%d: pc=%h->%h dec=%d prediction_used taken=%d c/g/b=%d/%d/%d history=%h->%h", $time, pc, predict_branch_pc, predict_branch_decoder, prediction_taken, combined_prediction, global_prediction, bimodal_prediction, r_global_history,  {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
+					end else begin
+						$display("%d: pc=%h->%h dec=%d prediction_used taken=%d c/g/b=%d/%d/%d history=%h->%h", $time, pc, predict_branch_pc, predict_branch_decoder, prediction_taken, combined_prediction, global_prediction, bimodal_prediction, r_global_history,  {r_global_history[GLOBAL_HISTORY*4-4-1:0], (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
+					end
+				end
+				if (prediction_wrong && r_mode[M]) begin
+					if (prediction_taken) begin
+						$display("%d: prediction_wrong taken=%d dec=%d history->%h", $time, prediction_wrong_taken, prediction_wrong_dec, {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
+					end else begin
+						$display("%d: prediction_wrong taken=%d dec=%d history->%h", $time, prediction_wrong_taken, prediction_wrong_dec, {r_global_history[GLOBAL_HISTORY*4-1:4], prediction_wrong_dec,  prediction_wrong_taken});
+					end
+				end
+				if (commit_shootdown && r_mode[M])
+					$display("%d: prediction_shootdown taken=%d token=%h dest=%h history=%h", $time, commit_shootdown_taken, commit_shootdown_token, commit_shootdown_dest, {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], commit_shootdown_dec, commit_shootdown_taken});
+			end
+`endif
+
 		end
 
 	endgenerate
 
-	reg	[1:0]global_prediction;
-	reg	[1:0]global_push_prediction;
-	reg	[RV-1:1]global_dest;
-	reg	[BDEC-1-1:0]global_dec;
-	reg	[GLOBAL_HISTORY-1:0]global_history;
+
+	reg	               [1:0]global_prediction;
+	reg	            [RV-1:1]global_dest;
+	reg	        [BDEC-1-1:0]global_dec;
+	reg	        [BDEC-1-1:0]global_prev_dec;
+	reg	[GLOBAL_HISTORY*4-1:0]global_history;
+	reg     [NUM_GLOBAL-1:0]global_index;
 	always @(*) begin
 		if (|global_pend_prediction_valid) begin
 			global_prediction =  r_pend_global_pred[global_pred_index];
 			global_dest = r_pend_dest[global_pred_index];
 			global_dec = r_pend_dec[global_pred_index];
-			global_history = r_pend_global_history[global_pred_index];
+			global_prev_dec = r_pend_global_dec[global_pred_index];
 		end else
 		casez(r_mode) // synthesis full_case parallel_case
 		3'b??1: begin
 					global_prediction = global_xprediction[0];
 					global_dest = global_xdest[0];
 					global_dec = global_xdec[0];
-					global_history = global_xhistory[0];
+					global_prev_dec = global_xdec[0];
 				end
 		3'b?1?: begin
 					global_prediction = global_xprediction[1];
 					global_dest = global_xdest[1];
 					global_dec = global_xdec[1];
-					global_history = global_xhistory[1];
+					global_prev_dec = global_xdec[1];
 				end
 		3'b1??: begin
 					global_prediction = global_xprediction[2];
 					global_dest = global_xdest[2];
 					global_dec = global_xdec[2];
-					global_history = global_xhistory[2];
+					global_prev_dec = global_xdec[2];
 				end
 		endcase
 	end
 	always @(*) begin
-		if (|global_pend_prediction_push_valid) begin
-				global_push_prediction = r_pend_global_pred[global_pred_push_index];
-		end else
 		casez(r_mode) // synthesis full_case parallel_case
-		3'b??1: global_push_prediction = global_tag_push_hit[0] ?global_xprediction_push[0] : push_taken ? 2'b01: 2'b10;
-		3'b?1?: global_push_prediction = global_tag_push_hit[1] ?global_xprediction_push[1] : push_taken ? 2'b01: 2'b10;
-		3'b1??: global_push_prediction = global_tag_push_hit[2] ?global_xprediction_push[2] : push_taken ? 2'b01: 2'b10;
+		3'b??1: begin
+					global_history = global_xhistory[0];
+					global_index = global_xindex[0];
+				end
+		3'b?1?: begin
+					global_history = global_xhistory[1];
+					global_index = global_xindex[1];
+				end
+		3'b1??: begin
+					global_history = global_xhistory[2];
+					global_index = global_xindex[2];
+				end
 		endcase
 	end
 
@@ -346,16 +416,12 @@ module bpred(input clk,  input reset,
 	//
 
 	wire  [NUM_BIMODAL-1:0]bimodal_index = pc[BDEC+NUM_BIMODAL-1:BDEC]^{pc[BDEC-1:1], {(NUM_BIMODAL-(BDEC-2)){1'b0}}};
-	wire  [NUM_BIMODAL-1:0]bimodal_push_index = push_pc[BDEC+NUM_BIMODAL-1:BDEC]^{push_pc[BDEC-1:1], {(NUM_BIMODAL-(BDEC-2)){1'b0}}};
 	wire [1:0]bimodal_xprediction[0:2];
-	wire [1:0]bimodal_xprediction_push[0:2];
 	wire [2:0]bimodal_tag_hit;
-	wire [2:0]bimodal_tag_push_hit;
 	wire [BDEC-1-1:0]bimodal_xdec[0:2];
 	wire  [RV-1:1]bimodal_xdest[0:2];
 
 	reg	[$clog2(NUM_PENDING)-1:0]bimodal_pred_index;
-	reg	[$clog2(NUM_PENDING)-1:0]bimodal_pred_push_index;
 
 	generate
 		for (M = 0; M < 3; M=M+1) begin : bi
@@ -365,10 +431,8 @@ module bpred(input clk,  input reset,
 			reg		[VTAG_SIZE-1:0]r_bimodal_tag[0:(1<<NUM_BIMODAL)-1];
 			reg		[(1<<NUM_BIMODAL)-1:0]r_bimodal_tag_valid;
 			assign bimodal_xprediction[M] = {r_bimodal_tables[{bimodal_index,1'b1}], r_bimodal_tables[{bimodal_index,1'b0}]};
-			assign bimodal_xprediction_push[M] = {r_bimodal_tables[{bimodal_push_index,1'b1}], r_bimodal_tables[{bimodal_push_index,1'b0}]};
 
 			assign bimodal_tag_hit[M] = r_mode[M] && r_bimodal_tag_valid[bimodal_index] && r_bimodal_tag[bimodal_index] == pc[BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL] && (!r_bimodal_tables[{bimodal_index, 1'b1}] || r_bimodal_dec[bimodal_index] >= pc[BDEC-1:1]); 
-			assign bimodal_tag_push_hit[M] = r_bimodal_tag_valid[bimodal_push_index] && r_bimodal_tag[bimodal_push_index] == push_pc[BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL] && (!r_bimodal_tables[{bimodal_push_index, 1'b1}] || r_bimodal_dec[bimodal_push_index] >= push_pc[BDEC-1:1]); 
 			assign bimodal_xdec[M] = r_bimodal_dec[bimodal_index];
 			assign bimodal_xdest[M] = r_bimodal_dest[bimodal_index];
 
@@ -387,9 +451,9 @@ module bpred(input clk,  input reset,
 			always @(posedge clk) begin
 				if (r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out] && r_pend_mode[r_pend_out][M]) begin
 					r_bimodal_tag[pend_bimodal_index[r_pend_out]] <= r_pend_pc[r_pend_out][BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL];
-					if (r_pend_taken[r_pend_out]) begin
-						r_bimodal_dec[pend_bimodal_index[r_pend_out]] <= r_pend_dec[r_pend_out];
+					if (r_pend_taken[r_pend_out] && r_pend_bimodal_pred[r_pend_out][1]) begin
 						r_bimodal_dest[pend_bimodal_index[r_pend_out]] <= r_pend_dest[r_pend_out];
+						r_bimodal_dec[pend_bimodal_index[r_pend_out]] <= r_pend_dec[r_pend_out];
 					end
 				end
 			end
@@ -397,41 +461,35 @@ module bpred(input clk,  input reset,
 	endgenerate
 
 	reg	[1:0]bimodal_prediction;
-	reg	[1:0]bimodal_push_prediction;
 	reg	[BDEC-1-1:0]bimodal_dec;
+	reg	[BDEC-1-1:0]bimodal_prev_dec;
 	reg	[RV-1:1]bimodal_dest;
 	always @(*) begin
 		if (|bimodal_pend_prediction_valid) begin		
 			bimodal_prediction = r_pend_bimodal_pred[bimodal_pred_index];
 			bimodal_dec = r_pend_dec[bimodal_pred_index];
+			bimodal_prev_dec = r_pend_bimodal_dec[bimodal_pred_index];
 			bimodal_dest = r_pend_dest[bimodal_pred_index];
 		end else
 		casez (r_mode) // synthesis full_case parallel_case
 		3'b??1:	begin
 					bimodal_prediction = bimodal_xprediction[0];
 					bimodal_dec = bimodal_xdec[0];
+					bimodal_prev_dec = bimodal_xdec[0];
 					bimodal_dest = bimodal_xdest[0];
 				end
 		3'b?1?:	begin
 					bimodal_prediction = bimodal_xprediction[1];
 					bimodal_dec = bimodal_xdec[1];
+					bimodal_prev_dec = bimodal_xdec[1];
 					bimodal_dest = bimodal_xdest[1];
 				end
 		3'b1??:	begin
 					bimodal_prediction = bimodal_xprediction[2];
 					bimodal_dec = bimodal_xdec[2];
+					bimodal_prev_dec = bimodal_xdec[2];
 					bimodal_dest = bimodal_xdest[2];
 				end
-		endcase
-	end
-	always @(*) begin
-		if (|bimodal_pend_prediction_push_valid) begin		
-			bimodal_push_prediction = r_pend_bimodal_pred[bimodal_pred_push_index];
-		end else
-		casez (r_mode) // synthesis full_case parallel_case
-		3'b??1:	bimodal_push_prediction = bimodal_tag_push_hit[0] ?  bimodal_xprediction_push[0] : push_taken ? 2'b01: 2'b10;
-		3'b?1?:	bimodal_push_prediction = bimodal_tag_push_hit[1] ?  bimodal_xprediction_push[1] : push_taken ? 2'b01: 2'b10;
-		3'b1??:	bimodal_push_prediction = bimodal_tag_push_hit[2] ?  bimodal_xprediction_push[2] : push_taken ? 2'b01: 2'b10;
 		endcase
 	end
 	
@@ -440,20 +498,14 @@ module bpred(input clk,  input reset,
 	//
 
 	wire  [NUM_COMBINED-1:0]combined_index = pc[BDEC+NUM_COMBINED-1:BDEC]^{pc[BDEC-1:1], {(NUM_COMBINED-(BDEC-2)){1'b0}}};
-	wire  [NUM_COMBINED-1:0]combined_push_index = push_pc[BDEC+NUM_COMBINED-1:BDEC]^{push_pc[BDEC-1:1], {(NUM_COMBINED-(BDEC-2)){1'b0}}};
 	reg	[$clog2(NUM_PENDING)-1:0]combined_pred_index;
-	reg	[$clog2(NUM_PENDING)-1:0]combined_pred_push_index;
 	wire [1:0]combined_xprediction[0:2];
-	wire [1:0]combined_xprediction_push[0:2];
 	reg		[1:0]combined_prediction;
-	reg		[1:0]combined_push_prediction;
 	generate
 
 		for (M = 0; M < 3; M = M+1) begin : cmb
 			reg		[(2<<NUM_COMBINED)-1:0]r_combined_tables;	// combined history tables (counter 0-3 >=2 means taken)
 			assign combined_xprediction[M] = {r_combined_tables[{combined_index, 1'b1}], r_combined_tables[{combined_index, 1'b0}]};
-			assign combined_xprediction_push[M] = {r_combined_tables[{combined_push_index, 1'b1}], r_combined_tables[{combined_push_index, 1'b0}]};
-
 			always @(posedge clk) begin
 				if (reset || clear[M]) begin
 					r_combined_tables <= {{(1<<NUM_COMBINED){2'b01}}};
@@ -477,22 +529,10 @@ module bpred(input clk,  input reset,
 		endcase
 	end
 
-	always @(*) begin
-		if (|combined_pend_prediction_push_valid) begin
-			combined_push_prediction = r_pend_combined_pred[combined_pred_push_index];
-		end else
-		casez (r_mode) // synthesis full_case parallel_case
-		3'b??1: combined_push_prediction = combined_xprediction_push[0];
-		3'b?1?: combined_push_prediction = combined_xprediction_push[1];
-		3'b1??: combined_push_prediction = combined_xprediction_push[2];
-		endcase
-	end
-
-	wire global_valid = |global_tag_hit | (|global_pend_prediction_valid);
+	wire global_valid  = |global_tag_hit  | (|global_pend_prediction_valid);
 	wire bimodal_valid = |bimodal_tag_hit | (|bimodal_pend_prediction_valid);
 
 
-	reg				predict_taken;
 	reg [BDEC-1-1:0]predict_dec;
 	reg     [RV-1:1]predict_dest;
 	reg				predict_valid;
@@ -526,33 +566,56 @@ module bpred(input clk,  input reset,
 	assign predict_branch_decoder = predict_dec;
 	assign predict_branch_pc = predict_dest;
 
+	assign prediction_context.bimodal_prediction_dec = bimodal_dec;
+	assign prediction_context.global_prediction_dec = global_dec;
+	assign prediction_context.combined_prediction_prev = combined_prediction;
+	assign prediction_context.bimodal_prediction_prev = bimodal_prediction;
+	assign prediction_context.global_prediction_prev = global_prediction;
+	assign prediction_context.global_history = global_history;
+
+`ifdef XDEBUG
+	always @(posedge clk) begin
+		if (push_enable) begin
+			$display("%d: push pc=%h->%h token=%h taken=%d noissue=%d c/g/b=%d/%d/%d hist=%h", $time, push_pc, push_dest, r_pend_in, push_taken, push_noissue, push_context.combined_prediction_prev, push_context.global_prediction_prev, push_context.bimodal_prediction_prev, push_context.global_history );
+		end
+		if (r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out]) begin
+			$display("%d: write-back token=%h %h->%h dec=%d c/g/b=%d@%h/%d@%h/%d@%h", $time, r_pend_out, r_pend_pc[r_pend_out], r_pend_dest[r_pend_out], r_pend_dec[r_pend_out], r_pend_combined_pred[r_pend_out], pend_combined_index[r_pend_out], r_pend_global_pred[r_pend_out], pend_global_index[r_pend_out], r_pend_bimodal_pred[r_pend_out], pend_bimodal_index[r_pend_out]);
+        end
+	end
+//	always @(posedge clk) begin
+//		$display("%d:		%b%b %b%b %b %b %h", $time, predict_branch_valid,predict_branch_taken, push_enable, push_taken, r_pend_valid[r_pend_out]&r_pend_committed[r_pend_out], commit_shootdown, global_xhistory[2]);
+//	end
+`endif
+
+	reg				predict_taken;
+
 	//
 	//	pending state
 	//
 
 	reg [$clog2(NUM_PENDING)-1:0]r_pend_in, c_pend_in;	// point to next one to be allocated
 	reg [$clog2(NUM_PENDING)-1:0]r_pend_out, c_pend_out;// point to next one to be committed
+	wire [$clog2(NUM_PENDING)-1:0]last_pushed = r_pend_in+(NUM_PENDING-1);
 	reg		[NUM_PENDING-1:0]r_pend_valid;
 	reg		[NUM_PENDING-1:0]r_pend_committed;
 	reg		[NUM_PENDING-1:0]r_pend_taken;
 	reg		[RV-1:1]r_pend_dest[0:NUM_PENDING-1];
 	reg		[RV-1:1]r_pend_pc[0:NUM_PENDING-1];
-	reg		[GLOBAL_HISTORY-1:0]r_pend_global_history[0:NUM_PENDING-1];
-wire	[GLOBAL_HISTORY-1:0]r_pend_global_history0=r_pend_global_history[r_pend_out];
+	reg		[GLOBAL_HISTORY*4-1:0]r_pend_global_history[0:NUM_PENDING-1];
+wire	[GLOBAL_HISTORY*4-1:0]r_pend_global_history0=r_pend_global_history[r_pend_out];
 	reg		[1:0]r_pend_global_pred[0:NUM_PENDING-1];
 	reg		[1:0]r_pend_global_prev[0:NUM_PENDING-1];
+	reg		[BDEC-1-1:0]r_pend_global_dec[0:NUM_PENDING-1];
 	reg		[BDEC-1-1:0]r_pend_dec[0:NUM_PENDING-1];
 	reg		[1:0]r_pend_bimodal_pred[0:NUM_PENDING-1];
 	reg		[1:0]r_pend_bimodal_prev[0:NUM_PENDING-1];
+	reg		[BDEC-1-1:0]r_pend_bimodal_dec[0:NUM_PENDING-1];
 	reg		[1:0]r_pend_combined_pred[0:NUM_PENDING-1];
 	reg		[1:0]r_pend_combined_prev[0:NUM_PENDING-1];
 	reg		[2:0]r_pend_mode[0:NUM_PENDING-1];
 	reg		[NUM_PENDING-1:0]global_pend_prediction_valid;
-	reg		[NUM_PENDING-1:0]global_pend_prediction_push_valid;
 	reg		[NUM_PENDING-1:0]bimodal_pend_prediction_valid;
-	reg		[NUM_PENDING-1:0]bimodal_pend_prediction_push_valid;
 	reg		[NUM_PENDING-1:0]combined_pend_prediction_valid;
-	reg		[NUM_PENDING-1:0]combined_pend_prediction_push_valid;
 
 wire [RV-1:1]r_pend_pc0 = r_pend_pc[r_pend_out];		// this is just debug stuff
 wire [RV-1:1]r_pend_dest0 = r_pend_dest[r_pend_out];
@@ -563,7 +626,6 @@ wire [1:0]r_pend_combined_pred0 = r_pend_combined_pred[r_pend_out];
 wire [1:0]r_pend_bimodal_pred0 = r_pend_bimodal_pred[r_pend_out];
 wire [1:0]r_pend_global_pred0 = r_pend_global_pred[r_pend_out];
 	wire [NUM_GLOBAL-1:0]pend_global_index[0:NUM_PENDING-1];
-	wire [NUM_GLOBAL-1:0]pend_global_index_x[0:NUM_PENDING-1];
 wire [NUM_GLOBAL-1:0]pend_global_index0=pend_global_index[r_pend_out];
 	wire [NUM_BIMODAL-1:0]pend_bimodal_index[0:NUM_PENDING-1];
 wire [NUM_BIMODAL-1:0]pend_bimodal_index0=pend_bimodal_index[r_pend_out];
@@ -584,8 +646,14 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 		if (reset || clear) begin
 			c_pend_out = 0;
 		end else
-		if (r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out]) begin
-			c_pend_out = r_pend_out+1;
+		if (r_pend_valid[r_pend_out]) begin
+			if (r_pend_committed[r_pend_out]) begin
+				c_pend_out = r_pend_out+1;
+			end
+		end else begin
+			if (r_pend_out != r_pend_in) begin
+				c_pend_out = r_pend_out+1;
+			end
 		end
 	end
 
@@ -605,25 +673,38 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 		end
 	end
 
-
 	genvar P;
 	generate
 
 		for (P = 0; P < NUM_PENDING; P = P+1) begin: pend
-			assign pend_global_index_x[P] = r_pend_pc[P][BDEC+NUM_GLOBAL-1:BDEC]^{r_pend_pc[P][BDEC-1:1], {(NUM_GLOBAL-(BDEC-2)){1'b0}}};
+			wire [NUM_GLOBAL-1:0]pend_global_index_x;
+			assign pend_global_index_x = r_pend_pc[P][BDEC+NUM_GLOBAL-1:BDEC]^{r_pend_pc[P][BDEC-1:1], {(NUM_GLOBAL-(BDEC-2)){1'b0}}};
 			
-			assign pend_global_index[P] = {{(BDEC-1){1'b0}}, r_pend_global_history[P], {(NUM_GLOBAL-GLOBAL_HISTORY-(BDEC-1)){1'b0}}}^pend_global_index_x[P];
+			wire [NUM_GLOBAL-1:0]xindex;
+			if (GLOBAL_HISTORY == 6) begin		// hand built mappings of history to hashes	 (must be the same as above)
+				if (NUM_GLOBAL == 12) begin
+					assign xindex = r_pend_global_history[P][11:0]^{3'b0, r_pend_global_history[P][18:12], 2'b0}^{2'b0, r_pend_global_history[P][23:19], 5'b0};
+				end else
+				if (NUM_GLOBAL == 10) begin
+					assign xindex = r_pend_global_history[P][10:0]^{2'b0, r_pend_global_history[P][18:11], 2'b0}^{2'b0, r_pend_global_history[P][23:19], 5'b0};
+				end else
+				if (NUM_GLOBAL == 9) begin
+					assign xindex = r_pend_global_history[P][8:0]^{r_pend_global_history[P][16:9], 1'b0}^{r_pend_global_history[P][23:17], 2'b0};
+				end else begin
+					assign xindex = 'bx;
+				end
+			end else begin
+				assign xindex = 'bx;
+			end
+			assign pend_global_index[P] = xindex^pend_global_index_x;
 			assign pend_combined_index[P] = r_pend_pc[P][BDEC+NUM_COMBINED-1:BDEC]^{r_pend_pc[P][BDEC-1:1], {(NUM_COMBINED-(BDEC-2)){1'b0}}};
 			assign pend_bimodal_index[P]  = r_pend_pc[P][BDEC+NUM_BIMODAL-1:BDEC]^{r_pend_pc[P][BDEC-1:1], {(NUM_BIMODAL-(BDEC-2)){1'b0}}};
 
-			assign global_pend_prediction_valid[P] = r_pend_valid[P] && (!r_pend_taken[P] || r_pend_dec[P] >= pc[BDEC-1:1]) && pend_global_index_x[P] == global_index_g && r_pend_pc[P][BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL] == pc[BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL];
-			assign global_pend_prediction_push_valid[P] = r_pend_valid[P] && (!r_pend_taken[P] || r_pend_dec[P] >= push_pc[BDEC-1:1]) && pend_global_index_x[P] == global_push_index_g && r_pend_pc[P][BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL] == push_pc[BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL];
+			assign global_pend_prediction_valid[P] = r_pend_valid[P] && (!r_pend_taken[P] || r_pend_dec[P] >= pc[BDEC-1:1]) && pend_global_index[P] == global_index && r_pend_pc[P][BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL] == pc[BDEC+NUM_GLOBAL+VTAG_SIZE-1:BDEC+NUM_GLOBAL];
 
 			assign bimodal_pend_prediction_valid[P] = r_pend_valid[P] && (!r_pend_taken[P] || r_pend_dec[P] >= pc[BDEC-1:1]) && pend_bimodal_index[P] == bimodal_index && r_pend_pc[P][BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL] == pc[BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL];
-			assign bimodal_pend_prediction_push_valid[P] = r_pend_valid[P] && (!r_pend_taken[P] || r_pend_dec[P] >= push_pc[BDEC-1:1]) && pend_bimodal_index[P] == bimodal_push_index && r_pend_pc[P][BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL] == push_pc[BDEC+NUM_BIMODAL+VTAG_SIZE-1:BDEC+NUM_BIMODAL];
 
 			assign combined_pend_prediction_valid[P] = r_pend_valid[P] && pend_combined_index[P] == combined_index;
-			assign combined_pend_prediction_push_valid[P] = r_pend_valid[P] && pend_combined_index[P] == combined_push_index;
 
 			assign pend_dest_hit[P] = r_pend_valid[P] && r_pend_pc[P] == pc;
 
@@ -631,15 +712,15 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 				if (reset||clear) begin
 					r_pend_valid[P] <= 0;
 				end else
-				if (trap_shootdown && r_pend_valid[P] && !(r_pend_committed[P]||commit_token[P])) begin	// flush unwanted
+				if (trap_shootdown && r_pend_valid[P] && !(r_pend_committed[P]||commit_token_done[P])) begin	// flush unwanted
 					r_pend_valid[P] <= 0;
 				end else
-				if (commit_shootdown && r_pend_valid[P] && ((r_pend_in > P && P > commit_shootdown_token) || (r_pend_in < commit_shootdown_token && (P > commit_shootdown_token || r_pend_in > P)))) begin	// flush unwanted
+				if (commit_shootdown && r_pend_valid[P] && ((r_pend_in > P && P > commit_shootdown_token) || (r_pend_in < commit_shootdown_token && (P > commit_shootdown_token || r_pend_in >= P)))) begin	// flush unwanted
 					r_pend_valid[P] <= 0;
 				end else
 				if (push_enable && !commit_shootdown && r_pend_in == P && (r_pend_in != r_pend_out || !r_pend_valid[r_pend_out])) begin
 					r_pend_valid[P] <= 1;
-					r_pend_committed[P] <= push_noissue;
+					r_pend_committed[P] <= push_noissue&&(push_pc[BDEC-1]==push_branch_decoder); // no matching entry to commit us
 					r_pend_pc[P] <= push_pc;
 					r_pend_dest[P] <= push_dest;
 					r_pend_dec[P] <= push_branch_decoder;
@@ -649,55 +730,100 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 				if (r_pend_out == P && r_pend_valid[P] && r_pend_committed[P]) begin	// done
 					r_pend_valid[P] <= 0;
 				end else begin
-					if (r_pend_valid[P] && commit_token[P]) 
+					if (r_pend_valid[P] && commit_token_done[P]) 
 						r_pend_committed[P] <= 1;
 					if (commit_shootdown && commit_shootdown_token == P) begin   // this branch was mispredicted
 						r_pend_dest[P] <= commit_shootdown_dest;
 						r_pend_taken[P] <= commit_shootdown_taken;
 						r_pend_dec[P] <= commit_shootdown_dec;
+					end else
+					if (fixup_dest && last_pushed == P) begin   // this branch was mispredicted
+						r_pend_dest[P] <= fixup_dest_pc;
+						r_pend_dec[P] <= fixup_dest_dec;
+						r_pend_taken[P] <= 1;
 					end
 				end
 				if (!r_pend_valid[P]) begin
-					r_pend_bimodal_prev[P] <= bimodal_push_prediction;
-					r_pend_bimodal_pred[P] <= (push_taken? (bimodal_push_prediction[1]? 2'b11:bimodal_push_prediction+2'b1) : (!bimodal_push_prediction[1]? 2'b00:bimodal_push_prediction-2'b1));
-					r_pend_combined_prev[P] <= combined_push_prediction;
-					if (global_push_prediction[1]&&!bimodal_push_prediction[1]&&combined_push_prediction[1]&&combined_push_prediction<3) begin
-						r_pend_combined_pred[P] <= combined_push_prediction+1;
-					end else
-					if (!global_prediction[1]&&bimodal_push_prediction[1]&&!combined_push_prediction[1]&&combined_push_prediction>0) begin
-						r_pend_combined_pred[P] <= combined_push_prediction-1;
-					end else begin
-						r_pend_combined_pred[P] <= combined_push_prediction;
-					end
-					r_pend_global_prev[P] <= global_push_prediction;
-					r_pend_global_pred[P] <= (push_taken? (global_push_prediction[1]? 2'b11:global_push_prediction+2'b1) : (!global_push_prediction[1]? 2'b00:global_push_prediction-2'b1));
-					r_pend_global_history[P] <= {global_history[GLOBAL_HISTORY-2:0],push_taken};
+					r_pend_bimodal_dec[P] <= push_context.bimodal_prediction_dec;
+					r_pend_global_dec[P] <= push_context.global_prediction_dec;
+					r_pend_bimodal_prev[P] <= push_context.bimodal_prediction_prev;
+					r_pend_bimodal_pred[P] <= (push_taken? (push_context.bimodal_prediction_prev[1]? 2'b11:push_context.bimodal_prediction_prev+2'b1) : (!push_context.bimodal_prediction_prev[1]? 2'b00:push_context.bimodal_prediction_prev-2'b1));
+					r_pend_combined_prev[P] <= push_context.combined_prediction_prev;
+					casez ({push_taken, push_context.global_prediction_prev[1], push_context.bimodal_prediction_prev[1],
+							push_context.global_prediction_dec==push_branch_decoder,
+							push_context.bimodal_prediction_dec==push_branch_decoder}) // synthesis full_case parallel_case
+					5'b1_11_10,
+					5'b1_10_1?,
+					5'b0_01_??:	if (push_context.combined_prediction_prev!=3) begin
+									r_pend_combined_pred[P] <= push_context.combined_prediction_prev+1;
+								end else begin
+									r_pend_combined_pred[P] <= push_context.combined_prediction_prev;
+								end
+					5'b1_11_01,
+					5'b1_01_?1,
+					5'b0_10_??:	if (push_context.combined_prediction_prev!=0) begin
+									r_pend_combined_pred[P] <= push_context.combined_prediction_prev-1;
+								end else begin
+									r_pend_combined_pred[P] <= push_context.combined_prediction_prev;
+								end
+					default:	r_pend_combined_pred[P] <= push_context.combined_prediction_prev;
+					endcase
+					r_pend_global_prev[P] <= push_context.global_prediction_prev;
+					r_pend_global_pred[P] <= (push_taken? (push_context.global_prediction_prev[1]? 2'b11:push_context.global_prediction_prev+2'b1) : (!push_context.global_prediction_prev[1]? 2'b00:push_context.global_prediction_prev-2'b1));
+					r_pend_global_history[P] <= push_context.global_history;
 				end else 
 				if (commit_shootdown && commit_shootdown_token == P) begin   // this branch was mispredicted
-					r_pend_dest[P] <= commit_shootdown_dest;
-					r_pend_global_history[P] <= {r_pend_global_history[P][GLOBAL_HISTORY-1:1],commit_shootdown_taken};
-					if (!r_pend_taken[P] && commit_shootdown_taken) begin	// if branch should have been taken
+//$display("%d: SHOOT taken=%d dec=%d gl=%d bi=%d comb-prev=%b\n", $time, commit_shootdown_taken, commit_shootdown_dec, r_pend_global_dec[P], r_pend_bimodal_dec[P], r_pend_combined_prev[P]);
+					casez ({commit_shootdown_taken, r_pend_global_prev[P][1], r_pend_bimodal_prev[P][1],
+							r_pend_global_dec[P]==commit_shootdown_dec,
+							r_pend_bimodal_dec[P]==commit_shootdown_dec}) // synthesis full_case parallel_case
+					5'b1_11_10,
+					5'b1_10_1?,
+					5'b0_01_??:if (r_pend_combined_prev[P]!=3) begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P]+1;
+								end else begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P];
+								end
+					5'b1_11_01,
+					5'b1_01_?1,
+					5'b0_10_??:if (r_pend_combined_prev[P]!=0) begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P]-1;
+								end else begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P];
+								end
+					default:	r_pend_combined_pred[P] <= r_pend_combined_prev[P];
+					endcase
+					if (commit_shootdown_taken) begin
 						r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b11 ? 2'b11 : r_pend_global_prev[P]+1;
 						r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b11 ? 2'b11: r_pend_bimodal_prev[P]+1;
-						case ({r_pend_bimodal_prev[P][1],r_pend_global_prev[P][1]}) // synthesis full_case parallel_case
-						2'b10:	if (r_pend_combined_prev[P]!=2'b11)
-									r_pend_combined_pred[P] <= r_pend_combined_prev[P]+1;
-						2'b01: if (r_pend_combined_prev[P]!=2'b00) 
-									r_pend_combined_pred[P] <= r_pend_combined_prev[P]-1;
-						default:;
-						endcase
-					end else
-					if (r_pend_taken[P] && !commit_shootdown_taken) begin
+					end else begin
 						r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b00 ? 2'b00: r_pend_global_prev[P]-1;
 						r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b00 ? 2'b00: r_pend_bimodal_prev[P]-1;
-						case ({r_pend_bimodal_prev[P][1],r_pend_global_prev[P][1]}) // synthesis full_case parallel_case
-						2'b10: if (r_pend_combined_prev[P]!=2'b11) 
-									r_pend_combined_pred[P] <= r_pend_combined_prev[P]+1;
-						2'b01: if (r_pend_combined_prev[P]!=2'b00) 
-									r_pend_combined_pred[P] <= r_pend_combined_prev[P]-1;
-						default:;
-						endcase
 					end
+				end else
+				if (fixup_dest && last_pushed == P) begin   // this branch was mispredicted (twice)
+`ifdef XDEBUG
+$display("FIXUP#%h %b dec=%d c=%d g/b=%d/%d",P, {r_pend_global_prev[P][1], r_pend_bimodal_prev[P][1], r_pend_global_dec[P]==fixup_dest_dec, r_pend_bimodal_dec[P]==fixup_dest_dec}, fixup_dest_dec,r_pend_combined_prev[P],  r_pend_global_dec[P], r_pend_bimodal_dec[P]);
+`endif
+					casez ({r_pend_global_prev[P][1], r_pend_bimodal_prev[P][1],
+							r_pend_global_dec[P]==fixup_dest_dec,
+							r_pend_bimodal_dec[P]==fixup_dest_dec}) // synthesis full_case parallel_case
+					4'b11_10,
+					4'b10_1?: if (r_pend_combined_prev[P]!=3) begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P]+1;
+								end else begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P];
+								end
+					4'b11_01,
+					4'b01_?1: if (r_pend_combined_prev[P]!=0) begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P]-1;
+								end else begin
+									r_pend_combined_pred[P] <= r_pend_combined_prev[P];
+								end
+					default:	r_pend_combined_pred[P] <= r_pend_combined_prev[P];
+					endcase
+					r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b11 ? 2'b11 : r_pend_global_prev[P]+1;
+					r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b11 ? 2'b11: r_pend_bimodal_prev[P]+1;
 				end
 			end
 		end

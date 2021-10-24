@@ -84,21 +84,6 @@ int main(int argc, char ** argv)
 	printf("	always @(*) begin\n");
  	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
 	for (k = 0; k < pending; k++) {
- 	printf("		%d:	casez (global_pend_prediction_push_valid) // syntheis full_case parallel_case\n", k);
-	for (i = 0; i < pending; i++) {
-		printf("			%d'b", pending);
-		for (j = pending-1; j >=0; j--) printf(((j-k+pending)%pending) > i ?"0":((j-k+pending)%pending)==i?"1":"?");
-		printf(": global_pred_push_index = %d;\n", (i+k)%pending);
-	}
-	printf("			default: global_pred_push_index = 'bx;\n");
-	printf("			endcase\n");
-	}
-	printf("		endcase\n");
-	printf("	end\n");
-
-	printf("	always @(*) begin\n");
- 	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
-	for (k = 0; k < pending; k++) {
  	printf("		%d:	casez (global_pend_prediction_valid) // syntheis full_case parallel_case\n", k);
 	for (i = 0; i < pending; i++) {
 		printf("			%d'b", pending);
@@ -121,36 +106,6 @@ int main(int argc, char ** argv)
 		printf(": bimodal_pred_index = %d;\n", (i+k)%pending);
 	}
 	printf("			default: bimodal_pred_index = 'bx;\n");
-	printf("			endcase\n");
-	}
-	printf("		endcase\n");
-	printf("	end\n");
-
-	printf("	always @(*) begin\n");
- 	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
-	for (k = 0; k < pending; k++) {
- 	printf("		%d:	casez (bimodal_pend_prediction_push_valid) // syntheis full_case parallel_case\n", k);
-	for (i = 0; i < pending; i++) {
-		printf("			%d'b", pending);
-		for (j = pending-1; j >=0; j--) printf(((j-k+pending)%pending) > i ?"0":((j-k+pending)%pending)==i?"1":"?");
-		printf(": bimodal_pred_push_index = %d;\n", (i+k)%pending);
-	}
-	printf("			default: bimodal_pred_push_index = 'bx;\n");
-	printf("			endcase\n");
-	}
-	printf("		endcase\n");
-	printf("	end\n");
-
-	printf("	always @(*) begin\n");
- 	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
-	for (k = 0; k < pending; k++) {
- 	printf("		%d:	casez (combined_pend_prediction_push_valid) // syntheis full_case parallel_case\n", k);
-	for (i = 0; i < pending; i++) {
-		printf("			%d'b", pending);
-		for (j = pending-1; j >=0; j--) printf(((j-k+pending)%pending) > i ?"0":((j-k+pending)%pending)==i?"1":"?");
-		printf(": combined_pred_push_index = %d;\n", (i+k)%pending);
-	}
-	printf("			default: combined_pred_push_index = 'bx;\n");
 	printf("			endcase\n");
 	}
 	printf("		endcase\n");

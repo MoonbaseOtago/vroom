@@ -53,7 +53,7 @@ module commit_ctrl(input clk,
 
 	input [NCOMMIT-1:0]commit_branch,
 	input [NCOMMIT-1:0]commit_branch_ok,
-	output [NUM_TRANSFER_PORTS-1:0]is_branch);
+	output [NUM_TRANSFER_PORTS-1:0]current_commit_mask);
 
     parameter CNTRL_SIZE=7;
     parameter NDEC = 4; // number of decode stages

@@ -80,4 +80,18 @@ hpmcounter5 = 38007478
 
 IPC = 1.33
 BTC hit rate = %85
+==================================
+11/10/21 - simulator m-mode - after global branch prediction limping to life (more work to do, still very buggy)
+Microseconds for one run through Dhrystone: 10.36
+Dhrystones per Second:                      96310
+DMips:                                      54.8
+DMips/(25)MHZ:                              2.19
+mcycle = 129863
+minstret = 195033
+hpmcounter4 = 43006
+hpmcounter5 = 38969
+
+IPC = 1.50
+BTC hit rate = %90
+
 

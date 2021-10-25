@@ -502,7 +502,6 @@ module pc(input clk,  input reset,
 		c_pc_restart = r_pc_restart;
 		c_pend_int = reset?0:int_br_enable|trap_br_enable|commit_br_enable?0:!rename_stall&&r_issue_interrupt&&!r_pend_int?1:r_pend_int;
 		c_pend_trap = r_pend_trap&!reset;
-		//c_interrupt_reloading = !reset && commit_br_enable&r_issue_interrupt&interrupt_pending;
 		c_interrupt_reloading = !reset && commit_br_enable&r_issue_interrupt;
 		c_issue_interrupt = !reset && (!(rename_stall|trap_br_enable|commit_br_enable)&interrupt_pending&!int_br_enable&!r_pend_int || (r_issue_interrupt&&rename_stall) || r_interrupt_reloading);
 		c_issue_fetch_trap = !(reset|rename_stall|trap_br_enable|commit_br_enable)&&!interrupt_pending&&!int_br_enable&&!r_pend_trap&&fetch_fail&&r_fetch_state[0] || (!reset&&r_issue_fetch_trap&&rename_stall);
@@ -524,7 +523,7 @@ module pc(input clk,  input reset,
 			4'b0001: c_pc = commit_br;							// mispredict
 			default: c_pc = ~((1<<(NPHYS-2))-1);				// reset into ROM;
 			endcase
-			c_dec_stall = 1; //c_issue_interrupt|c_issue_fetch_trap;
+			c_dec_stall = 1; 
 			c_pc_stall = c_issue_interrupt|c_issue_fetch_trap|commit_int_force_fetch;
 			c_br_stall = !reset&&(trap_br_enable||commit_br_enable);
 			c_fetch_state = (commit_int_force_fetch|c_issue_interrupt|c_issue_fetch_trap?3'b100:3'b001);
@@ -541,9 +540,7 @@ module pc(input clk,  input reset,
 						end
 				default: begin
 							if (interrupt_pending && r_fetch_state[1]) begin
-								// c_pc_fetch = (dec_br_enable?(jumping_stall&&return_branch_valid?return_branch_pc:dec_branch):branch_next_fetch);
 								c_pc_fetch = (dec_br_enable?(jumping_stall?r_pc:dec_branch):branch_next_fetch);
-								//c_fetch_branched = dec_br_enable;
 								c_fetch_branched = dec_br_enable&&jumping_stall?r_pc_branched:dec_br_enable;
 							end else begin
 								c_pc_fetch = r_pc;
@@ -563,9 +560,12 @@ module pc(input clk,  input reset,
 				c_pc_restart = 0;
 				c_pc_fetch = r_pc;
 				c_fetch_branched = r_pc_branched;
-				c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
-				c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
-				c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+				//c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+				c_fetch_br_default = !predict_branch_valid;
+				//c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+				c_fetch_br_taken = (predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+				//c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+				c_fetch_br_valid = predict_branch_valid;
 				c_pc_dest_dec = r_pc_dest_dec;
 				c_pc_br_valid = predict_branch_valid;
 				prediction_used = !r_pc_restart;
@@ -624,7 +624,7 @@ module pc(input clk,  input reset,
 				end else
 				if (dec_br_enable && return_branch_valid) begin
 					if (r_pc != return_branch_pc) begin
-						push_enable = |has_jmp;
+						push_enable = 1;
 						push_noissue = unconditional_jmp && !might_branch && (!(r_fetch_br_valid && r_fetch_br_taken) || r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
 						push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_valid && r_fetch_br_taken ? r_fetch_br_predict_dec : dec_br_offset;
@@ -655,7 +655,7 @@ module pc(input clk,  input reset,
 							c_pc_fetch = 64'bx;
 							c_fetch_branched = 0;
 						end else begin
-							push_enable = |has_jmp;
+							push_enable = 1;
 							push_noissue = unconditional_jmp && !might_branch && (!(r_fetch_br_valid && r_fetch_br_taken) || r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
 							push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 							push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
@@ -665,9 +665,12 @@ module pc(input clk,  input reset,
 							c_pc_dest_dec = return_branch_pc;
 							c_pc_fetch = r_pc;
 							c_fetch_branched = 1;
-							c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
-							c_fetch_br_taken = r_pc_br_taken;
-							c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+							//c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+							c_fetch_br_default = !predict_branch_valid;
+							//c_fetch_br_taken = r_pc_br_taken;
+							c_fetch_br_taken = (predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+							//c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+							c_fetch_br_valid = predict_branch_valid;
 							c_pc_br_valid = predict_branch_valid;
 							prediction_used = 1;
 							c_fetch_prediction_context = prediction_context;
@@ -715,9 +718,12 @@ module pc(input clk,  input reset,
 
 						c_pc_fetch = r_pc;
 						c_fetch_branched = r_pc_branched;
-						c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
-						c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
-						c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+						//c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+						c_fetch_br_default = !predict_branch_valid;
+						//c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+						c_fetch_br_taken = (predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+						//c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+						c_fetch_br_valid = predict_branch_valid;
 
 						c_pc_br_valid = predict_branch_valid;
 						prediction_used = 1;
@@ -808,7 +814,6 @@ module pc(input clk,  input reset,
 						push_taken = 1;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
 						push_dest = dec_branch;
-						push_force_taken = 1;
 						c_pc_br_valid = 0;
 						c_pc = dec_branch;
 						c_pc_branched = 1;
@@ -835,14 +840,14 @@ module pc(input clk,  input reset,
 				if (!dec_br_enable && r_pc != branch_next_fetch) begin	// local mispredict
 					prediction_wrong = 1;
 					prediction_wrong_taken = 0;
+					prediction_wrong_dec = 0;
 					c_fetch_prediction_context.global_history[3:0] = 4'b0;
 					if (!rename_stall) begin
-						push_enable = |has_jmp&&!r_fetch_restart;
+						push_enable = !r_fetch_restart;
 						push_noissue = 0;
 						push_taken = 0;
 						push_branch_decoder = 'bx;
 						push_dest = branch_next_fetch;
-						push_force_default = 1;
 						c_pc_br_valid = 1;
 						c_pc_br_taken = 0;
 						c_pc = branch_next_fetch;
@@ -875,7 +880,7 @@ module pc(input clk,  input reset,
 						c_fetch_branched = r_fetch_branched;
 						c_fetch_br_default = r_fetch_br_default;
 					end else begin
-						push_enable = |has_jmp && !r_fetch_restart;
+						push_enable = !r_fetch_restart;
 						push_noissue = unconditional_jmp && !might_branch && (r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
 						push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
@@ -883,24 +888,33 @@ module pc(input clk,  input reset,
 						c_dec_stall = 0;
 						c_pc_fetch = r_pc;
 						c_fetch_branched = dec_br_enable;
-						c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
-						c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
-						c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+						//c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
+						c_fetch_br_default = !predict_branch_valid;
+						//c_fetch_br_taken = r_pc_br_taken|(predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+						c_fetch_br_taken = (predict_branch_valid && predict_branch_taken && r_pc[3:1] <= predict_branch_decoder);
+						//c_fetch_br_valid = r_pc_br_valid|predict_branch_valid;
+						c_fetch_prediction_context = prediction_context;
+						c_fetch_br_valid = predict_branch_valid;
 						c_pc_br_valid = predict_branch_valid;
-						prediction_wrong = r_fetch_br_default;
+						prediction_wrong = r_fetch_br_default || (dec_br_enable && dec_br_offset != r_fetch_br_predict_dec);
 						prediction_wrong_taken = dec_br_enable;
-						prediction_wrong_dec = dec_br_offset;
+						prediction_wrong_dec = (dec_br_enable?dec_br_offset:0);
 						if (r_fetch_br_default) begin
 							if (dec_br_enable) begin
 								c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
-								push_force_taken = 1;
+						//		push_force_taken = 1;
 							end else begin
 								c_fetch_prediction_context.global_history[3:0] = 4'b0;
-								push_force_default = 1;
+						//		push_force_default = 1;
+							end
+						end	else begin
+							if (dec_br_enable && dec_br_offset != r_fetch_br_predict_dec) begin
+								c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
+							//	push_force_taken = 1;
 							end
 						end
+					
 						prediction_used = 1;
-						c_fetch_prediction_context = prediction_context;
 						if (predict_branch_valid) begin
 							if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
 								c_pc = predict_branch_pc;
@@ -921,24 +935,13 @@ module pc(input clk,  input reset,
 								prediction_taken = 0;
 							end
 						end else begin
-//							if (dec_br_enable && r_pc[3:1] < dec_br_offset) begin
-//								c_pc = dec_branch;
-//								c_pc_branched = 1;
-//								c_pc_br_default = 0;
-//								c_pc_br_taken = 1;
-//								c_pc_br_predict_dec = dec_br_offset;
-//								c_pc_dest_fetch = dec_branch;
-//								c_dec_stall = 1;
-//								c_fetch_state = 3'b001;
-//							end else begin
-								c_pc = branch_next;
-								c_pc_branched = 0;
-								c_pc_br_predict_dec = 'bx;
-								c_pc_br_default = 1;
-								c_pc_br_taken = 0;
-								c_pc_dest_fetch = branch_next;
-								prediction_taken = 0;
-//							end
+							c_pc = branch_next;
+							c_pc_branched = 0;
+							c_pc_br_predict_dec = 'bx;
+							c_pc_br_default = 1;
+							c_pc_br_taken = 0;
+							c_pc_dest_fetch = branch_next;
+							prediction_taken = 0;
 						end
 					end
 				end
@@ -989,7 +992,7 @@ module pc(input clk,  input reset,
 						c_fetch_prediction_context.global_history[3:0] = 4'b0;
 					end
 					if (!rename_stall) begin
-						push_enable = |has_jmp && !r_fetch_restart;
+						push_enable = !r_fetch_restart;
 						push_noissue = 0;
 						push_taken = 0;
 						push_branch_decoder = 'bx;
@@ -1022,16 +1025,26 @@ module pc(input clk,  input reset,
 						c_pc_fetch = r_pc_fetch;
 						c_fetch_branched = r_fetch_branched;
 					end else begin
-						prediction_wrong = r_fetch_br_default;
+						push_enable = !r_fetch_restart;
+						push_noissue = unconditional_jmp && !might_branch && (r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
+						push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
+						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_default ? dec_br_offset :  r_fetch_br_predict_dec;
+						push_dest = r_pc;
+						prediction_wrong = r_fetch_br_default || (dec_br_enable && dec_br_offset != r_fetch_br_predict_dec);
 						prediction_wrong_taken = dec_br_enable;
-						prediction_wrong_dec = dec_br_offset;
+						prediction_wrong_dec = (dec_br_enable?dec_br_offset:0);
 						if (r_fetch_br_default) begin
 							if (dec_br_enable) begin
 								c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
-								push_force_taken = 1;
+							//	push_force_taken = 1;
 							end else begin
 								c_fetch_prediction_context.global_history[3:0] = 4'b0;
-								push_force_default = 1;
+							//	push_force_default = 1;
+							end
+						end	else begin
+							if (dec_br_enable && dec_br_offset != r_fetch_br_predict_dec) begin
+								c_fetch_prediction_context.global_history[3:0] = {dec_br_offset, 1'b1};
+								//push_force_taken = 1;
 							end
 						end
 						c_fetch_state = 3'b001;	

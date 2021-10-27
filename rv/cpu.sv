@@ -586,6 +586,7 @@ assign pmp_valid[1]=0;
 
 			reg		 predicted_branch;
 			reg  [BDEC-1:1]dec_br_offset;
+			reg  [BDEC-1:1]dec_br_start_offset;
 			wire	jumping_stall_0, jumping_stall_1, jumping_stall_2, jumping_stall_3;
 			wire	jumping_stall_4, jumping_stall_5, jumping_stall_6, jumping_stall_7;
 			reg		jumping_stall_pred;
@@ -626,6 +627,7 @@ assign pmp_valid[1]=0;
 				.dec_br_enable(predicted_branch),	
 				.dec_branch(branch_address),
 				.dec_br_offset(dec_br_offset),
+				.dec_br_start_offset(dec_br_start_offset),
 				.rename_stall(rename_stall[H]),
 
 				.commit_br_enable(commit_br_enable[0][H]),		// only handle 1 branch unit per hart at the moment

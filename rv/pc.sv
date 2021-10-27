@@ -28,7 +28,8 @@ module pc(input clk,  input reset,
 
 	input	       dec_br_enable,
 	input  [RV-1:1]dec_branch,				// predicted branch from decoder (delta of PC)
-	input	  [BDEC-1:1]dec_br_offset,		// which section
+	input	  [BDEC-1:1]dec_br_offset,			// which section - end of instruction
+	input	  [BDEC-1:1]dec_br_start_offset,	// which section - start of instruction
 
 	input	       commit_br_enable,
 	input    [RV-1:1]commit_br, 	// unpredicted branch from branch unit
@@ -382,7 +383,7 @@ module pc(input clk,  input reset,
 	endcase
 
 	always @(*) begin
-		in_v = dec_br_offset+(subr_inc2?1:2);
+		in_v = dec_br_start_offset+(subr_inc2?1:2);
 		ret_addr = {in_v[BDEC]?fetch_inc:r_pc_fetch[RV-1:BDEC], in_v[BDEC-1:1]};
 	end
 

@@ -65,6 +65,7 @@ module bpred(input clk,  input reset,
 		input [$clog2(NUM_PENDING)-1:0]commit_shootdown_token,	// latest killed entry
 		input        [RV-1:1]commit_shootdown_dest,			// 
 		input      [BDEC-1:1]commit_shootdown_dec,
+		input				 commit_shootdown_short,
 
 		input [NUM_PENDING-1:0]commit_token,			// bit encoded tokens from the commitQ commit stage
 
@@ -112,6 +113,14 @@ module bpred(input clk,  input reset,
 		r_mode[0] <= cpu_mode[0];
 	end
 	wire [2:0]clear = {1'b0, clear_sup, clear_user};
+
+
+	reg [BDEC-1:1]shootdown_dec;
+	reg			  shootdown_taken;
+	always @(*) begin
+		shootdown_taken = commit_shootdown_taken&(commit_shootdown_short||commit_shootdown_dec!=7);
+		shootdown_dec = commit_shootdown_short ? commit_shootdown_dec : commit_shootdown_dec+1;
+	end
 
 	//
 	//	return stack
@@ -301,7 +310,7 @@ module bpred(input clk,  input reset,
 				end else	
 				if (r_mode[M]) begin
 					if (commit_shootdown) begin
-						r_global_history <= {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], (commit_shootdown_taken?commit_shootdown_dec:3'b0), commit_shootdown_taken}; 
+						r_global_history <= {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], (shootdown_taken?shootdown_dec:3'b0), shootdown_taken}; 
 					end else
 					case ({prediction_used, prediction_wrong}) // synthesis full_case parallel_case
 					2'b11: r_global_history <= {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken};
@@ -351,7 +360,7 @@ module bpred(input clk,  input reset,
 					end
 				end
 				if (commit_shootdown && r_mode[M])
-					$display("%d:@prediction_shootdown taken=%d token=%h dest=%h history=%h", $time, commit_shootdown_taken, commit_shootdown_token, commit_shootdown_dest, {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], commit_shootdown_dec, commit_shootdown_taken});
+					$display("%d:@prediction_shootdown taken=%d token=%h dest=%h history=%h", $time, shootdown_taken, commit_shootdown_token, commit_shootdown_dest, {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], shootdown_dec, shootdown_taken});
 			end
 `endif
 
@@ -723,9 +732,11 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 					if (r_pend_valid[P] && commit_token_done[P]) 
 						r_pend_committed[P] <= 1;
 					if (commit_shootdown && commit_shootdown_token == P) begin   // this branch was mispredicted
-						r_pend_dest[P] <= commit_shootdown_dest;
-						r_pend_taken[P] <= commit_shootdown_taken;
-						r_pend_dec[P] <= commit_shootdown_dec;
+						r_pend_taken[P] <= shootdown_taken;
+						if (shootdown_taken) begin
+							r_pend_dest[P] <= commit_shootdown_dest;
+							r_pend_dec[P] <= shootdown_dec;
+						end
 					end else
 					if (fixup_dest && last_pushed == P) begin   // this branch was mispredicted
 						r_pend_dest[P] <= fixup_dest_pc;
@@ -763,10 +774,10 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 					r_pend_global_history[P] <= push_context.global_history;
 				end else 
 				if (commit_shootdown && commit_shootdown_token == P) begin   // this branch was mispredicted
-//$display("%d: SHOOT taken=%d dec=%d gl=%d bi=%d comb-prev=%b\n", $time, commit_shootdown_taken, commit_shootdown_dec, r_pend_global_dec[P], r_pend_bimodal_dec[P], r_pend_combined_prev[P]);
-					casez ({commit_shootdown_taken, r_pend_global_prev[P][1], r_pend_bimodal_prev[P][1],
-							r_pend_global_dec[P]==commit_shootdown_dec,
-							r_pend_bimodal_dec[P]==commit_shootdown_dec}) // synthesis full_case parallel_case
+//$display("%d: SHOOT taken=%d dec=%d gl=%d bi=%d comb-prev=%b\n", $time, shootdown_taken, shootdown_dec, r_pend_global_dec[P], r_pend_bimodal_dec[P], r_pend_combined_prev[P]);
+					casez ({shootdown_taken, r_pend_global_prev[P][1], r_pend_bimodal_prev[P][1],
+							r_pend_global_dec[P]==shootdown_dec,
+							r_pend_bimodal_dec[P]==shootdown_dec}) // synthesis full_case parallel_case
 					5'b1_11_10,
 					5'b1_10_1?,
 					5'b0_01_??:if (r_pend_combined_prev[P]!=3) begin
@@ -783,7 +794,7 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 								end
 					default:	r_pend_combined_pred[P] <= r_pend_combined_prev[P];
 					endcase
-					if (commit_shootdown_taken) begin
+					if (shootdown_taken) begin
 						r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b11 ? 2'b11 : r_pend_global_prev[P]+1;
 						r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b11 ? 2'b11: r_pend_bimodal_prev[P]+1;
 					end else begin

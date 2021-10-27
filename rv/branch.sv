@@ -39,6 +39,8 @@ module branch(
 	output	     commit_br_enable, // not true if predicted correctly
 	output [RV-1:1]commit_br,
     output [LNCOMMIT-1:0]commit_br_addr,
+	output       commit_br_short,
+	output [BDEC-1:1]commit_br_dec,
 	output [RV-1:0]result
     );
 
@@ -49,6 +51,7 @@ module branch(
     parameter NHART=1;
     parameter HART=9;
     parameter LNHART=0;
+    parameter BDEC=4;
     parameter NCOMMIT = 32; // number of commit registers
     parameter LNCOMMIT = 5; // number of bits to encode that
     parameter RA=5;
@@ -75,6 +78,7 @@ module branch(
 	reg [NHART-1:0]r_res_makes_rd;
     assign res_makes_rd = r_res_makes_rd;
 	reg	[RV-1:1]r_pc, new_address, r_branch_dest;
+	assign commit_br_dec = r_pc[BDEC-1:1];
 	reg	      need_jmp;
 	assign commit_br = new_address;
 	reg		short_pc, predicted;
@@ -93,6 +97,7 @@ module branch(
 	reg		r_enable;
 	reg		r_makes_rd;
 	reg		r_short_pc;
+	assign commit_br_short = r_short_pc;
 	reg		r_predicted;
 	reg	[31:0]r_immed;
 

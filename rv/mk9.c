@@ -72,8 +72,17 @@ int main(int argc, char ** argv)
 
 
         printf("	always @(*) begin\n");
+        printf("		casez (jumping_rel_jmp_end_fetch) // synthesis full_case parallel_case\n");
+        for (i = 0; i < B; i++) {
+                printf("		%d'b", B);
+                for (j = 0; j < B; j++) printf((j) == (i)?"1":(j) >(i)?"0":"?");
+                printf(": dec_br_offset = %d;\n", B-i-1);
+	}
+        printf("		default: dec_br_offset = 'bx;");
+        printf("		endcase\n");
+        printf("	end\n\n");
+        printf("	always @(*) begin\n");
         printf("		predicted_branch = |jumping_rel_jmp_fetch;\n");
-        printf("		dec_br_offset = 'bx;\n");
         printf("		branch_address = 'bx;\n");
         printf("		jumping_stall_pred = 0;\n");
 	printf("		subr_push = 0;\n");
@@ -85,7 +94,6 @@ int main(int argc, char ** argv)
                 for (j = 0; j < B; j++) printf((j) == (i)?"1":(j) >(i)?"0":"?");
                 printf(": begin\n");
 		printf("				branch_address = pc_br_fetch[%d];\n", B-i-1);
-		printf("				dec_br_offset = %d;\n", B-i-1);
 		printf("				jumping_stall_pred = jumping_stall_%d;\n", (B-i-1)>>1);
 		printf("				subr_push = jumping_push[%d];\n", B-i-1);
 		printf("				subr_pop = jumping_pop[%d];\n", B-i-1);

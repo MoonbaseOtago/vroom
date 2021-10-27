@@ -443,7 +443,9 @@ assign pmp_valid[1]=0;
 	wire   [19:0]dec_br[0:NHART-1];
 	wire   [BDEC-1:1]dev_offset[0:NHART-1];
 
-	wire   [NHART-1:0]commit_br_enable[0:NBRANCH-1][0:NHART-1];
+	wire   [NHART-1:0]commit_br_enable[0:NBRANCH-1];
+	wire   [NHART-1:0]commit_br_short[0:NBRANCH-1];
+	wire   [BDEC-1:1]commit_br_dec[0:NBRANCH-1][0:NHART-1];
 	wire   [RV-1:1]commit_br[0:NBRANCH-1][0:NHART-1];
 	wire [LNCOMMIT-1:0]commit_br_addr[0:NBRANCH-1][0:NHART-1];
 
@@ -630,7 +632,8 @@ assign pmp_valid[1]=0;
 				.commit_br(commit_br[0][H]),
 				.commit_br_cs_top(cs_top_commit[commit_br_addr[0][H]][H]),
 				.commit_branch_token(branch_token_commit[commit_br_addr[0][H]][H]),
-				.commit_br_dec(branch_dec_commit[commit_br_addr[0][H]][H]),
+				.commit_br_dec(commit_br_dec[0][H]),
+				.commit_br_short(commit_br_short[0][H]),
 				.commit_br_taken(branch_taken_commit[H][commit_br_addr[0][H]]),
 
 				.pc_dest_dec(pc_dest_dec),
@@ -682,6 +685,7 @@ assign pmp_valid[1]=0;
 			wire 	[RV-1:1]pc_br_fetch[0:2*NDEC-1];
 			wire 	[RV-1:1]pc_dec[0:2*NDEC-1];
 			wire 	[2*NDEC-1:0]jumping_rel_jmp_fetch;
+			wire 	[2*NDEC-1:0]jumping_rel_jmp_end_fetch;
 			wire 	[2*NDEC-1:0]jumping_term;
 			wire 	[2*NDEC-1:0]jumping_issue;
 			wire 	[2*NDEC-1:0]jumping_push;
@@ -827,6 +831,7 @@ assign pmp_valid[1]=0;
 					.unit_type_1(unit_type_dec[2*D]),
 					.control_1(control_dec[2*D]),
 					.jumping_rel_jmp_1(jumping_rel_jmp_fetch[2*D]),
+					.jumping_rel_jmp_end_1(jumping_rel_jmp_end_fetch[2*D]),
 					.has_jmp_1(has_jmp[2*D]),
 					.has_jmp_back_1(has_jmp_back[2*D]),
 					.pc_br_fetch_1(pc_br_fetch[2*D]),
@@ -854,6 +859,7 @@ assign pmp_valid[1]=0;
 					.unit_type_2(unit_type_dec[2*D+1]),
 					.control_2(control_dec[2*D+1]),
 					.jumping_rel_jmp_2(jumping_rel_jmp_fetch[2*D+1]),
+					.jumping_rel_jmp_end_2(jumping_rel_jmp_end_fetch[2*D+1]),
 					.has_jmp_2(has_jmp[2*D+1]),
 					.has_jmp_back_2(has_jmp_back[2*D+1]),
 					.pc_br_fetch_2(pc_br_fetch[2*D+1]),
@@ -1970,7 +1976,7 @@ end
 				assign local_reg_read_addr[2*B+1][H] = rs2_commit[local_alu_sched[B][H]][H];
 				always @(*) 
 					local_reg_read_enable[2*B+1][H] = local_enable_sched[B][H];
-				branch #(.RV(RV), .RA(RA), .ADDR(B), .HART(H), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))b(.reset(reset), .clk(clk), 
+				branch #(.RV(RV), .RA(RA), .ADDR(B), .HART(H), .CNTRL_SIZE(CNTRL_SIZE), .BDEC(BDEC), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))b(.reset(reset), .clk(clk), 
 `ifdef SIMD
 					.simd_enable(simd_enable),
 `endif
@@ -1985,6 +1991,8 @@ end
 					.branch_dest(branch_dest_commit[local_alu_sched[B][H]][H]),
 
 					.commit_br_enable(commit_br_enable[B][H]),		// only handle 1 branch unit at the moment
+					.commit_br_short(commit_br_short[B][H]),
+					.commit_br_dec(commit_br_dec[B][H]),
 					.commit_br(commit_br[B][H]),
 					.commit_kill(commit_kill[H]),
 					.result(local_reg_write_data[B][H]),

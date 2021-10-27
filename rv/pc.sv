@@ -34,6 +34,7 @@ module pc(input clk,  input reset,
 	input    [RV-1:1]commit_br, 	// unpredicted branch from branch unit
 	input  [BDEC-1:1]commit_br_dec,
 	input		   commit_br_taken,
+	input		   commit_br_short,
 	input [$clog2(CALL_STACK_SIZE)-1:0]commit_br_cs_top,
 	input [$clog2(NUM_PENDING)-1:0]commit_branch_token,
 
@@ -241,6 +242,7 @@ module pc(input clk,  input reset,
 		.commit_shootdown(commit_br_enable),		// commitq break shootdown (branch miss)
 		.commit_shootdown_token(commit_branch_token),	// latest killed entry
 		.commit_shootdown_dec(commit_br_dec),
+		.commit_shootdown_short(commit_br_short),
 		.commit_shootdown_taken(commit_br_taken),
 		.commit_shootdown_dest(commit_br),			// 
 
@@ -397,10 +399,10 @@ module pc(input clk,  input reset,
 		r_pc_dest_fetch <= c_pc_dest_fetch;
 		r_pc_dec_cs_top <= predict_cs_top;
 		r_pc_br_predict_dec <= c_pc_br_predict_dec;
-		r_dec_branch_token <= push_token;
 		//if (!rename_stall)
 		if (!dec_stall&&!rename_stall) begin
 			r_pc_dest_dec <= c_pc_dest_dec;
+			r_dec_branch_token <= push_token;
 		end
 		r_pc_branched <= c_pc_branched;
 		r_pc_restart <= c_pc_restart;
@@ -796,7 +798,7 @@ module pc(input clk,  input reset,
 			if (fetch_ok) begin
 				if (!rename_stall) begin
 					c_fetch_restart = 0;
-					if (r_fetch_restart && dec_br_enable) begin	// pix up pushed entry
+					if (r_fetch_restart && dec_br_enable) begin	// fix up pushed entry
 						fixup_dest = 1;
 					end
 				end

@@ -163,6 +163,7 @@ module decode(input clk,
 		output [RV-1:1]pc_1,
 		output  [3:0]unit_type_1,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 		output	     jumping_rel_jmp_1,
+		output	     jumping_rel_jmp_end_1,
 		output [RV-1:1]pc_br_fetch_1,
 		output		   jumping_term_1,
 		output		   jumping_issue_1,
@@ -190,6 +191,7 @@ module decode(input clk,
 		output [RV-1:1]pc_2,
 		output  [3:0]unit_type_2,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 		output	     jumping_rel_jmp_2,
+		output	     jumping_rel_jmp_end_2,
 		output [RV-1:1]pc_br_fetch_2,
 		output		   jumping_term_2,
 		output		   jumping_issue_2,
@@ -357,7 +359,12 @@ module decode(input clk,
 
 	assign jumping_stall = ((c_jumping_stall_1&c_valid_out_1)|(c_jumping_stall_2&c_valid_out_2))&valid;
 	assign jumping_rel_jmp_1 = (c_jumping_stall_1|c_jumping_rel_jmp_1)&c_valid_out_1&valid;
+	assign jumping_rel_jmp_end_1 = !partial_valid_in && ins[1:0]==3 ? 1'b0:
+									(c_jumping_stall_1|c_jumping_rel_jmp_1)&c_valid_out_1&valid;
 	assign jumping_rel_jmp_2 = (c_jumping_stall_2|c_jumping_rel_jmp_2)&c_valid_out_2&valid;
+	assign jumping_rel_jmp_end_2 =	!partial_valid_in && ins[1:0]==3 ? 
+									(c_jumping_stall_1|c_jumping_rel_jmp_1)&c_valid_out_1&valid:
+									(c_jumping_stall_2|c_jumping_rel_jmp_2)&c_valid_out_2&valid;
 	assign has_jmp_1 = c_has_jmp_1&c_valid_out_1&valid;
 	assign has_jmp_2 = c_has_jmp_2&c_valid_out_2&valid;
 	assign has_jmp_back_1 = c_has_jmp_back_1;

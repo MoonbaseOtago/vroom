@@ -21,7 +21,7 @@
 `include "pred_context.si"
 
 `ifndef VSYNTH2
-`define XDEBUG 1
+//`define XDEBUG 1
 `endif
 
 module bpred(input clk,  input reset,
@@ -51,6 +51,7 @@ module bpred(input clk,  input reset,
 		input		 [RV-1:1]push_dest,					// branch dest (if taken)
 		input				 push_taken,				// true if branch was taken
 		output [$clog2(NUM_PENDING)-1:0]push_token,		// token for when we fail
+		output [$clog2(NUM_PENDING_RET)-1:0]push_token_ret,
 		input PRED_STATE	 push_context,
 
         input				 fixup_dest,				// fix up prediction
@@ -63,23 +64,21 @@ module bpred(input clk,  input reset,
 		input				 commit_shootdown,			// commitq break shootdown (branch miss)
 		input				 commit_shootdown_taken,	// commitq break shootdown (branch miss)
 		input [$clog2(NUM_PENDING)-1:0]commit_shootdown_token,	// latest killed entry
+		input [$clog2(NUM_PENDING_RET)-1:0]commit_shootdown_token_ret,
 		input        [RV-1:1]commit_shootdown_dest,			// 
 		input      [BDEC-1:1]commit_shootdown_dec,
 		input				 commit_shootdown_short,
 
 		input [NUM_PENDING-1:0]commit_token,			// bit encoded tokens from the commitQ commit stage
+		input [NUM_PENDING_RET-1:0]commit_token_ret,
 
 		input				 push_cs_stack, 
+		input		 [RV-1:1]ret_addr,
 		input				 pop_cs_stack,
 		output				 pop_available,
-		input		 [RV-1:1]ret_addr,
 		output				 return_branch_valid,
-		output		 [RV-1:1]return_branch_pc,
+		output		 [RV-1:1]return_branch_pc
 		
-
-		output	[$clog2(CALL_STACK_SIZE)-1:0]cs_top,
-		input				 flush_call_stack,
-		input	[$clog2(CALL_STACK_SIZE)-1:0]flush_cs_top
 	);
 
 	parameter RV=64;
@@ -102,6 +101,7 @@ module bpred(input clk,  input reset,
 	parameter	NUM_COMBINED = 12;		// size of the combined tables (log entries)
 `endif
 	parameter	NUM_PENDING = 32;		// probably should be the same size as the commitQ
+	parameter   NUM_PENDING_RET = 8;	// number of pending call slots
 	parameter	VTAG_SIZE = 8;			// we don't keep a full tag for gl/bi entries
 
 	parameter	GLOBAL_HISTORY = `GH;		// size of the global history (bits)
@@ -130,96 +130,200 @@ module bpred(input clk,  input reset,
 	wire [2:0]return_branch_valid_x;
 	wire [RV-1:1]return_branch_pc_x[0:2];
 	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_x[0:2];
+	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_x_p[0:2];
+	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_x_n[0:2];
 
 	reg			pop_available_m;
 	assign pop_available = pop_available_m;
-	reg			return_branch_valid_m;
-	assign return_branch_valid = return_branch_valid_m;
+	assign return_branch_valid = pop_available_m;
 	reg [RV-1:1]return_branch_pc_m;
 	assign return_branch_pc = return_branch_pc_m;
 	reg [$clog2(CALL_STACK_SIZE)-1:0]cs_top_m;
+	reg [$clog2(CALL_STACK_SIZE)-1:0]cs_top_m_p;
+	reg [$clog2(CALL_STACK_SIZE)-1:0]cs_top_m_n;
 	assign cs_top = cs_top_m;
 
 	always @(*)
 	casez (r_mode) // synthesis full_case parallel_case
 	3'b??1: begin
-				pop_available_m = pop_available_x[0];
-				return_branch_valid_m = return_branch_valid_x[0];
-				return_branch_pc_m = return_branch_pc_x[0];
 				cs_top_m = cs_top_x[0];
+				cs_top_m_p = cs_top_x_p[0];
+				cs_top_m_n = cs_top_x_n[0];
 			end
 	3'b?1?: begin
-				pop_available_m = pop_available_x[1];
-				return_branch_valid_m = return_branch_valid_x[1];
-				return_branch_pc_m = return_branch_pc_x[1];
 				cs_top_m = cs_top_x[1];
+				cs_top_m_p = cs_top_x_p[1];
+				cs_top_m_n = cs_top_x_n[1];
 			end
 	3'b1??: begin
-				pop_available_m = pop_available_x[2];
-				return_branch_valid_m = return_branch_valid_x[2];
-				return_branch_pc_m = return_branch_pc_x[2];
 				cs_top_m = cs_top_x[2];
+				cs_top_m_p = cs_top_x_p[2];
+				cs_top_m_n = cs_top_x_n[2];
 			end
 	endcase
 
-	genvar M;
+	genvar P, I, M;
+
+	wire [$clog2(NUM_PENDING_RET)-1:0]prev_sh = commit_shootdown_token_ret-1;
 
 	generate
 		for (M = 0; M < 3; M=M+1) begin: callstack
 			reg [RV-1:1]r_call_stack[0:(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1];
-			reg [$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1:0]r_cs_top, r_cs_bottom;
-			assign cs_top_x[M] = r_cs_top;
-			wire [$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1:0]cs_top_inc=r_cs_top+1;
-			wire [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]cs_top_dec=r_cs_top-1;
-			reg			r_empty;
-			assign pop_available_x[M] = !r_empty;
-			assign return_branch_valid_x[M] = pop_cs_stack&&!r_empty;
+			reg [(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]r_call_stack_valid;
+			assign pop_available_x[M] = r_call_stack_valid[r_cs_top];
 			assign return_branch_pc_x[M] = r_call_stack[r_cs_top];
-		
-			wire		[$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1:0]sc_diff = r_cs_top-r_cs_bottom;
-			wire		fullish = sc_diff[$clog2((M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE))-1];
-		
-		
-			always @(posedge clk) begin
-				casez ({reset||clear[M], flush_call_stack&r_mode[M], push_cs_stack&r_mode[M], pop_cs_stack&!r_empty&r_mode[M]}) // synthesis full_case parallel_case
-				4'b1???:begin					
-							r_cs_top <= 0;
-							r_cs_bottom <= 0;
-							r_empty <= 1;
-						end
-				4'b01??:begin
-							if (flush_cs_top == r_cs_bottom) begin
-								r_empty <= !fullish;
-							end
-							r_cs_top <= flush_cs_top;
-						end
-				4'b0010:begin
-							if (r_empty) begin
-								r_empty <= 0;
-							end else
-							if (r_cs_bottom == r_cs_top) begin
-								r_cs_bottom <= cs_top_inc;
-							end
-							r_cs_top <= cs_top_inc;
-							r_call_stack[cs_top_inc] <= ret_addr;
-						end
-				4'b0001:begin
-							if (r_cs_bottom == cs_top_dec) begin
-								r_empty <= 1;
-							end
-							r_cs_top <= cs_top_dec;
-						end
-				4'b0011:begin
-							r_call_stack[r_cs_top] <= ret_addr;
-						end
-				4'b0000: ;
-				endcase
+
+			reg [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]r_cs_top;
+			wire [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]cs_top_p = r_cs_top+1;
+			wire [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]cs_top_n = r_cs_top-1;
+
+			if (MCALL_STACK_SIZE != CALL_STACK_SIZE && M==2) begin
+				assign cs_top_x[M] = {1'b0,r_cs_top};
+				assign cs_top_x_p[M] = {1'b0,cs_top_p};
+				assign cs_top_x_n[M] = {1'b0,cs_top_n};
+			end else begin
+				assign cs_top_x[M] = r_cs_top;
+				assign cs_top_x_p[M] = cs_top_p;
+				assign cs_top_x_n[M] = cs_top_n;
 			end
+		
+			always @(posedge clk) 
+			if (reset || clear[M]) begin
+				r_call_stack_valid <= 0;
+			end else
+			if (r_mode[M] && r_ps_valid[r_ps_out] && r_ps_committed[r_ps_out]) begin
+				if (r_ps_push[r_ps_out]) begin
+					r_call_stack_valid[r_ps_sp[r_ps_out]] <= 1;
+				end else begin
+					r_call_stack_valid[r_ps_sp[r_ps_out]] <= 0;
+				end
+			end
+			
+			always @(posedge clk) 
+			if (r_mode[M] && r_ps_valid[r_ps_out] && r_ps_committed[r_ps_out] && r_ps_push[r_ps_out]) begin
+				r_call_stack[r_ps_sp[r_ps_out]] <= r_ps_return[r_ps_out];
+			end
+
+			always @(posedge clk) begin
+				if (reset) begin
+					r_cs_top <= 0;
+				end else
+				if (r_mode[M]) begin
+					casez ({commit_shootdown&r_ps_valid[prev_sh], push_cs_stack, pop_cs_stack}) // synthesis full_case parallel_case
+					3'b1_??: r_cs_top <= r_ps_sp[prev_sh];
+					3'b0_1?: r_cs_top <= r_cs_top+1;
+					3'b0_?1: r_cs_top <= r_cs_top-1;
+					3'b0_00: ;
+					endcase
+				end
+			end
+
 		end
 	endgenerate
 
 	//
-	//	branch predictors - esentially there's a bimodal predictor and a global predictor and a predictor predictor
+	// like the branch prediction below we need to run a speculative front end for the call/return stack
+	//		since speculations are are discaded across mode switches we only need one for all modes
+	//		we use the 'tokens' from the speculative cache below to manage this one
+	//
+
+
+	reg	        [NUM_PENDING_RET-1:0]r_ps_valid;	
+	reg	        [NUM_PENDING_RET-1:0]r_ps_committed;	
+	reg	        [NUM_PENDING_RET-1:0]r_ps_push;	
+	reg                      [RV-1:1]r_ps_return[0:NUM_PENDING_RET-1];
+	reg [$clog2(CALL_STACK_SIZE)-1:0]r_ps_sp[0:NUM_PENDING_RET-1];
+
+	reg [$clog2(NUM_PENDING_RET)-1:0]r_ps_in;
+	reg [$clog2(NUM_PENDING_RET)-1:0]r_ps_out;
+	assign	push_token_ret = r_ps_in;
+
+	wire [NUM_PENDING_RET-1:0]ps_match;
+	reg [$clog2(NUM_PENDING_RET)-1:0]ps_match_ind;
+	always @(*)
+	if (push_cs_stack) begin			// this case may be a bit iffy - this is the call to instruction bundle with
+		return_branch_pc_m = 1;			//	immediate return case, may not be doable for really fast timing
+		return_branch_pc_m = ret_addr;
+	end else
+	if (|ps_match) begin
+			pop_available_m = 1;
+			return_branch_pc_m = r_ps_return[ps_match_ind];
+	end else
+	casez (r_mode) // synthesis full_case parallel_case
+	3'b??1: begin
+				pop_available_m = pop_available_x[0];
+				return_branch_pc_m = return_branch_pc_x[0];
+			end
+	3'b?1?: begin
+				pop_available_m = pop_available_x[1];
+				return_branch_pc_m = return_branch_pc_x[1];
+			end
+	3'b1??: begin
+				pop_available_m = pop_available_x[2];
+				return_branch_pc_m = return_branch_pc_x[2];
+			end
+	endcase
+
+	always @(posedge clk) begin
+		if (reset) begin
+			r_ps_in <= 0;
+		end else
+		if (commit_shootdown && r_ps_valid[commit_shootdown_token_ret]) begin
+			r_ps_in <= commit_shootdown_token_ret;
+		end else
+		if (push_cs_stack || pop_cs_stack) begin
+			r_ps_in <= r_ps_in+1;
+		end
+	end
+
+	always @(posedge clk) begin
+		if (reset) begin
+			r_ps_out <= 0;
+		end else
+		if (r_ps_valid[r_ps_out] && r_ps_committed[r_ps_out]) begin
+			r_ps_out <= r_ps_out+1;
+		end
+	end
+
+	wire [NUM_PENDING_RET-1:0]commit_token_ret_done;
+	assign commit_token_ret_done = {commit_token_ret[0], commit_token_ret[NUM_PENDING_RET-1:1]};	// because multiple may signal we
+																					// wait until all are done
+
+	generate
+		for (P = 0; P < NUM_PENDING_RET; P=P+1) begin :ps
+			assign  ps_match[P] = r_ps_valid[P] && r_ps_sp[P] == cs_top_m && r_ps_push[P];
+			always @(posedge clk)
+			if (reset) begin
+				r_ps_valid[P] <= 0;
+			end else
+			if (r_ps_out == P && r_ps_valid[P] && r_ps_committed[P]) begin
+				r_ps_valid[P] <= 0;
+			end else
+			if (r_ps_in == P && !r_ps_valid[P] && (push_cs_stack|pop_cs_stack) && !commit_shootdown) begin
+				r_ps_valid[P] <= 1;
+				r_ps_committed[P] <= 0;
+			end else
+			if (r_ps_valid[P] && commit_token_ret_done[P]) begin
+				r_ps_committed[P] <= 1;
+			end else
+			if (commit_shootdown && r_ps_valid[P] && ((r_ps_in > P && P > commit_shootdown_token_ret) || (r_ps_in < commit_shootdown_token_ret && (P > commit_shootdown_token_ret || r_ps_in >= P)))) begin	// flush unwanted
+				r_ps_valid[P] <= 0;
+			end else
+			if (trap_shootdown) begin
+				r_ps_valid[P] <= 0;
+			end 
+
+			always @(posedge clk)
+			if (r_ps_in == P && !r_ps_valid[P] && (push_cs_stack|pop_cs_stack) && !commit_shootdown) begin
+				r_ps_return[P] <= ret_addr;
+				r_ps_sp[P] <= (push_cs_stack?cs_top_m_p:cs_top_m);
+				r_ps_push[P] <= push_cs_stack;
+			end
+		end
+	endgenerate
+	
+	//
+	//	branch predictors - essentially there's a bimodal predictor and a global predictor and a predictor predictor
 	//		as per McFarling's "Combining Branch Predictors" - they share a single target cache.
 	//
 	//	Because we decode so many instructions per clock we have an interesting problem - with up to 8 instructions
@@ -247,7 +351,12 @@ module bpred(input clk,  input reset,
 	generate
 		// all the guts are in here:
 		if (NUM_PENDING == 32) begin
-`include "mk20_32_4.inc"
+			if (NUM_PENDING_RET == 8 ) begin
+`include "mk20_32_8.inc"
+			end else
+			if (NUM_PENDING_RET == 16 ) begin
+`include "mk20_32_16.inc"
+			end 
 		end
 	endgenerate
 
@@ -664,7 +773,7 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 		if (trap_shootdown) begin
 			c_pend_in = trap_shootdown_index;
 		end else
-		if (commit_shootdown) begin
+		if (commit_shootdown && r_pend_valid[commit_shootdown_token]) begin
 			c_pend_in = commit_shootdown_token+1;
 		end else 
 		if (push_enable && (!r_pend_valid[r_pend_out] || r_pend_out != r_pend_in)) begin
@@ -672,7 +781,6 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 		end
 	end
 
-	genvar P;
 	generate
 
 		for (P = 0; P < NUM_PENDING; P = P+1) begin: pend

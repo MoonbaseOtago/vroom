@@ -210,8 +210,8 @@ module commit(input clk,
 	input [CNTRL_SIZE-1:0]control,
 	input [RV-1:1]pc,
 	input [RV-1:1]pc_dest,
-	input [$clog2(CALL_STACK_SIZE)-1:0]pc_cs_top,
 	input [$clog2(NUM_PENDING)-1:0]branch_token,
+	input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret,
 	input  [3:0]unit_type,       // 0 ALU, 1 shift, 2 mul/dev, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 	input	[NCOMMIT-1:0]commit_ack,
 	input	[NCOMMIT-1:0]completed,
@@ -244,7 +244,7 @@ module commit(input clk,
 	output  [BDEC-1:1]branch_dec_out,
 	output		 branch_taken_out,
 	output [$clog2(NUM_PENDING)-1:0]branch_token_out,
-	output [$clog2(CALL_STACK_SIZE)-1:0]cs_top_out,
+	output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
 
     output	alu_ready,
     output	shift_ready,
@@ -314,6 +314,7 @@ module commit(input clk,
     parameter LNCOMMIT = 5; // number of bits to encode that
 	parameter CALL_STACK_SIZE = 32;
 	parameter NUM_PENDING=32;
+	parameter NUM_PENDING_RET=8;
 
 	assign commit_commitable = commit_first;	// true when we know that this instruction will be committed
 												// really need something better
@@ -368,9 +369,9 @@ module commit(input clk,
 	reg [RV-1:1]r_pc_dest;
 	assign branch_dest_out = r_pc_dest;
 	reg [$clog2(NUM_PENDING)-1:0]r_branch_token;
+	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret;
 	assign branch_token_out = r_branch_token;
-	reg [$clog2(CALL_STACK_SIZE)-1:0]r_cs_top;
-	assign  cs_top_out = r_cs_top;
+	assign branch_token_ret_out = r_branch_token_ret;
     assign  commit_update_dest = r_pc_dest;
     assign  commit_update_taken = r_control[5]; 
 
@@ -969,8 +970,8 @@ module commit(input clk,
 `endif
 			r_pc <= pc;
 			r_pc_dest <= pc_dest;
-			r_cs_top <= pc_cs_top;
 			r_branch_token <= branch_token;
+			r_branch_token_ret <= branch_token_ret;
 			//if (unit_type == 6 && control[1:0] == 2'b00) begin
 				//r_pc_branch_context <= {1'b1, pc_branch_context[2:0]}; // tag it as an indirect unconditional jump
 			//end

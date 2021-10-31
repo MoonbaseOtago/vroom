@@ -36,18 +36,18 @@ module pc(input clk,  input reset,
 	input  [BDEC-1:1]commit_br_dec,
 	input		   commit_br_taken,
 	input		   commit_br_short,
-	input [$clog2(CALL_STACK_SIZE)-1:0]commit_br_cs_top,
 	input [$clog2(NUM_PENDING)-1:0]commit_branch_token,
+	input [$clog2(NUM_PENDING_RET)-1:0]commit_branch_token_ret,
 
 	input	       interrupt_pending,
 	input		   commit_int_force_fetch,
 	input	       int_br_enable,
 	input	       trap_br_enable,
 	input    [RV-1:1]trap_br, 	// trap branch from csr unit
-	input [$clog2(CALL_STACK_SIZE)-1:0]trap_br_cs_top,
 	input [$clog2(NUM_PENDING)-1:0]trap_branch_token,
 
 	input [NUM_PENDING-1:0]commit_token,
+	input [NUM_PENDING_RET-1:0]commit_token_ret,
 
 	input [(NDEC*2)-1:0]has_jmp,
 	input [(NDEC*2)-1:0]jumping_term,
@@ -66,8 +66,8 @@ module pc(input clk,  input reset,
 	output				  pop_available,
 
 	output	[RV-1:1]pc_dest_dec,
-	output [$clog2(CALL_STACK_SIZE)-1:0]pc_dec_cs_top,
 	output [$clog2(NUM_PENDING)-1:0]dec_branch_token,
+	output [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret,
 
 	output		   fetch_branched,
 
@@ -90,6 +90,7 @@ module pc(input clk,  input reset,
 	parameter CALL_STACK_SIZE=32;
 	parameter NCOMMIT_BRANCH=2;
 	parameter NUM_PENDING=32;
+	parameter NUM_PENDING_RET=8;
 
 	wire clear_sup = 0;	// for the moment FIXME hypervisor
 	reg [15:0]r_asid;
@@ -116,10 +117,10 @@ module pc(input clk,  input reset,
 	reg	[RV-1:1]r_pc_dest_fetch, c_pc_dest_fetch;
 	reg	[RV-1:1]r_pc_dest_dec, c_pc_dest_dec;
 	assign pc_dest_dec = r_pc_dest_dec;
-    reg [$clog2(CALL_STACK_SIZE)-1:0]r_pc_dec_cs_top;
-	assign pc_dec_cs_top= r_pc_dec_cs_top;
     reg [$clog2(NUM_PENDING)-1:0]r_dec_branch_token;
 	assign dec_branch_token = r_dec_branch_token;
+    reg [$clog2(NUM_PENDING_RET)-1:0]r_dec_branch_token_ret;
+	assign dec_branch_token_ret = r_dec_branch_token_ret;
 
 	reg         r_br_stall, c_br_stall;
 	assign		br_stall = r_br_stall;
@@ -141,20 +142,10 @@ module pc(input clk,  input reset,
 	reg			[BDEC-1:1]prediction_wrong_dec;
 
 	wire	[$clog2(NUM_PENDING)-1:0]push_token;
+	wire	[$clog2(NUM_PENDING_RET)-1:0]push_token_ret;
 
 	wire		  [RV-1:1]return_branch_pc;
 	wire				  return_branch_valid;
-	wire	[$clog2(CALL_STACK_SIZE)-1:0]predict_cs_top;
-
-	reg	[$clog2(CALL_STACK_SIZE)-1:0]flush_cs_top;
-	always @(*) begin
-		if (int_br_enable|trap_br_enable) begin
-			flush_cs_top = trap_br_cs_top;
-		end else begin
-			flush_cs_top = commit_br_cs_top;
-		end
-	end
-	wire flush_call_stack = int_br_enable|trap_br_enable|commit_br_enable;
 
 	reg [$clog2(2*NDEC)-1:0]push_branch_decoder;
 	reg					push_enable;
@@ -202,7 +193,7 @@ module pc(input clk,  input reset,
 	reg		fixup_dest;
 		
 	
-	bpred #(.RV(RV), .NUM_PENDING(NUM_PENDING), .BDEC(BDEC), .NDEC(NDEC), .CALL_STACK_SIZE(CALL_STACK_SIZE))pred(
+	bpred #(.RV(RV), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .BDEC(BDEC), .NDEC(NDEC), .CALL_STACK_SIZE(CALL_STACK_SIZE))pred(
 		.clk(clk),
 `ifdef RAMSYNTH
 		.clkX4(clkX4),   // 4x clock for sync dual port ram
@@ -231,6 +222,7 @@ module pc(input clk,  input reset,
 		.push_branch_decoder(push_branch_decoder),
 		.push_taken(push_taken),
 		.push_token(push_token),
+		.push_token_ret(push_token_ret),
 		.push_context(push_context),
 
 		.fixup_dest(fixup_dest),
@@ -242,12 +234,14 @@ module pc(input clk,  input reset,
 
 		.commit_shootdown(commit_br_enable),		// commitq break shootdown (branch miss)
 		.commit_shootdown_token(commit_branch_token),	// latest killed entry
+		.commit_shootdown_token_ret(commit_branch_token_ret),	// latest killed entry
 		.commit_shootdown_dec(commit_br_dec),
 		.commit_shootdown_short(commit_br_short),
 		.commit_shootdown_taken(commit_br_taken),
 		.commit_shootdown_dest(commit_br),			// 
 
 		.commit_token(commit_token),			// bit encoded tokens from the commitQ commit stage
+		.commit_token_ret(commit_token_ret),			
 
 		.push_cs_stack(!rename_stall&&push_cs_stack),
 		.pop_cs_stack(!rename_stall&&pop_cs_stack),
@@ -255,10 +249,6 @@ module pc(input clk,  input reset,
 		.pop_available(pop_available),
 		.return_branch_valid(return_branch_valid),
 		.return_branch_pc(return_branch_pc),
-
-		.cs_top(predict_cs_top),
-		.flush_call_stack(flush_call_stack),
-		.flush_cs_top(flush_cs_top),
 
 		.clear_user(clear_user),
 		.clear_sup(clear_sup) );
@@ -398,12 +388,12 @@ module pc(input clk,  input reset,
 		r_pc_br_taken <= c_pc_br_taken;
 		r_pc_br_default <= c_pc_br_default;
 		r_pc_dest_fetch <= c_pc_dest_fetch;
-		r_pc_dec_cs_top <= predict_cs_top;
 		r_pc_br_predict_dec <= c_pc_br_predict_dec;
 		//if (!rename_stall)
 		if (!dec_stall&&!rename_stall) begin
 			r_pc_dest_dec <= c_pc_dest_dec;
 			r_dec_branch_token <= push_token;
+			r_dec_branch_token_ret <= push_token_ret;
 		end
 		r_pc_branched <= c_pc_branched;
 		r_pc_restart <= c_pc_restart;

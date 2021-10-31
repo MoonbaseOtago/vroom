@@ -388,13 +388,32 @@ module decode(input clk,
 	4'b???1: enc_cpu_mode = 0;
 	endcase
 
+	always @(*) begin			// this is pulled out of the always@ below to keep some tools happy
+		c_jumping_term_1 = 0;
+		c_jumping_term_2 = 0;
+		if (!(issue_interrupt|issue_fetch_trap) && !c_trap_1) begin
+			if (c_jmp_1) begin
+				c_jumping_term_1 = 1;
+			end else
+			if (c_cjmp_1) begin
+				c_jumping_term_1 = br_default?c_br_imm_1[19]:br_predict_1;
+			end
+		end
+		if (!(issue_interrupt|issue_fetch_trap) && !c_trap_2) begin
+			if (c_jmp_2) begin // jmp
+				c_jumping_term_2 = 1;				// decode no instructions in this cycle after this one
+			end else
+			if (c_cjmp_2) begin
+				c_jumping_term_2 = br_default?c_br_imm_2[19]:br_predict_2;
+			end
+		end
+	end
+
 	always @(*) begin
 		c_unit_type_1 = 4'bxxxx;
 		c_unit_type_2 = 4'bxxxx;
 		c_control_1 = 6'bxxxxxx;
 		c_control_2 = 6'bxxxxxx;
-		c_jumping_term_1 = 0;
-		c_jumping_term_2 = 0;
 		c_jumping_stall_1 = 0;
 		c_jumping_stall_2 = 0;
 		c_issue_1 = 1;
@@ -455,7 +474,6 @@ module decode(input clk,
 			end
 		22'b00_???_1?_?????????_??_??_?_?: begin // jmp
 				c_unit_type_1 = 6;
-				c_jumping_term_1 = 1;					// decode no instructions in this cycle after this one
 				c_jumping_stall_1 = !c_in_pc_1;			// stall fetch until this resolves in commit
 				c_issue_1 = !c_in_pc_1|(c_rd_1 != 0);	// do we need to issue this instruction at all?
 				c_issue_jmp_1 = !c_in_pc_1|(c_rd_1 != 0);
@@ -465,7 +483,6 @@ module decode(input clk,
 			end
 		22'b00_???_?1_?????????_??_??_?_?: begin // cjmp
 				c_unit_type_1 = 6;
-				c_jumping_term_1 = br_default?c_br_imm_1[19]:br_predict_1;
 				c_issue_1 = 1;	// do we need to issue this instruction at all?
 				c_jumping_rel_jmp_1 = c_jumping_term_1;
 				c_jumping_stall_1 = 0;
@@ -546,7 +563,6 @@ module decode(input clk,
 			end
 		13'b0_??_1?_??????_??: begin // jmp
 				c_unit_type_2 = 6;
-				c_jumping_term_2 = 1;				// decode no instructions in this cycle after this one
 				c_jumping_stall_2 = !c_in_pc_2;	// stall fetch until this resolves in commit
 				c_issue_2 = !c_in_pc_2|(c_rd_2 != 0);	// do we need to issue this instruction at all?
 				c_issue_jmp_2 = !c_in_pc_2|(c_rd_2 != 0);
@@ -556,7 +572,6 @@ module decode(input clk,
 			end
 		13'b0_??_?1_??????_??: begin // cjmp
 				c_unit_type_2 = 6;
-				c_jumping_term_2 = br_default?c_br_imm_2[19]:br_predict_2;
 				c_issue_2 = 1;	// do we need to issue this instruction at all?
 				c_issue_jmp_2 = 1;
 				c_jumping_rel_jmp_2 = c_jumping_term_2;

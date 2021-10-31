@@ -138,7 +138,8 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter BDEC = (NDEC==1?2:NDEC==2?3:NDEC<=4?4:NDEC<=8?5:6); // LSB of common part of pc for decoders
 	parameter NCOMMIT = 32;	// number of commit registers 
 	parameter LNCOMMIT = $clog2(NCOMMIT);	// number of bits to encode that
-	parameter NUM_PENDING = NCOMMIT;	// number of pending branches
+	parameter NUM_PENDING = NCOMMIT;		// number of pending branches
+	parameter NUM_PENDING_RET = NCOMMIT/4;	// number of pending call slots
 
 	parameter CALL_STACK_SIZE=32;		// max per mode call stack size
 	parameter PC_BRANCH_HISTORY=16;		// simple branch history (1 cycle cache prefetch)
@@ -468,11 +469,12 @@ assign pmp_valid[1]=0;
 	wire      [31:0]immed_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [RV-1:1]pc_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [RV-1:1]branch_dest_commit[0:NCOMMIT-1][0:NHART-1];
-	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [BDEC-1:1]branch_dec_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [NCOMMIT-1:0]branch_taken_commit[0:NHART-1];
 	wire [$clog2(NUM_PENDING)-1:0]branch_token_commit[0:NCOMMIT-1][0:NHART-1];
+	wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_commit[0:NCOMMIT-1][0:NHART-1];
 	wire [NUM_PENDING-1:0]commit_token[0:NHART-1];
+	wire [NUM_PENDING_RET-1:0]commit_token_ret[0:NHART-1];
 	wire            needs_rs2_commit[0:NCOMMIT-1][0:NHART-1];
 	wire            needs_rs3_commit[0:NCOMMIT-1][0:NHART-1];
 `ifdef FP
@@ -597,10 +599,10 @@ assign pmp_valid[1]=0;
 			wire 	[2*NDEC-1:0]has_jmp_back;
 
 			wire 	[RV-1:1]pc_dest_dec;
-			wire [$clog2(CALL_STACK_SIZE)-1:0]pc_dec_cs_top;
 			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token;
+			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret;
 
-			pc #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NDEC(NDEC), .NHART(NHART), .NPHYS(NPHYS), .LNHART(LNHART), .BDEC(BDEC), .PC_BRANCH_HISTORY(PC_BRANCH_HISTORY), .HISTORY_DEPTH(HISTORY_DEPTH), .CALL_STACK_SIZE(CALL_STACK_SIZE))prog_counter(
+			pc #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .NDEC(NDEC), .NHART(NHART), .NPHYS(NPHYS), .LNHART(LNHART), .BDEC(BDEC), .PC_BRANCH_HISTORY(PC_BRANCH_HISTORY), .HISTORY_DEPTH(HISTORY_DEPTH), .CALL_STACK_SIZE(CALL_STACK_SIZE))prog_counter(
 				.clk(clk),
 `ifdef AWS_DEBUG
 				.xxtrig(xxtrig),
@@ -632,21 +634,22 @@ assign pmp_valid[1]=0;
 
 				.commit_br_enable(commit_br_enable[0][H]),		// only handle 1 branch unit per hart at the moment
 				.commit_br(commit_br[0][H]),
-				.commit_br_cs_top(cs_top_commit[commit_br_addr[0][H]][H]),
 				.commit_branch_token(branch_token_commit[commit_br_addr[0][H]][H]),
+				.commit_branch_token_ret(branch_token_ret_commit[commit_br_addr[0][H]][H]),
 				.commit_br_dec(commit_br_dec[0][H]),
 				.commit_br_short(commit_br_short[0][H]),
 				.commit_br_taken(branch_taken_commit[H][commit_br_addr[0][H]]),
 
 				.pc_dest_dec(pc_dest_dec),
-				.pc_dec_cs_top(pc_dec_cs_top),
 				.dec_branch_token(dec_branch_token),
+				.dec_branch_token_ret(dec_branch_token_ret),
 				.has_jmp(has_jmp),
 				.has_jmp_back(has_jmp_back),
 				.jumping_term(jumping_term),
 				.jumping_issue(jumping_issue),
 
 				.commit_token(commit_token[H]),
+				.commit_token_ret(commit_token_ret[H]),
 
 				.br_predict(br_predict),
 				.br_default(br_default),
@@ -656,7 +659,6 @@ assign pmp_valid[1]=0;
 
 				.trap_br_enable(commit_trap_br_enable[H]),
 				.trap_br(commit_trap_br[H]),
-				.trap_br_cs_top(cs_top_commit[commit_trap_br_addr[H]][H]),
 				.trap_branch_token(branch_token_commit[commit_trap_br_addr[H]][H]),
 
 				.fetch_branched(fetch_branched[H]),
@@ -876,11 +878,11 @@ assign gl_valid_out_dec[H] = valid_out_dec;
 assign gl_type_dec[H] = unit_type_dec[0];
 
 			wire 	[RV-1:1]pc_dest_rename;
-			wire [$clog2(CALL_STACK_SIZE)-1:0]pc_cs_top_rename;
 			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename;
+			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename;
 			wire			force_fetch_rename;
 
-			rename_ctrl #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
+			rename_ctrl #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
 				.commit_br_enable(commit_br_enable[0][H]),
 				.commit_trap_br_enable(commit_trap_br_enable[H]|commit_int_br_enable[H]),
 				.commit_int_force_fetch(commit_int_force_fetch[H]),
@@ -893,11 +895,11 @@ assign gl_type_dec[H] = unit_type_dec[0];
 				.current_available(current_available[H]),
 
                 .pc_dest(pc_dest_dec),						// note if/when we switch to having a trace cache these will 
-				.pc_dec_cs_top(pc_dec_cs_top),				//		have to be replicated into the rename units
 				.branch_token_dec(dec_branch_token),
+				.branch_token_ret_dec(dec_branch_token_ret),
                 .pc_dest_out(pc_dest_rename),
-				.pc_cs_top_out(pc_cs_top_rename),
-				.branch_token_out(branch_token_rename)
+				.branch_token_out(branch_token_rename),
+				.branch_token_ret_out(branch_token_ret_rename)
 				);
 		
 
@@ -1169,14 +1171,20 @@ end
 					r_commit_token[I] <= |token_match[I];
 			end
 
-//			always @(posedge clk) begin
-//				integer i;
-//				$display("%d: cs=0x%h current_commit_mask=0x%h", 	$time,	current_start[H], current_commit_mask);
-//				for (i = 0; i < NUM_PENDING; i=i+1) begin
-//					$display("token_match[%d] = 0x%h", i, token_match[i]);
-//				end
-//			end
-
+			reg [NUM_PENDING_RET-1:0]r_commit_token_ret;
+			assign commit_token_ret[H] = r_commit_token_ret;
+			wire [NUM_TRANSFER_PORTS-1:0]token_match_ret[0:NUM_PENDING_RET-1];
+			for (I = 0; I < NUM_TRANSFER_PORTS; I=I+1) begin
+				wire [$clog2(NCOMMIT)-1:0]ind = current_start[H]+I;
+				wire [$clog2(NUM_PENDING_RET)-1:0]tok = branch_token_ret_commit[ind][H];
+				for (J = 0; J < NUM_PENDING_RET; J = J + 1) begin
+					assign token_match_ret[J][I] = current_commit_mask[(NUM_TRANSFER_PORTS-1)-I] && tok == J;
+				end
+			end
+			for (I = 0; I < NUM_PENDING_RET; I = I + 1) begin
+				always @(posedge clk)
+					r_commit_token_ret[I] <= |token_match_ret[I];
+			end
 
 			commit_ctrl #(.RV(RV), .HART(H), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NUM_TRANSFER_PORTS(NUM_TRANSFER_PORTS))cc(.reset(reset), .clk(clk),
 				.advance_count(count_out_rename),
@@ -1250,7 +1258,7 @@ end
 
 				assign commit_load[H][C] = xload&~(commit_br_enable[0][H]|commit_trap_br_enable[H]|commit_int_br_enable[H]);
 
-				commit #(.RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
+				commit #(.RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
 `ifdef SIMD
 					.simd_enable(simd_enable),
 `endif
@@ -1284,8 +1292,8 @@ end
         			.control(control),
         			.pc(pc_rn),
 					.pc_dest(pc_dest_rename),
-					.pc_cs_top(pc_cs_top_rename),
 					.branch_token(branch_token_rename),
+					.branch_token_ret(branch_token_ret_rename),
         			.unit_type(unit_type), 
 					.force_fetch(force_fetch_rename),
 
@@ -1370,8 +1378,8 @@ end
 					.branch_dest_out(branch_dest_commit[C][H]),
 					.branch_dec_out(branch_dec_commit[C][H]),
 					.branch_taken_out(branch_taken_commit[H][C]),
-					.cs_top_out(cs_top_commit[C][H]),
 					.branch_token_out(branch_token_commit[C][H]),
+					.branch_token_ret_out(branch_token_ret_commit[C][H]),
 					.valid_out(valid_commit[H][C]),
 					.completed_out(commit_completed[H][C])
 					);

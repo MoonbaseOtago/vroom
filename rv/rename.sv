@@ -28,11 +28,11 @@ module rename_ctrl(
 		output				force_fetch_rename,
 
 		input   [RV-1:1]pc_dest,
-		input [$clog2(CALL_STACK_SIZE)-1:0]pc_dec_cs_top,
 		input [$clog2(NUM_PENDING)-1:0]branch_token_dec,
+		input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_dec,
 		output   [RV-1:1]pc_dest_out,
-		output [$clog2(CALL_STACK_SIZE)-1:0]pc_cs_top_out,
 		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
+		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
 
 		output  [LNCOMMIT-1:0]count_out,
 		output 	    proceed,
@@ -50,6 +50,7 @@ module rename_ctrl(
         parameter LNCOMMIT = 5; // number of bits to encode that
 		parameter CALL_STACK_SIZE=32;
 		parameter NUM_PENDING=32;
+		parameter NUM_PENDING_RET=8;
 
 	reg [LNCOMMIT-1:0]c_count_out;
 	assign proceed = !rename_stall && c_count_out > 0;
@@ -80,18 +81,18 @@ module rename_ctrl(
     always @(posedge clk)
 		r_stall <= (reset||commit_int_force_fetch?0:{r_stall[0], stall_in});
 
-	reg [$clog2(CALL_STACK_SIZE)-1:0]r_pc_cs_top_out;
-	assign pc_cs_top_out = r_pc_cs_top_out;
 	reg [$clog2(NUM_PENDING)-1:0]r_branch_token_out;
 	assign branch_token_out = r_branch_token_out;
+	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret_out;
+	assign branch_token_ret_out = r_branch_token_ret_out;
 	reg   [RV-1:1]r_pc_dest_out;
 	assign  pc_dest_out = r_pc_dest_out;
 
 	always @(posedge clk)
 	if (!rename_stall) begin
 		r_pc_dest_out <= pc_dest;
-		r_pc_cs_top_out <= pc_dec_cs_top;
 		r_branch_token_out <= branch_token_dec;
+		r_branch_token_ret_out <= branch_token_ret_dec;
 	end
 
 endmodule

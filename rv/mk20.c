@@ -55,14 +55,14 @@ int main(int argc, char ** argv)
 {
 	int i,j,k,t;
 	int ind=1;
-	int ways, pending;
+	int pending, ps_size;
 
 	if (argc < 3) {
-		fprintf(stderr, "Usage: mk20 num_pending num_branch_way\n");
+		fprintf(stderr, "Usage: mk20 num_pending num_ps\n");
 		exit(99);
 	}
     	pending = strtol((const char *)argv[ind++], 0, 0);
-    	ways = strtol((const char *)argv[ind++], 0, 0);
+    	ps_size = strtol((const char *)argv[ind++], 0, 0);
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
 	printf("// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com\n");
@@ -82,9 +82,9 @@ int main(int argc, char ** argv)
 	printf("//\n");
 
 	printf("	always @(*) begin\n");
- 	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
+ 	printf("		case (r_pend_out) // synthesis full_case parallel_case\n");
 	for (k = 0; k < pending; k++) {
- 	printf("		%d:	casez (global_pend_prediction_valid) // syntheis full_case parallel_case\n", k);
+ 	printf("		%d:	casez (global_pend_prediction_valid) // synthesis full_case parallel_case\n", k);
 	for (i = 0; i < pending; i++) {
 		printf("			%d'b", pending);
 		for (j = pending-1; j >=0; j--) printf(((j-k+pending)%pending) > i ?"0":((j-k+pending)%pending)==i?"1":"?");
@@ -97,9 +97,9 @@ int main(int argc, char ** argv)
 	printf("	end\n");
 
 	printf("	always @(*) begin\n");
- 	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
+ 	printf("		case (r_pend_out) // synthesis full_case parallel_case\n");
 	for (k = 0; k < pending; k++) {
- 	printf("		%d:	casez (bimodal_pend_prediction_valid) // syntheis full_case parallel_case\n", k);
+ 	printf("		%d:	casez (bimodal_pend_prediction_valid) // synthesis full_case parallel_case\n", k);
 	for (i = 0; i < pending; i++) {
 		printf("			%d'b", pending);
 		for (j = pending-1; j >=0; j--) printf(((j-k+pending)%pending) > i ?"0":((j-k+pending)%pending)==i?"1":"?");
@@ -112,9 +112,9 @@ int main(int argc, char ** argv)
 	printf("	end\n");
 
 	printf("	always @(*) begin\n");
- 	printf("		case (r_pend_out) // syntheis full_case parallel_case\n");
+ 	printf("		case (r_pend_out) // synthesis full_case parallel_case\n");
 	for (k = 0; k < pending; k++) {
- 	printf("		%d:	casez (combined_pend_prediction_valid) // syntheis full_case parallel_case\n", k);
+ 	printf("		%d:	casez (combined_pend_prediction_valid) // synthesis full_case parallel_case\n", k);
 	for (i = 0; i < pending; i++) {
 		printf("			%d'b", pending);
 		for (j = pending-1; j >=0; j--) printf(((j-k+pending)%pending) > i ?"0":((j-k+pending)%pending)==i?"1":"?");
@@ -128,7 +128,7 @@ int main(int argc, char ** argv)
 
 
 	printf("	always @(*) begin\n");
- 	printf("		casez (r_pend_valid&(r_pend_committed|commit_token)) // syntheis full_case parallel_case\n");
+ 	printf("		casez (r_pend_valid&(r_pend_committed|commit_token)) // synthesis full_case parallel_case\n");
 	for (i = 0; i < pending; i++) {
 		printf("		%d'b", pending);
 		for (j = pending-1; j >=0; j--) printf(j==i?"0":j==(i==0?pending-1:i-1)?"1":"?");
@@ -140,4 +140,20 @@ int main(int argc, char ** argv)
 	printf("		default: trap_shootdown_index = 'bx;\n");
 	printf("		endcase\n");
 	printf("	end\n");
+
+	printf("	always @(*) begin\n");
+ 	printf("		case (r_ps_out) // synthesis full_case parallel_case\n");
+	for (k = 0; k < ps_size; k++) {
+ 	printf("		%d:	casez (ps_match) // synthesis full_case parallel_case\n", k);
+	for (i = 0; i < ps_size; i++) {
+		printf("			%d'b", ps_size);
+		for (j = ps_size-1; j >=0; j--) printf(((j-k+ps_size)%ps_size) > i ?"0":((j-k+ps_size)%ps_size)==i?"1":"?");
+		printf(": ps_match_ind = %d;\n", (i+k)%ps_size);
+	}
+	printf("			default: ps_match_ind = 'bx;\n");
+	printf("			endcase\n");
+	}
+	printf("		endcase\n");
+	printf("	end\n");
+
 }

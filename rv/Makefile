@@ -74,7 +74,7 @@ MX15 = mk15_7_2.inc mk15_8_2.inc mk15_9_2.inc
 MX16 = mk16_8.inc mk16_16.inc
 MX17 = mk17_1_2_1.inc mk17_1_3_2.inc mk17_2_3_2.inc
 MX19 = mk19_64.inc 
-MX20 = mk20_32_4.inc
+MX20 = mk20_32_8.inc mk20_32_16.inc
 MXREG = rfile_13_3_6_2_8_32_1.sv
 FMXREG = rfile_14_3_7_2_8_32_4.sv
 #MXREG = rfile_16_3_7_2_8_32.sv
@@ -409,8 +409,11 @@ mk18:	mk18.c
 mk20:	mk20.c
 	gcc -o mk20 mk20.c
 
-mk20_32_4.inc:	mk20
-	./mk20 32 4 >mk20_32_4.inc
+mk20_32_8.inc:	mk20
+	./mk20 32 8 >mk20_32_8.inc
+
+mk20_32_16.inc:	mk20
+	./mk20 32 16 >mk20_32_16.inc
 
 mk19:	mk19.c
 	gcc -o mk19 mk19.c

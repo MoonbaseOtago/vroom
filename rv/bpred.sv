@@ -22,6 +22,7 @@
 
 `ifndef VSYNTH2
 //`define XDEBUG 1
+//`define SDEBUG 1
 `endif
 
 module bpred(input clk,  input reset,
@@ -164,8 +165,6 @@ module bpred(input clk,  input reset,
 
 	genvar P, I, M;
 
-	wire [$clog2(NUM_PENDING_RET)-1:0]prev_sh = commit_shootdown_token_ret-1;
-
 	generate
 		for (M = 0; M < 3; M=M+1) begin: callstack
 			reg [RV-1:1]r_call_stack[0:(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1];
@@ -187,15 +186,27 @@ module bpred(input clk,  input reset,
 				assign cs_top_x_n[M] = cs_top_n;
 			end
 		
+`ifdef SDEBUG 
+			always @(posedge clk) 
+			if (r_mode[M] && r_ps_valid[r_ps_out] && r_ps_committed[r_ps_out]) 
+			if (r_ps_push[r_ps_out]) begin
+				$display("%d: wb ps[%x]->push @%x -> %x", $time, r_ps_out, r_ps_sp[r_ps_out], r_ps_return[r_ps_out]);
+			end else begin
+				$display("%d: wb ps[%x]->pop @%x", $time, r_ps_out, r_ps_sp[r_ps_out]);
+			end
+`endif
+			wire [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]ps_index=r_ps_sp[r_ps_out];
+			wire [$clog2(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]ps_index_p=ps_index+1;
+
 			always @(posedge clk) 
 			if (reset || clear[M]) begin
 				r_call_stack_valid <= 0;
 			end else
 			if (r_mode[M] && r_ps_valid[r_ps_out] && r_ps_committed[r_ps_out]) begin
 				if (r_ps_push[r_ps_out]) begin
-					r_call_stack_valid[r_ps_sp[r_ps_out]] <= 1;
+					r_call_stack_valid[ps_index] <= 1;
 				end else begin
-					r_call_stack_valid[r_ps_sp[r_ps_out]] <= 0;
+					r_call_stack_valid[ps_index_p] <= 0;
 				end
 			end
 			
@@ -209,11 +220,22 @@ module bpred(input clk,  input reset,
 					r_cs_top <= 0;
 				end else
 				if (r_mode[M]) begin
-					casez ({commit_shootdown&r_ps_valid[prev_sh], push_cs_stack, pop_cs_stack}) // synthesis full_case parallel_case
-					3'b1_??: r_cs_top <= r_ps_sp[prev_sh];
-					3'b0_1?: r_cs_top <= r_cs_top+1;
-					3'b0_?1: r_cs_top <= r_cs_top-1;
-					3'b0_00: ;
+`ifdef SDEBUG 
+					casez ({commit_shootdown, r_ps_valid[commit_shootdown_token_ret], push_cs_stack, pop_cs_stack&pop_available}) // synthesis full_case parallel_case
+					4'b11_??: $display("%d: SHOOT SP=%x ind=%x", $time, r_ps_sp[commit_shootdown_token_ret], commit_shootdown_token_ret);
+					4'b0?_10: $display("%d: PUSH  SP=%x ret=%x", $time, r_cs_top+1, ret_addr);
+					4'b0?_01: $display("%d: POP   SP=%x", $time, r_cs_top-1);
+					4'b0?_11: $display("%d: PS/PP SP=%x", $time, r_cs_top);
+					endcase
+`endif
+
+					casez ({commit_shootdown, r_ps_valid[commit_shootdown_token_ret], push_cs_stack, pop_cs_stack&pop_available}) // synthesis full_case parallel_case
+					4'b11_??: r_cs_top <= r_ps_push[commit_shootdown_token_ret]?r_ps_sp[commit_shootdown_token_ret]-1:r_ps_sp[commit_shootdown_token_ret]+1;
+					4'b0?_10: r_cs_top <= r_cs_top+1;
+					4'b0?_01: r_cs_top <= r_cs_top-1;
+					4'b10_??, 
+					4'b0?_11, 
+					4'b0?_00: ;
 					endcase
 				end
 			end
@@ -268,10 +290,12 @@ module bpred(input clk,  input reset,
 		if (reset) begin
 			r_ps_in <= 0;
 		end else
-		if (commit_shootdown && r_ps_valid[commit_shootdown_token_ret]) begin
+		if (commit_shootdown) begin
+			//if (r_ps_valid[commit_shootdown_token_ret]) begin
 			r_ps_in <= commit_shootdown_token_ret;
+			//end
 		end else
-		if (push_cs_stack || pop_cs_stack) begin
+		if (push_cs_stack || (pop_cs_stack&pop_available)) begin
 			r_ps_in <= r_ps_in+1;
 		end
 	end
@@ -286,7 +310,8 @@ module bpred(input clk,  input reset,
 	end
 
 	wire [NUM_PENDING_RET-1:0]commit_token_ret_done;
-	assign commit_token_ret_done = {commit_token_ret[0], commit_token_ret[NUM_PENDING_RET-1:1]};	// because multiple may signal we
+	assign commit_token_ret_done = {commit_token_ret[0], commit_token_ret[NUM_PENDING_RET-1:1]}| // because multiple may signal we
+	                               {commit_token_ret[1:0], commit_token_ret[NUM_PENDING_RET-1:2]}; 
 																					// wait until all are done
 
 	generate
@@ -299,14 +324,20 @@ module bpred(input clk,  input reset,
 			if (r_ps_out == P && r_ps_valid[P] && r_ps_committed[P]) begin
 				r_ps_valid[P] <= 0;
 			end else
-			if (r_ps_in == P && !r_ps_valid[P] && (push_cs_stack|pop_cs_stack) && !commit_shootdown) begin
+			if (r_ps_in == P && !r_ps_valid[P] && (push_cs_stack|(pop_cs_stack&pop_available)) && !commit_shootdown) begin
 				r_ps_valid[P] <= 1;
 				r_ps_committed[P] <= 0;
 			end else
 			if (r_ps_valid[P] && commit_token_ret_done[P]) begin
 				r_ps_committed[P] <= 1;
+`ifdef SDEBUG 
+				if (!r_ps_committed[P])$display("%d: committed ps[%d]", $time, P);
+`endif
 			end else
-			if (commit_shootdown && r_ps_valid[P] && ((r_ps_in > P && P > commit_shootdown_token_ret) || (r_ps_in < commit_shootdown_token_ret && (P > commit_shootdown_token_ret || r_ps_in >= P)))) begin	// flush unwanted
+			if (commit_shootdown && r_ps_valid[P] && ((r_ps_in > P && P >= commit_shootdown_token_ret) || (r_ps_in < commit_shootdown_token_ret && (P >= commit_shootdown_token_ret || r_ps_in > P)))) begin	// flush unwanted
+`ifdef SDEBUG 
+				$display("%d: kill ps[%d]", $time, P);
+`endif
 				r_ps_valid[P] <= 0;
 			end else
 			if (trap_shootdown) begin
@@ -314,14 +345,25 @@ module bpred(input clk,  input reset,
 			end 
 
 			always @(posedge clk)
-			if (r_ps_in == P && !r_ps_valid[P] && (push_cs_stack|pop_cs_stack) && !commit_shootdown) begin
+			if (r_ps_in == P && !r_ps_valid[P] && (push_cs_stack|(pop_cs_stack&pop_available)) && !commit_shootdown) begin
 				r_ps_return[P] <= ret_addr;
-				r_ps_sp[P] <= (push_cs_stack?cs_top_m_p:cs_top_m);
+				r_ps_sp[P] <= (push_cs_stack?cs_top_m_p:cs_top_m_n);
 				r_ps_push[P] <= push_cs_stack;
 			end
 		end
 	endgenerate
-	
+
+`ifdef SDEBUG
+	always @(posedge clk)
+	if ((push_cs_stack|(pop_cs_stack&pop_available)) && !commit_shootdown) begin
+		if (push_cs_stack) begin
+			$display("%d: ps[%x] sp=%x push=%x", $time, r_ps_in, cs_top_m_p, ret_addr);
+		end else begin
+			$display("%d: ps[%x] sp=%x pop", $time, r_ps_in, cs_top_m_n);
+		end
+	end
+`endif
+
 	//
 	//	branch predictors - essentially there's a bimodal predictor and a global predictor and a predictor predictor
 	//		as per McFarling's "Combining Branch Predictors" - they share a single target cache.
@@ -362,7 +404,8 @@ module bpred(input clk,  input reset,
 
 
 	wire [NUM_PENDING-1:0]commit_token_done;
-	assign commit_token_done = {commit_token[0], commit_token[NUM_PENDING-1:1]};	// because multiple may signal we
+	assign commit_token_done = {commit_token[0], commit_token[NUM_PENDING-1:1]}|	
+							   {commit_token[1:0], commit_token[NUM_PENDING-1:2]};	// because multiple may signal we
 																					// wait until all are done
 
 	//
@@ -385,7 +428,7 @@ module bpred(input clk,  input reset,
 		for (M = 0; M < 3; M=M+1) begin : gl
 			reg	 [GLOBAL_HISTORY*4-1:0]r_global_history;						// actual global history
 			wire [NUM_GLOBAL-1:0]xindex;
-			if (GLOBAL_HISTORY == 6) begin		// hand built mappings of history to hashes
+			if (GLOBAL_HISTORY == 6) begin		// 24 bits - hand built mappings of history to hashes
 				if (NUM_GLOBAL == 12) begin
 					assign xindex = r_global_history[11:0]^{3'b0, r_global_history[18:12], 2'b0}^{2'b0, r_global_history[23:19], 5'b0};
 				end else
@@ -397,6 +440,14 @@ module bpred(input clk,  input reset,
 				end else begin
 					assign xindex = 'bx;
 				end
+			end else
+			if (GLOBAL_HISTORY == 8) begin		// 32 bits
+				if (NUM_GLOBAL == 12) begin
+					assign xindex = r_global_history[11:0]^{r_global_history[21:12], 2'b0}^{r_global_history[31:22], 2'b0};
+				end else
+				if (NUM_GLOBAL == 13) begin
+					assign xindex = r_global_history[12:0]^{r_global_history[23:13], 2'b0}^{1'b0, r_global_history[31:24], 5'b0};
+				end 
 			end else begin
 				assign xindex = 'bx;
 			end
@@ -456,9 +507,9 @@ module bpred(input clk,  input reset,
 			always @(posedge clk) begin
 				if (prediction_used && r_mode[M]) begin
 					if (prediction_wrong) begin
-						$display("%d: pc=%h->%h dec=%d prediction_used taken=%d c/g/b=%d/%d/%d history=%h->%h", $time, pc, predict_branch_pc, predict_branch_decoder, prediction_taken, combined_prediction, global_prediction, bimodal_prediction, r_global_history,  {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
+						$display("%d: pc=%h->%h dec=%d prediction_used taken=%d c/g/b=%d@%h/%d@%h/%d@%h history=%h->%h", $time, pc, predict_branch_pc, predict_branch_decoder, prediction_taken, combined_prediction, combined_index, global_prediction, global_xindex[M], bimodal_prediction, bimodal_index, r_global_history,  {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
 					end else begin
-						$display("%d: pc=%h->%h dec=%d prediction_used taken=%d c/g/b=%d/%d/%d history=%h->%h", $time, pc, predict_branch_pc, predict_branch_decoder, prediction_taken, combined_prediction, global_prediction, bimodal_prediction, r_global_history,  {r_global_history[GLOBAL_HISTORY*4-4-1:0], (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
+						$display("%d: pc=%h->%h dec=%d prediction_used taken=%d c/g/b=%d@%h/%d@%h/%d@%h history=%h->%h", $time, pc, predict_branch_pc, predict_branch_decoder, prediction_taken, combined_prediction, combined_index, global_prediction, global_xindex[M], bimodal_prediction, bimodal_index, r_global_history,  {r_global_history[GLOBAL_HISTORY*4-4-1:0], (prediction_taken?predict_branch_decoder:3'b0), prediction_taken});
 					end
 				end
 				if (prediction_wrong && r_mode[M]) begin
@@ -469,7 +520,7 @@ module bpred(input clk,  input reset,
 					end
 				end
 				if (commit_shootdown && r_mode[M])
-					$display("%d:@prediction_shootdown taken=%d token=%h dest=%h history=%h", $time, shootdown_taken, commit_shootdown_token, commit_shootdown_dest, {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], shootdown_dec, shootdown_taken});
+					$display("%d:@prediction_shootdown taken=%d token=%h dest=%h hist=%h gl=%h", $time, shootdown_taken, commit_shootdown_token, commit_shootdown_dest, r_pend_global_history[commit_shootdown_token], {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], shootdown_dec, shootdown_taken});
 			end
 `endif
 
@@ -687,7 +738,7 @@ module bpred(input clk,  input reset,
 			$display("%d: push pc=%h->%h token=%h taken=%d dec=%d noissue=%d c/g/b=%d/%d/%d hist=%h", $time, push_pc, push_dest, r_pend_in, push_taken, push_branch_decoder, push_noissue, push_context.combined_prediction_prev, push_context.global_prediction_prev, push_context.bimodal_prediction_prev, push_context.global_history );
 		end
 		if (r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out]) begin
-			$display("%d: write-back token=%h %h->%h dec=%d c/g/b=%d@%h/%d@%h/%d@%h", $time, r_pend_out, r_pend_pc[r_pend_out], r_pend_dest[r_pend_out], r_pend_dec[r_pend_out], r_pend_combined_pred[r_pend_out], pend_combined_index[r_pend_out], r_pend_global_pred[r_pend_out], pend_global_index[r_pend_out], r_pend_bimodal_pred[r_pend_out], pend_bimodal_index[r_pend_out]);
+			$display("%d: write-back token=%h %h->%h dec=%d hist=%h c/g/b=%d@%h/%d@%h/%d@%h", $time, r_pend_out, r_pend_pc[r_pend_out], r_pend_dest[r_pend_out], r_pend_dec[r_pend_out], r_pend_global_history[r_pend_out], r_pend_combined_pred[r_pend_out], pend_combined_index[r_pend_out], r_pend_global_pred[r_pend_out], pend_global_index[r_pend_out], r_pend_bimodal_pred[r_pend_out], pend_bimodal_index[r_pend_out]);
         end
 	end
 //	always @(posedge clk) begin
@@ -800,6 +851,14 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 				end else begin
 					assign xindex = 'bx;
 				end
+			end else
+			if (GLOBAL_HISTORY == 8) begin		// 32 bits
+				if (NUM_GLOBAL == 12) begin
+					assign xindex = r_pend_global_history[P][11:0]^{r_pend_global_history[P][21:12], 2'b0}^{r_pend_global_history[P][31:22], 2'b0};
+				end else
+				if (NUM_GLOBAL == 13) begin
+					assign xindex = r_pend_global_history[P][12:0]^{r_pend_global_history[P][23:13], 2'b0}^{1'b0, r_pend_global_history[P][31:24], 5'b0};
+				end 
 			end else begin
 				assign xindex = 'bx;
 			end
@@ -903,11 +962,11 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 					default:	r_pend_combined_pred[P] <= r_pend_combined_prev[P];
 					endcase
 					if (shootdown_taken) begin
-						r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b11 ? 2'b11 : r_pend_global_prev[P]+1;
-						r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b11 ? 2'b11: r_pend_bimodal_prev[P]+1;
+						r_pend_global_pred[P] <= r_pend_global_prev[P][1]   ? 2'b11 : r_pend_global_prev[P]+1;
+						r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P][1] ? 2'b11: r_pend_bimodal_prev[P]+1;
 					end else begin
-						r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b00 ? 2'b00: r_pend_global_prev[P]-1;
-						r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b00 ? 2'b00: r_pend_bimodal_prev[P]-1;
+						r_pend_global_pred[P] <= !r_pend_global_prev[P][1]   ? 2'b00: r_pend_global_prev[P]-1;
+						r_pend_bimodal_pred[P] <= !r_pend_bimodal_prev[P][1] ? 2'b00: r_pend_bimodal_prev[P]-1;
 					end
 				end else
 				if (fixup_dest && last_pushed == P) begin   // this branch was mispredicted (twice)
@@ -931,8 +990,8 @@ $display("FIXUP#%h %b dec=%d c=%d g/b=%d/%d",P, {r_pend_global_prev[P][1], r_pen
 								end
 					default:	r_pend_combined_pred[P] <= r_pend_combined_prev[P];
 					endcase
-					r_pend_global_pred[P] <= r_pend_global_prev[P]==2'b11 ? 2'b11 : r_pend_global_prev[P]+1;
-					r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P]==2'b11 ? 2'b11: r_pend_bimodal_prev[P]+1;
+					r_pend_global_pred[P] <= r_pend_global_prev[P][1]   ? 2'b11 : r_pend_global_prev[P]+1;
+					r_pend_bimodal_pred[P] <= r_pend_bimodal_prev[P][1] ? 2'b11 : r_pend_bimodal_prev[P]+1;
 				end
 			end
 		end

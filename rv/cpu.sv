@@ -139,7 +139,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter NCOMMIT = 32;	// number of commit registers 
 	parameter LNCOMMIT = $clog2(NCOMMIT);	// number of bits to encode that
 	parameter NUM_PENDING = NCOMMIT;		// number of pending branches
-	parameter NUM_PENDING_RET = NCOMMIT/4;	// number of pending call slots
+	parameter NUM_PENDING_RET = NCOMMIT/2;	// number of pending call slots
 
 	parameter CALL_STACK_SIZE=32;		// max per mode call stack size
 	parameter PC_BRANCH_HISTORY=16;		// simple branch history (1 cycle cache prefetch)
@@ -600,7 +600,9 @@ assign pmp_valid[1]=0;
 
 			wire 	[RV-1:1]pc_dest_dec;
 			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token;
+			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token_prev;
 			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret;
+			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret_prev;
 
 			pc #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .NDEC(NDEC), .NHART(NHART), .NPHYS(NPHYS), .LNHART(LNHART), .BDEC(BDEC), .PC_BRANCH_HISTORY(PC_BRANCH_HISTORY), .HISTORY_DEPTH(HISTORY_DEPTH), .CALL_STACK_SIZE(CALL_STACK_SIZE))prog_counter(
 				.clk(clk),
@@ -642,7 +644,9 @@ assign pmp_valid[1]=0;
 
 				.pc_dest_dec(pc_dest_dec),
 				.dec_branch_token(dec_branch_token),
+				.dec_branch_token_prev(dec_branch_token_prev),
 				.dec_branch_token_ret(dec_branch_token_ret),
+				.dec_branch_token_ret_prev(dec_branch_token_ret_prev),
 				.has_jmp(has_jmp),
 				.has_jmp_back(has_jmp_back),
 				.jumping_term(jumping_term),
@@ -877,9 +881,11 @@ assign pmp_valid[1]=0;
 assign gl_valid_out_dec[H] = valid_out_dec;
 assign gl_type_dec[H] = unit_type_dec[0];
 
+			reg		r_dec_partial0;
+			always @(posedge clk)
+				r_dec_partial0 <= partial_valid_0;
+
 			wire 	[RV-1:1]pc_dest_rename;
-			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename;
-			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename;
 			wire			force_fetch_rename;
 
 			rename_ctrl #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
@@ -895,11 +901,7 @@ assign gl_type_dec[H] = unit_type_dec[0];
 				.current_available(current_available[H]),
 
                 .pc_dest(pc_dest_dec),						// note if/when we switch to having a trace cache these will 
-				.branch_token_dec(dec_branch_token),
-				.branch_token_ret_dec(dec_branch_token_ret),
-                .pc_dest_out(pc_dest_rename),
-				.branch_token_out(branch_token_rename),
-				.branch_token_ret_out(branch_token_ret_rename)
+                .pc_dest_out(pc_dest_rename)
 				);
 		
 
@@ -927,6 +929,8 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire	      rs3_fp_rename[0:2*NDEC-1];
 			wire    [3:0]unit_type_rename[0:2*NDEC-1];
 			wire    [CNTRL_SIZE-1:0]control_rename[0:2*NDEC-1];
+			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename[0:2*NDEC-1];
+			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename[0:2*NDEC-1];
 			wire      [2*NDEC-1:0]valid_rename;
 			wire 	[RV-1:1]pc_rename[0:2*NDEC-1];
 `ifdef FP
@@ -953,6 +957,8 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg 	[RV-1:1]pc;
 				reg    [RA-1:0]renamed_rs1, renamed_rs2, renamed_rs3;
 				reg			local1, local2, local3;
+				reg [$clog2(NUM_PENDING)-1:0]branch_token;
+				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
 
 				if (NDEC==2) begin
 `include "mk2_4.inc"
@@ -965,7 +971,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				end 
 
 			
-				rename #(.RV(RV), .HART(H), .RA(RA), .ADDR(D), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
+				rename #(.RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
 					.rv32(rv32[H]),
 					.valid(valid_out_dec),
 					.rs1(s1),
@@ -989,6 +995,8 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.local1(local1),
 					.local2(local2),
 					.local3(local3),
+					.branch_token(branch_token),
+					.branch_token_ret(branch_token_ret),
 	
 					.commit_br_enable(commit_br_enable[0][H]),
 					.commit_trap_br_enable(commit_trap_br_enable[H]|commit_int_br_enable[H]),
@@ -1030,6 +1038,8 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.unit_type_out(unit_type_rename[D]),
                 	.pc_out(pc_rename[D]),
 					.will_be_valid(will_be_valid_rename[D]),
+					.branch_token_out(branch_token_rename[D]),
+					.branch_token_ret_out(branch_token_ret_rename[D]),
 					.valid_out(valid_rename[D])
 					);
 
@@ -1236,6 +1246,8 @@ end
 				reg [CNTRL_SIZE-1:0]control;
 				reg [3:0]unit_type;
 				reg 	[RV-1:1]pc_rn;
+				reg [$clog2(NUM_PENDING)-1:0]branch_token;
+				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
 	
 				if (NDEC == 2) begin
 `include "mk5_4.inc"
@@ -1292,8 +1304,8 @@ end
         			.control(control),
         			.pc(pc_rn),
 					.pc_dest(pc_dest_rename),
-					.branch_token(branch_token_rename),
-					.branch_token_ret(branch_token_ret_rename),
+					.branch_token(branch_token),
+					.branch_token_ret(branch_token_ret),
         			.unit_type(unit_type), 
 					.force_fetch(force_fetch_rename),
 

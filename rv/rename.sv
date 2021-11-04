@@ -28,11 +28,7 @@ module rename_ctrl(
 		output				force_fetch_rename,
 
 		input   [RV-1:1]pc_dest,
-		input [$clog2(NUM_PENDING)-1:0]branch_token_dec,
-		input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_dec,
 		output   [RV-1:1]pc_dest_out,
-		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
-		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
 
 		output  [LNCOMMIT-1:0]count_out,
 		output 	    proceed,
@@ -81,18 +77,12 @@ module rename_ctrl(
     always @(posedge clk)
 		r_stall <= (reset||commit_int_force_fetch?0:{r_stall[0], stall_in});
 
-	reg [$clog2(NUM_PENDING)-1:0]r_branch_token_out;
-	assign branch_token_out = r_branch_token_out;
-	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret_out;
-	assign branch_token_ret_out = r_branch_token_ret_out;
 	reg   [RV-1:1]r_pc_dest_out;
 	assign  pc_dest_out = r_pc_dest_out;
 
 	always @(posedge clk)
 	if (!rename_stall) begin
 		r_pc_dest_out <= pc_dest;
-		r_branch_token_out <= branch_token_dec;
-		r_branch_token_ret_out <= branch_token_ret_dec;
 	end
 
 endmodule
@@ -249,6 +239,8 @@ module rename(
 		input			 local1,
 		input			 local2,
 		input			 local3,
+		input [$clog2(NUM_PENDING)-1:0]branch_token,
+		input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret,
 
 		input			    commit_br_enable,
 		input				commit_trap_br_enable,
@@ -286,6 +278,8 @@ module rename(
 		output  [3:0]unit_type_out,
 		output   [RV-1:1]pc_out,
 		output 		will_be_valid,
+		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
+		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
 		output 		valid_out
 		);
 
@@ -300,6 +294,8 @@ module rename(
 	parameter RV=64;
 	parameter NCOMMIT=5;
 	parameter LNCOMMIT=5;
+	parameter NUM_PENDING=32;
+	parameter NUM_PENDING_RET=8;
 
 
 	reg    [   4: 0]r_real_rs1_out, c_real_rs1_out;
@@ -314,6 +310,8 @@ module rename(
 	reg    [LNCOMMIT-1: 0]r_rd_out;
 	reg    [ 4: 0]r_rd_real_out;
 	reg    [31: 0]r_immed_out;
+	reg [$clog2(NUM_PENDING)-1:0]r_branch_token_out;
+	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret_out;
 	reg           r_needs_rs2_out;
 	reg           r_needs_rs3_out;
 	reg           r_makes_rd_out;
@@ -349,6 +347,8 @@ module rename(
 `ifdef FP
 	assign next_rd_fp = rd_fp&c_valid_out;
 `endif
+	assign branch_token_out =  r_branch_token_out;
+	assign branch_token_ret_out = r_branch_token_ret_out;
 	
 	reg [2*NDEC-1:0]sel;	// 1-hot
 	assign sel_out = sel;
@@ -422,6 +422,8 @@ module rename(
 			r_unit_type_out <= 3;
 			r_pc_out <= commit_trap_br;
 			r_valid_out <= 1;
+			r_branch_token_out <= 0;
+			r_branch_token_ret_out <= 0;
 		end else begin
 			r_local1 <= 1;		// int  #1, tmp
 			r_local2 <= 1;
@@ -446,6 +448,8 @@ module rename(
 			r_unit_type_out <= 7;
 			r_pc_out <= commit_trap_br;
 			r_valid_out <= 1;
+			r_branch_token_out <= 0;
+			r_branch_token_ret_out <= 0;
 		end
 	end else
 	if (!rename_stall|commit_br_enable|commit_trap_br_enable) begin
@@ -472,6 +476,8 @@ module rename(
 		r_unit_type_out <= unit_type;
 		r_pc_out <= pc;
 		r_valid_out <= c_valid_out&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
+		r_branch_token_out <= branch_token;
+		r_branch_token_ret_out <= branch_token_ret;
 	end else begin
 		if (!r_local1 && r_rs1_out[RA-1] && commit_done[r_rs1_out[LNCOMMIT-1:0]])
 			r_rs1_out <= r_real_rs1_out;

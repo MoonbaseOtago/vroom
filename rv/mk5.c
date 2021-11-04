@@ -82,6 +82,8 @@ int main(int argc, char ** argv)
 	printf("		control = 'bx;\n");
 	printf("		unit_type = 'bx;\n");
 	printf("		immed = 'bx;\n");
+	printf("		branch_token = 'bx;\n");
+	printf("		branch_token_ret = 'bx;\n");
 	printf("		casez ({");
 	for (i = 0; i < B; i++)
 		printf("(rd_rename[%d]==C)&valid_rename[%d]%s", i, i, (i==(B-1))?"":",");
@@ -109,6 +111,8 @@ int main(int argc, char ** argv)
 		printf("			real_rs3 = real_rs3_rename[%d];\n",i);
 		printf("			control = control_rename[%d];\n",i);
 		printf("			unit_type = unit_type_rename[%d];\n",i);
+		printf("			branch_token = branch_token_rename[%d];\n",i);
+		printf("			branch_token_ret = branch_token_ret_rename[%d];\n",i);
 		printf("			immed = immed_rename[%d];\n",i);
 		printf("		    end\n");
 	}

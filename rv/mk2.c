@@ -307,11 +307,18 @@ int main(int argc, char ** argv)
         printf("		rs1_fp = 1'bx;\n");
         printf("		rs2_fp = 1'bx;\n");
         printf("		rs3_fp = 1'bx;\n");
+        printf("		branch_token = 'bx;\n");
+        printf("		branch_token_ret = 'bx;\n");
         printf("		casez (sel_out) // synthesis full_case parallel_case\n");
         for (i = 0; i < B; i++) {
                 printf("		%d'b", B);
                 for (j = B-1; j >= 0; j--) printf(i==j?"1":"?");
-                printf(": begin d = rd_dec[%d]; s1 = rs1_dec[%d]; needs_s2 = needs_rs2_dec[%d];needs_s3 = needs_rs3_dec[%d];s2 = rs2_dec[%d]; s3 = rs3_dec[%d];makes_d = makes_rd_dec[%d]; immed = immed_dec[%d]; control=control_dec[%d]; unit_type=unit_type_dec[%d];pc=pc_dec[%d]; rd_fp = rd_fp_dec[%d]; rs1_fp = rs1_fp_dec[%d]; rs2_fp = rs2_fp_dec[%d]; rs3_fp = rs3_fp_dec[%d]; end\n",  i, i, i,i,i,i,i,i,i,i,i,i,i,i,i);
+                printf(": begin d = rd_dec[%d]; s1 = rs1_dec[%d]; needs_s2 = needs_rs2_dec[%d];needs_s3 = needs_rs3_dec[%d];s2 = rs2_dec[%d]; s3 = rs3_dec[%d];makes_d = makes_rd_dec[%d]; immed = immed_dec[%d]; control=control_dec[%d]; unit_type=unit_type_dec[%d];pc=pc_dec[%d]; rd_fp = rd_fp_dec[%d]; rs1_fp = rs1_fp_dec[%d]; rs2_fp = rs2_fp_dec[%d]; rs3_fp = rs3_fp_dec[%d]; ",  i, i, i,i,i,i,i,i,i,i,i,i,i,i,i);
+		if (i > 0) {
+			printf(" branch_token = dec_branch_token; branch_token_ret = dec_branch_token_ret; end\n");
+		} else {
+			printf(" branch_token = r_dec_partial0?dec_branch_token_prev:dec_branch_token; branch_token_ret = r_dec_partial0?dec_branch_token_ret_prev:dec_branch_token_ret; end\n");
+		}
         }
         printf("		endcase\n");
         printf("	end\n");

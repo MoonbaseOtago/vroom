@@ -106,3 +106,17 @@ hpmcounter5 = 25486
 
 IPC = 1.57
 BTC hit rate = %92
+==================================
+31/10/21 - simulator m-mode -  fix return stack issues and issues around instructions crossing bundle boundaries
+Microseconds for one run through Dhrystone: 6.56
+Dhrystones per Second:                      152139
+DMips:                                      86.5
+DMips/(25)MHZ:                              3.46
+mcycle = 328755
+minstret = 602031
+hpmcounter4 = 110006
+hpmcounter5 = 109993
+
+IPC = 1.83
+BTC hit rate = %99
+

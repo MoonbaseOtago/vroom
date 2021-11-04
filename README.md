@@ -16,7 +16,7 @@ paul@taniwha.com @moonbaseotago
 * Up to 8 IPC (instructions per clock) peak, goal ~4 average on ALU heavy work
 * 2-way simultaneous multithreading capable
 * Multi-core
-* Early (low) dhrystone numbers: ~2 DMips/MHz - still a work in progress. Goal ~5 with working BTC
+* Early (low) dhrystone numbers: ~3.5 DMips/MHz - still a work in progress. Goal ~4-5
 * Currently boots Linux on an AWS-FPGA instance
 * GPL3 – dual licensing possible
 

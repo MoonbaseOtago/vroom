@@ -19,7 +19,7 @@
 `ifndef PRED_STAT_SI
 `define PRED_STAT_SI
 
-`define GH 6	
+`define GH 8	
 typedef struct packed {
 	bit  [1:0]combined_prediction_prev;
 	bit  [1:0]global_prediction_prev;

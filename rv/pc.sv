@@ -67,7 +67,9 @@ module pc(input clk,  input reset,
 
 	output	[RV-1:1]pc_dest_dec,
 	output [$clog2(NUM_PENDING)-1:0]dec_branch_token,
+	output [$clog2(NUM_PENDING)-1:0]dec_branch_token_prev,
 	output [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret,
+	output [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret_prev,
 
 	output		   fetch_branched,
 
@@ -117,10 +119,12 @@ module pc(input clk,  input reset,
 	reg	[RV-1:1]r_pc_dest_fetch, c_pc_dest_fetch;
 	reg	[RV-1:1]r_pc_dest_dec, c_pc_dest_dec;
 	assign pc_dest_dec = r_pc_dest_dec;
-    reg [$clog2(NUM_PENDING)-1:0]r_dec_branch_token;
+    reg [$clog2(NUM_PENDING)-1:0]r_dec_branch_token, r_dec_branch_token_prev;
 	assign dec_branch_token = r_dec_branch_token;
-    reg [$clog2(NUM_PENDING_RET)-1:0]r_dec_branch_token_ret;
+	assign dec_branch_token_prev = r_dec_branch_token_prev;
+    reg [$clog2(NUM_PENDING_RET)-1:0]r_dec_branch_token_ret, r_dec_branch_token_ret_prev;
 	assign dec_branch_token_ret = r_dec_branch_token_ret;
+	assign dec_branch_token_ret_prev = r_dec_branch_token_ret_prev;
 
 	reg         r_br_stall, c_br_stall;
 	assign		br_stall = r_br_stall;
@@ -394,6 +398,8 @@ module pc(input clk,  input reset,
 			r_pc_dest_dec <= c_pc_dest_dec;
 			r_dec_branch_token <= push_token;
 			r_dec_branch_token_ret <= push_token_ret;
+			r_dec_branch_token_prev <= r_dec_branch_token;
+			r_dec_branch_token_ret_prev <= r_dec_branch_token_ret;
 		end
 		r_pc_branched <= c_pc_branched;
 		r_pc_restart <= c_pc_restart;

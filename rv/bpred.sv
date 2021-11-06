@@ -86,11 +86,7 @@ module bpred(input clk,  input reset,
 	parameter NDEC=4;
 	parameter BDEC=4;
 	parameter CALL_STACK_SIZE=32;
-`ifdef PSYNTH
-	parameter MCALL_STACK_SIZE = CALL_STACK_SIZE / 2;	// might do this for real chips
-`else
-	parameter MCALL_STACK_SIZE = CALL_STACK_SIZE; 
-`endif
+	parameter MCALL_STACK_SIZE = CALL_STACK_SIZE / 2;	// 32-entries is a waste for M-mode
 
 `ifdef PSYNTH
 	parameter	NUM_GLOBAL = 9;			// size of the global history tables (log entries)

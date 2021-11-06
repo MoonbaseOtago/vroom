@@ -107,7 +107,9 @@ hpmcounter5 = 25486
 IPC = 1.57
 BTC hit rate = %92
 ==================================
-31/10/21 - simulator m-mode -  fix return stack issues and issues around instructions crossing bundle boundaries
+31/10/21 - simulator m-mode -  fix return stack issues and issues around instructions crossing bundle boundaries - at this point ALL the branches 
+				are being predicted correctly - BTC improvements wont help us - there are still some issues with micro prediction
+				of return instructions
 Microseconds for one run through Dhrystone: 6.56
 Dhrystones per Second:                      152139
 DMips:                                      86.5
@@ -119,4 +121,17 @@ hpmcounter5 = 109993
 
 IPC = 1.83
 BTC hit rate = %99
+==================================
+13/10/21 - hardware - usermode - same as above run but as always the hardware has a smaller BTC
+Microseconds for one run through Dhrystone: 7.31
+Dhrystones per Second:                      136635
+DMips:                                      77.7
+DMips/(25)MHZ:                              3.11
+cycle = 91488646
+instret = 151862092
+hpmcounter4 = 28047196
+hpmcounter5 = 27055632
+
+IPC = 1.65
+BTC hit rate = %96
 

@@ -39,16 +39,20 @@ DRAM = mmem.sv
 SYNTH = \
 	synth/vsram.v
 
+#NALU3_1 = +define+NALU3
+#NALU3_2 = -DNALU3
+NALU3_1 = 
+NALU3_2 = 
 XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
-XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  
-XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV
+XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(NALU3_1)
+XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(NALU3_2)
 
 FPU = fp_add.sv fp_mul.sv fp.sv 
 FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc
 
 
-VSYNTH1 = +define+VSYNTH +define+VSYNTH2
-VSYNTH2 = -D VSYNTH 
+VSYNTH1 = +define+VSYNTH +define+VSYNTH2 $(NALU3_1)
+VSYNTH2 = -D VSYNTH $(NALU3_2)
 
 UART = rvuart.sv uart/raminfr.v uart/uart_receiver.v uart/uart_regs.v uart/uart_rfifo.v  uart/uart_sync_flops.v  uart/uart_tfifo.v uart/uart_top.v uart/uart_transmitter.v  uart/uart_wb.v
 UART_DEF1 = +incdir+uart 
@@ -70,61 +74,64 @@ MX11 = mk11_4_2.inc mk11_8_2.inc mk11_16_2.inc mk11_32_2.inc mk11_64_2.inc mk11_
 MX12 = mk12_16.inc mk12_32.inc mk12_64.inc
 MX13 = mk13_8_2_1.inc
 MX14 = mk14_2_1_1.inc mk14_3_2_1.inc
-MX15 = mk15_7_2.inc mk15_8_2.inc mk15_9_2.inc
+MX15 = mk15_7_2.inc mk15_8_2.inc mk15_9_2.inc mk15_10_2.inc
 MX16 = mk16_8.inc mk16_16.inc
 MX17 = mk17_1_2_1.inc mk17_1_3_2.inc mk17_2_3_2.inc
 MX19 = mk19_64.inc 
 MX20 = mk20_32_8.inc mk20_32_16.inc
-MXREG = rfile_13_3_6_2_8_32_1.sv
-FMXREG = rfile_14_3_7_2_8_32_4.sv
+#MXREG = rfile_13_3_6_2_8_32_1.sv 
+MXREG = rfile_15_3_7_2_8_32_1.sv
+FMXREG = rfile_14_3_7_2_8_32_4.sv # rfile_16_3_8_2_8_32_4.sv
 #MXREG = rfile_16_3_7_2_8_32.sv
 MXREGINC =  rfile_16_3_7_2_4_32_1.inc rfile_16_3_7_2_8_32_1.inc rfile_13_3_6_2_4_32_1.inc rfile_13_3_6_2_8_32_1.inc \
 	    rfile_16_3_7_2_4_32_4.inc rfile_16_3_7_2_8_32_4.inc rfile_13_3_6_2_4_32_4.inc rfile_13_3_6_2_8_32_4.inc \
-	   rfile_14_3_7_2_4_32_4.inc rfile_14_3_7_2_4_32_1.inc rfile_14_3_7_2_8_32_4.inc
-MXCTRL = alu_ctrl_hdr_4_1_32_2_1_1_1_3_2_0.inc alu_ctrl_core_4_1_32_2_1_1_1_3_2_0.inc alu_ctrl_inst_4_1_32_2_1_1_1_3_2_0.inc alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_0.inc alu_ctrl_core_4_1_32_2_1_1_1_2_1_0.inc alu_ctrl_inst_4_1_32_2_1_1_1_2_1_0.inc  \
-	alu_ctrl_hdr_4_1_32_2_1_1_1_3_2_1.inc alu_ctrl_core_4_1_32_2_1_1_1_3_2_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_3_2_1.inc alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_1.inc alu_ctrl_core_4_1_32_2_1_1_1_2_1_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_2_1_1.inc 
+	   rfile_14_3_7_2_4_32_4.inc rfile_14_3_7_2_4_32_1.inc rfile_14_3_7_2_8_32_4.inc \
+	  rfile_15_3_7_2_4_32_1.inc rfile_15_3_7_2_8_32_1.inc
+		
+MXCTRL = alu_ctrl_hdr_4_1_32_2_1_1_1_3_2_0.inc alu_ctrl_core_4_1_32_2_1_1_1_3_2_0.inc alu_ctrl_inst_4_1_32_2_1_1_1_3_2_0.inc alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_0.inc alu_ctrl_core_4_1_32_2_1_1_1_2_1_0.inc alu_ctrl_inst_4_1_32_2_1_1_1_2_1_0.inc  alu_ctrl_hdr_4_1_32_3_1_1_1_2_1_0.inc \
+	alu_ctrl_hdr_4_1_32_2_1_1_1_3_2_1.inc alu_ctrl_core_4_1_32_2_1_1_1_3_2_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_3_2_1.inc alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_1.inc alu_ctrl_core_4_1_32_2_1_1_1_2_1_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_2_1_1.inc alu_ctrl_inst_4_1_32_3_1_1_1_2_1_0.inc alu_ctrl_core_4_1_32_3_1_1_1_2_1_0.inc alu_ctrl_hdr_4_1_32_3_1_1_1_2_1_0.inc
 MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX11) $(MX12) $(MX13) $(MX14) $(MX15) $(MX16) $(MX17) $(MX19) $(MX20) $(MXREG) $(MXREGINC) $(MXCTRL)
 
 sv:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES)
-	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -o sv test.sv $(SRC) $(DRAM) $(MXREG)  $(UART_DEF2) $(UART)  $(SYNTH)
-	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD  -o svd test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2)  $(UART) $(SYNTH)
+	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -o sv test.sv $(SRC) $(DRAM) $(MXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(NALU3_2)
+	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD  -o svd test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(NALU3_2)
 
 svb:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES)
-	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -D B -o svb test.sv $(SRC) $(DRAM) $(MXREG)  $(UART_DEF2) $(UART)  $(SYNTH)
-	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD -D B -o svdb test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2)  $(UART) $(SYNTH)
+	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -D B -o svb test.sv $(SRC) $(DRAM) $(MXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(NALU3_2)
+	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD -D B -o svdb test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(NALU3_2)
 
 svf:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES)
-	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -D FP -o svf test.sv $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(FPU)
-	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD -D FP -o svdf test.sv $(SRC) $(DRAM) $(FMXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(FPU)
+	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -D FP -o svf test.sv $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(FPU) $(NALU3_2)
+	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD -D FP -o svdf test.sv $(SRC) $(DRAM) $(FMXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(FPU) $(NALU3_2)
 
 svx:	test.sv $(SRC) $(MXA) $(UART)  $(SYNTH)  $(DRAM) $(INCLUDES)
-	iverilog -g 2005-sv -D SIMV $(VSYNTH2)  -o svx test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2) $(UART) $(SYNTH) -pfileline=1 
+	iverilog -g 2005-sv -D SIMV $(VSYNTH2)  -o svx test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2) $(UART) $(SYNTH) -pfileline=1  $(NALU3_2)
 
 svv:	obj_dir/svv
 svv-lint:	obj_dir/svv-lint
 
 obj_dir/svv-lint:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES)
-	$(VERILATOR) -cc  --threads 8 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" +1800-2017ext+sv -o svv-lint  +define+SIMV +define+SIMD $(VSYNTH1) $(SRC) $(DRAM) $(MXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) --assert --clk clk  --trace  -sv --compiler gcc -exe testbench.cpp
+	$(VERILATOR) -cc  --threads 8 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" +1800-2017ext+sv -o svv-lint  +define+SIMV +define+SIMD $(VSYNTH1) $(SRC) $(DRAM) $(MXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(NALU3_1) --assert --clk clk  --trace  -sv --compiler gcc -exe testbench.cpp
 
 obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES)
-	$(VERILATOR) -cc  --threads 8 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o svv  +define+SIMV +define+SIMD $(VSYNTH1) $(SRC) $(DRAM) $(MXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) --assert --clk clk  --trace  -sv --compiler gcc -exe testbench.cpp
+	$(VERILATOR) -cc  --threads 8 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o svv  +define+SIMV +define+SIMD $(VSYNTH1) $(SRC) $(DRAM) $(MXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(NALU3_1) --assert --clk clk  --trace  -sv --compiler gcc -exe testbench.cpp
 	make -j -C obj_dir -f Vchip.mk svv
 
 fvv:	fobj_dir/fvv
 fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES)
-	$(VERILATOR) -cc  --threads 8 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
+	$(VERILATOR) -cc  --threads 8 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(NALU3_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
 	make -j -C fobj_dir -f Vchip.mk fvv
 
 svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES)
-	$(VERILATOR) -lint-only +1800-2005ext+sv --top-module chip $(VSYNTH1) -o svv $(SRC) $(DRAM) $(MXREG) $(UART_DEF1)  $(UART) $(SYNTH)
+	$(VERILATOR) -lint-only +1800-2005ext+sv --top-module chip $(VSYNTH1) -o svv $(SRC) $(DRAM) $(MXREG) $(UART_DEF1)  $(UART) $(SYNTH) $(NALU3_1)
 
 tv:	aws-test/test.sv $(SRC) $(MXA) $(UART)  $(SYNTH) $(XTEST) aws-test/test_devices.sv $(INCLUDES)
-	iverilog -g 2005-sv -D SIMV  $(XSYNTH2) -o tv aws-test/test.sv aws-test/test_devices.sv $(SRC) $(XTEST) $(MXREG)  $(UART_DEF2) $(UART)  
-	iverilog -g 2005-sv -D SIMV  $(XSYNTH2) -o tvd -D SIMD aws-test/test.sv aws-test/test_devices.sv $(SRC) $(XTEST) $(MXREG)  $(UART_DEF2) $(UART)  
+	iverilog -g 2005-sv -D SIMV  $(XSYNTH2) -o tv aws-test/test.sv aws-test/test_devices.sv $(SRC) $(XTEST) $(MXREG)  $(UART_DEF2) $(UART)  $(NALU3_2)
+	iverilog -g 2005-sv -D SIMV  $(XSYNTH2) -o tvd -D SIMD aws-test/test.sv aws-test/test_devices.sv $(SRC) $(XTEST) $(MXREG)  $(UART_DEF2) $(UART)  $(NALU3_2)
 
 tvv:	obj_dir/tvv 
 obj_dir/tvv:	$(SRC) $(MXA) $(UART) aws-test/xtestbench.cpp $(SYNTH)  $(XTEST) aws-test/test.sv aws-test/test_devices.sv $(INCLUDES)
-	$(VERILATOR) -cc  --threads 8 --top-module test --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o tvv  +define+AWS_VERILATOR  +define+VSYNTH2 +define+SIMV +define+SIMD aws-test/test.sv aws-test/test_devices.sv $(XSYNTH1) $(SRC) $(MXREG)  $(UART_DEF1)  $(UART) $(XTEST) --assert --clk clk_main_a0  --trace  -sv --compiler gcc --Mdir awsobj_dir -exe aws-test/xtestbench.cpp
+	$(VERILATOR) -cc  --threads 8 --top-module test --autoflush -CFLAGS "-g" -LDFLAGS "-g" $(NALU3_1) -Wno-lint +1800-2017ext+sv -o tvv  +define+AWS_VERILATOR  +define+VSYNTH2 +define+SIMV +define+SIMD aws-test/test.sv aws-test/test_devices.sv $(XSYNTH1) $(SRC) $(MXREG)  $(UART_DEF1)  $(UART) $(XTEST) --assert --clk clk_main_a0  --trace  -sv --compiler gcc --Mdir awsobj_dir -exe aws-test/xtestbench.cpp
 	make -j -C awsobj_dir -f Vtest.mk tvv
 
 alu_ctrl_hdr_4_1_32_2_1_1_1_3_2_0.inc:	mkctrl 
@@ -139,6 +146,13 @@ alu_ctrl_core_4_1_32_2_1_1_1_2_1_0.inc:	mkctrl
 	./mkctrl -core 4 1 32 2 1 1 1 2 1 0 >$@
 alu_ctrl_inst_4_1_32_2_1_1_1_2_1_0.inc:	mkctrl
 	./mkctrl -inst 4 1 32 2 1 1 1 2 1 0 >$@
+
+alu_ctrl_hdr_4_1_32_3_1_1_1_2_1_0.inc:	mkctrl 
+	./mkctrl -hdr 4 1 32 3 1 1 1 2 1 0 >$@
+alu_ctrl_core_4_1_32_3_1_1_1_2_1_0.inc:	mkctrl
+	./mkctrl -core 4 1 32 3 1 1 1 2 1 0 >$@
+alu_ctrl_inst_4_1_32_3_1_1_1_2_1_0.inc:	mkctrl
+	./mkctrl -inst 4 1 32 3 1 1 1 2 1 0 >$@
 
 alu_ctrl_hdr_4_1_32_2_1_1_1_3_2_1.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 2 1 1 1 3 2 1 >$@
@@ -198,6 +212,16 @@ rfile_13_3_6_2_8_32_1.inc:	rfile
 	./rfile -inc 13 3 6 2 8 32 1 >$@
 rfile_13_3_6_2_8_32_3.inc:	rfile
 	./rfile -inc 13 3 6 2 8 32 3 >$@
+
+rfile_15_3_7_2_4_32_1.sv:	rfile
+	./rfile 15 3 7 2 4 32 1 >$@
+rfile_15_3_7_2_4_32_1.inc:	rfile
+	./rfile -inc 15 3 7 2 8 32 1 >$@
+rfile_15_3_7_2_8_32_1.sv:	rfile
+	./rfile 15 3 7 2 8 32 1 >$@
+rfile_15_3_7_2_8_32_1.inc:	rfile
+	./rfile -inc 15 3 7 2 8 32 1 >$@
+
 rfile_12_3_5_2_4_32_1.sv:	rfile
 	./rfile 12 3 5 2 4 32 1 >$@
 rfile_12_3_5_2_8_32_1.sv:	rfile
@@ -383,6 +407,8 @@ mk15_8_2.inc: mk15
 	./mk15 8 2 >$@
 mk15_9_2.inc: mk15
 	./mk15 9 2 >$@
+mk15_10_2.inc: mk15
+	./mk15 10 2 >$@
 
 mk16:	mk16.c
 	gcc -o mk16 mk16.c

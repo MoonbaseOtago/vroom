@@ -122,7 +122,7 @@ hpmcounter5 = 109993
 IPC = 1.83
 BTC hit rate = %99
 ==================================
-13/10/21 - hardware - usermode - same as above run but as always the hardware has a smaller BTC
+31/10/21 - hardware - usermode - same as above run but as always the hardware has a smaller BTC
 Microseconds for one run through Dhrystone: 7.31
 Dhrystones per Second:                      136635
 DMips:                                      77.7
@@ -134,4 +134,17 @@ hpmcounter5 = 27055632
 
 IPC = 1.65
 BTC hit rate = %96
+==================================
+7/11/21 - simulator m-mode - optimise divder
+Microseconds for one run through Dhrystone: 6.40
+Dhrystones per Second:                      155935
+DMips:                                      88.7
+DMips/(25)MHZ:                              3.55
+mcycle = 320755
+minstret = 602031
+hpmcounter4 = 110006
+hpmcounter5 = 109993
+
+IPC = 1.87
+BTC hit rate = %99
 

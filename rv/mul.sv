@@ -377,6 +377,11 @@ module mul(
 					if (r_div_count >= 8 && r_remainder[127:120] == 8'h0 && r_divisor >= r_remainder[119:56]) begin
 						c_div_count = r_div_count-8;
 						c_remainder = {r_remainder[119:0], 8'h0};
+					end else
+					if (r_div_count >= 4 && r_remainder[127:124] == 4'h0 && r_divisor >= r_remainder[123:60]) begin
+						c_div_count = r_div_count-4;
+						c_remainder = {r_remainder[123:0], 4'h0};
+						c_div_next = 0;
 					end else begin
 						c_remainder = r_remainder;
 						c_div_next = 0;

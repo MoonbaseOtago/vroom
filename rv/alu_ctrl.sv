@@ -49,7 +49,11 @@ module alu_ctrl(
 `ifdef FP
 `include "alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_1.inc"
 `else
+`ifdef NALU3
+`include "alu_ctrl_hdr_4_1_32_3_1_1_1_2_1_0.inc"
+`else
 `include "alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_0.inc"
+`endif
 `endif
 	input dummy);
 
@@ -74,12 +78,18 @@ module alu_ctrl(
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin
 `include "alu_ctrl_core_4_1_32_2_1_1_1_2_1_1.inc"
 		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin
+`include "alu_ctrl_core_4_1_32_2_1_1_1_2_1_1.inc"
+		end else
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 3 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin
 `include "alu_ctrl_core_4_1_32_2_1_1_1_3_2_1.inc"
 		end
 `endif
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin
 `include "alu_ctrl_core_4_1_32_2_1_1_1_2_1_0.inc"
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin
+`include "alu_ctrl_core_4_1_32_3_1_1_1_2_1_0.inc"
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 3 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin
 `include "alu_ctrl_core_4_1_32_2_1_1_1_3_2_0.inc"

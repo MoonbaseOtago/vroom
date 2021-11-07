@@ -191,123 +191,95 @@ generate_sched_ls(int nload, int nstore, int numhart, int ncommit) // special ca
 	printf("		end\n");
 }
 
+void generate_sched_recursive(const char *name, int instance, int nunit, int start, int numhart, int ncommit);
+
 void
 generate_sched(const char *name, int nunit, int numhart, int ncommit)
 {
 	int i, j, k, l, m, n, first;
 
 	j = 0;
-	for (i = 0; i < nunit; i++) {
+	for (j = 0; j < nunit; j++) {
 		printf("		reg [LNCOMMIT-1:0]%s_out%d;\n", name, j);
 		printf("		reg 		%s_ready%d;\n", name, j);
 		if (numhart > 1) {
 			printf("		reg [LNHART-1:0]%s_hart%d;\n", name, j);
-			printf("		assign %s_hart_%d = %s_hart%d;\n", name, i, name, j);
+			printf("		assign %s_hart_%d = %s_hart%d;\n", name, j, name, j);
 		}
-		printf("		assign %s_addr_%d = %s_out%d;\n", name, i, name, j);
-		printf("		assign %s_enable_%d =  %s_ready%d;\n", name, i, name, j);
-		printf("		always @(*) begin\n");
+		printf("		assign %s_addr_%d = %s_out%d;\n", name, j, name, j);
+		printf("		assign %s_enable_%d =  %s_ready%d;\n", name, j, name, j);
+	}
+	printf("		always @(*) begin\n");
+	for (j = 0; j < nunit; j++) {
 		printf("			%s_ready%d=1'bx;\n",name,j);
 		printf("			%s_out%d='bx;\n",name,j);
 		if (numhart > 1)
 			printf("			%s_hart%d='bx;\n",name,j);
-		printf("			casez ({");
-		first = 1;
-		for (k = 0; k < ncommit; k++) {
+	}
+	generate_sched_recursive(name, 0, nunit, 0, numhart, ncommit);
+	printf("		end");
+}
+
+void
+generate_sched_recursive(const char *name, int instance, int nunit, int start, int numhart, int ncommit)
+{
+	char d[10];
+	int x, i, j, k, l, m, n, first;
+	for (i = 0; i < instance; i++)
+		d[i] = '\t';
+	d[instance] = 0;
+
+	printf("%s			casez ({", d);
+	first = 1;
+	x=0;
+	for (k = 0; k < ncommit; k++) {
 			for (l = 0; l < numhart; l++) {
-				if (first) {
-					first=0;
-				} else {
-					printf(",");
+				if (x >= start) {
+					if (first) {
+						first=0;
+					} else {
+						printf(",");
+					}
+					printf("%s_r%d[%d]", name, l, k);
 				}
-				printf("%s_r%d[%d]", name, l, k);
+				x++;
 			}
 		}
-		printf("}) // synthesis full_case parallel_case\n");
-		switch (i) {
-		default:
-			printf("ERROR - fixme - handle more complex unit scheduling\n");
-			fprintf(stderr, "ERROR - fixme - handle more complex unit scheduling\n");
-			exit(0);
-		case 0: for (k = 0; k < ncommit; k++) 
-				for (l = 0; l < numhart; l++) {
-					printf("			%d'b", numhart*ncommit);
-					for (m = 0; m < (k*numhart+l); m++)
-						printf("0");
-					printf("1");
-					for (m= k*numhart+l+1; m < (numhart*ncommit); m++)
-						printf("?");
-					printf(": begin\n");
-					printf("					%s_ready%d = 1;\n", name, j);
-					printf("					%s_out%d = %d+start_commit_%d;\n", name, j, k, l);
-					if (numhart > 1)
-						printf("					%s_hart%d = %d;\n", name, j, l);
-					printf("				end\n");
-				}
-				break;
-		case 1: for (k = 0; k < ncommit; k++) 
-				for (l = 0; l < numhart; l++) {
-					int first = 1;
-					if (k == 0 && l == 0)
-						continue;
-					for (n = 0; n < k*numhart+l; n++) {
-						if (first) {
-							first = 0;
-						} else {
-							printf(",\n");
-						}
-						printf("			%d'b", numhart*ncommit);
-						for (m = 0; m < (k*numhart+l); m++)
-							printf(m==n?"1":"0");
-						printf("1");
-						for (m= k*numhart+l+1; m < (numhart*ncommit); m++)
-							printf("?");
+	printf("}) // synthesis full_case parallel_case\n");
+	x = 0;
+	for (k = 0; k < ncommit; k++) {
+		for (l = 0; l < numhart; l++) {
+			if (x >= start) {
+				printf("%s			%d'b", d, numhart*ncommit-start);
+				for (m = start; m < (k*numhart+l); m++)
+					printf("0");
+				printf("1");
+				for (m= k*numhart+l+1; m < (numhart*ncommit); m++)
+					printf("?");
+				printf(": begin\n");
+				printf("%s					%s_ready%d = 1;\n", d, name, instance);
+				printf("%s					%s_out%d = %d+start_commit_%d;\n", d, name, instance, k, l);
+				if (numhart > 1)
+					printf("%s					%s_hart%d = %d;\n", d, name, instance, l);
+				if (instance < (nunit-1)) {
+					if ((x+1) < numhart*ncommit) {
+						generate_sched_recursive(name, instance+1, nunit, x+1, numhart, ncommit);
+					} else {
+						for (i = instance+1; i < nunit; i++)
+						printf("%s					%s_ready%d = 0;\n", d, name, i);
 					}
-					printf(": begin\n");
-					printf("					%s_ready%d = 1;\n", name, j);
-					printf("					%s_out%d = %d+start_commit_%d;\n", name, j, k, l);
-					if (numhart > 1)
-						printf("					%s_hart%d = %d;\n", name, j, l);
-					printf("				end\n");
 				}
-				break;
-		case 2: for (k = 0; k < ncommit; k++) 
-				for (l = 0; l < numhart; l++) {
-					int first = 1;
-					if ((k*numhart+l) < i)
-						continue;
-					for (n = 0; n < (k*numhart+l-1); n++) {
-						int p;
-						for (p=n+1; p < (k*numhart+l); p++) {
-							if (first) {
-								first = 0;
-							} else {
-								printf(",\n");
-							}
-							printf("			%d'b", numhart*ncommit);
-							for (m = 0; m < (k*numhart+l); m++)
-								printf(m==n|| m==p?"1":"0");
-							printf("1");
-							for (m= k*numhart+l+1; m < (numhart*ncommit); m++)
-								printf("?");
-						}
-					}
-					printf(": begin\n");
-					printf("					%s_ready%d = 1;\n", name, j);
-					printf("					%s_out%d = %d+start_commit_%d;\n", name, j, k, l);
-					if (numhart > 1)
-						printf("					%s_hart%d = %d;\n", name, j, l);
-					printf("				end\n");
-				}
-				break;
+				printf("%s				end\n", d);
+			}
+			x++;
 		}
-		printf("			default: begin\n");
-		printf("					%s_ready%d = 0;\n", name, j);
-		printf("				end\n");
-		printf("			endcase\n");
-		printf("		end\n");
-		j++;
-	}
+    }
+	printf("%s			default: begin\n",d);
+	for (i = instance; i < nunit; i++)
+	printf("%s					%s_ready%d = 0;\n", d, name, i);
+	printf("%s				end\n",d);
+	printf("%s			endcase\n",d);
+	j++;
 }
 
 void

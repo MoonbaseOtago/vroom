@@ -149,7 +149,11 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	//
 	//	 how many of each type of datapath unit
 	//
+`ifdef NALU3
+	parameter NALU = 3;	
+`else
 	parameter NALU = 2;	
+`endif
 	parameter NSHIFT = 1;
 	parameter NLOAD = 2;
 	parameter NSTORE = 1;
@@ -1466,6 +1470,9 @@ end
 			assign xsched[H] = lsched[N_LOCAL_UNITS-1];
 		end
 `endif
+		if (N_GLOBAL_UNITS == 10 && N_LOCAL_UNITS == 2) begin
+`include "mk15_10_2.inc"
+		end
 		if (N_GLOBAL_UNITS == 9 && N_LOCAL_UNITS == 2) begin
 `include "mk15_9_2.inc"
 		end
@@ -2158,12 +2165,20 @@ end
 
 		for (H = 0; H < NHART; H=H+1) begin : registers
 `ifndef FP
-			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==13 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==13 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r4
 				if (NUM_TRANSFER_PORTS == 4) begin :x
 `include "rfile_13_3_6_2_4_32_1.inc"
 				end 
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_13_3_6_2_8_32_1.inc"  
+				end 
+			end else
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r
+				if (NUM_TRANSFER_PORTS == 4) begin :x
+`include "rfile_15_3_7_2_4_32_1.inc"
+				end 
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_15_3_7_2_8_32_1.inc"  
 				end 
 			end
 `else
@@ -2174,12 +2189,20 @@ end
 				if (NUM_TRANSFER_PORTS == 8) begin :y4
 `include "rfile_14_3_7_2_8_32_4.inc"
 				end 
+			end else
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==16 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r3
+				if (NUM_TRANSFER_PORTS == 4) begin :x4
+`include "rfile_16_3_8_2_4_32_4.inc"
+				end 
+				if (NUM_TRANSFER_PORTS == 8) begin :y4
+`include "rfile_16_3_8_2_8_32_4.inc"
+				end 
 			end
 `endif
 		end
 
 
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl2
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
@@ -2190,6 +2213,20 @@ end
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_2_1_0.inc"
+`ifdef NALU3
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin : alu_ctrl
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_3_1_1_1_2_1_0.inc"
+`endif
 		end
 `ifdef FP
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrlf

@@ -34,6 +34,7 @@ module csr(input clk, input reset,
 		input [LNCOMMIT-1:0]num_retired,
 		input [3:0]num_branches_retired,
 		input [3:0]num_branches_predicted,
+		input [3:0]count_out_rename,
 		
                 
         output [RV-1:0]result,    
@@ -2339,7 +2340,7 @@ module csr(input clk, input reset,
 	if (!r_inh_retired)
 		r_retired <= r_retired+num_retired;
 
-	reg [31:0]r_branches_retired, r_branches_predicted;
+	reg [31:0]r_branches_retired, r_branches_predicted, r_instructions_decoded, r_bundles_decoded;
 	always @(posedge clk) 
 	if (reset) r_branches_retired <= 0; else 
 	if (csr_write && (r_immed[11:0] == 12'hb04)) r_branches_retired <= in; else
@@ -2351,6 +2352,18 @@ module csr(input clk, input reset,
 	if (csr_write && (r_immed[11:0] == 12'hb05)) r_branches_predicted <= in; else
 	if (!r_inh_branches_predicted)
 		r_branches_predicted <= r_branches_predicted+num_branches_predicted;
+
+	always @(posedge clk) 
+	if (reset) r_instructions_decoded <= 0; else 
+	if (csr_write && (r_immed[11:0] == 12'hb06)) r_instructions_decoded <= in; else
+	if (!r_inh_branches_predicted)
+		r_instructions_decoded <= r_instructions_decoded+count_out_rename;
+
+	always @(posedge clk) 
+	if (reset) r_bundles_decoded <= 0; else 
+	if (csr_write && (r_immed[11:0] == 12'hb07)) r_bundles_decoded <= in; else
+	if (!r_inh_branches_predicted && count_out_rename != 0)
+		r_bundles_decoded <= r_bundles_decoded+1;
 
 	always @(posedge clk) 
 	if (reset) r_htimedelta <= 0; else
@@ -3240,6 +3253,14 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		13'b?_11_00_0000_0101,		//  branches predicted
 		13'b?_10_11_0000_0101:	
 					c_res = r_branches_predicted;
+
+		13'b?_11_00_0000_0110,		//  instructions decoded
+		13'b?_10_11_0000_0110:	
+					c_res = r_instructions_decoded;
+
+		13'b?_11_00_0000_0111,		//  decode-bundles decoded
+		13'b?_10_11_0000_0111:	
+					c_res = r_bundles_decoded;
 
 		13'b?_11_00_0000_0011,		//  performance monitoring counter
 		13'b?_10_11_0000_0011,		//  performance monitoring counter

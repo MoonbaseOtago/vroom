@@ -493,6 +493,7 @@ assign pmp_valid[1]=0;
 	wire	[LNCOMMIT-1:0]current_start[0: NHART-1]; // valid range of the commit buffer 
 	wire	[LNCOMMIT-1:0]current_end[0: NHART-1];	  //   start->end-1
 	wire	[LNCOMMIT:0]current_available[0: NHART-1];	  //   start->end-1
+	wire	[3:0]total_count_out_rename[0: NHART-1];	  //   registered count_out for perf monitoring
 
 `ifdef FP
     wire    [NCOMMIT-1:0]fpu_ready_commit[0: NHART-1];
@@ -902,6 +903,7 @@ assign gl_type_dec[H] = unit_type_dec[0];
 				.will_be_valid(will_be_valid_rename),
 				.proceed(proceed_rename),
 				.count_out(count_out_rename),
+				.rename_count_out(total_count_out_rename[H]),
 				.current_available(current_available[H]),
 
                 .pc_dest(pc_dest_dec),						// note if/when we switch to having a trace cache these will 
@@ -1470,9 +1472,11 @@ end
 			assign xsched[H] = lsched[N_LOCAL_UNITS-1];
 		end
 `endif
+`ifdef NALU3
 		if (N_GLOBAL_UNITS == 10 && N_LOCAL_UNITS == 2) begin
 `include "mk15_10_2.inc"
 		end
+`endif
 		if (N_GLOBAL_UNITS == 9 && N_LOCAL_UNITS == 2) begin
 `include "mk15_9_2.inc"
 		end
@@ -2069,6 +2073,7 @@ end
 				.num_retired(num_retired[H]),
 				.num_branches_predicted(num_branches_predicted[H]),
 				.num_branches_retired(num_branches_retired[H]),
+				.count_out_rename(total_count_out_rename[H]),
 				.timer_prot(timer_prot[H]),
 				.rv32(rv32[H]),
 				.tsr(tsr[H]),
@@ -2172,6 +2177,7 @@ end
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_13_3_6_2_8_32_1.inc"  
 				end 
+`ifdef NALU3
 			end else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r
 				if (NUM_TRANSFER_PORTS == 4) begin :x
@@ -2180,6 +2186,7 @@ end
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_15_3_7_2_8_32_1.inc"  
 				end 
+`endif
 			end
 `else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==14 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r4
@@ -2189,6 +2196,7 @@ end
 				if (NUM_TRANSFER_PORTS == 8) begin :y4
 `include "rfile_14_3_7_2_8_32_4.inc"
 				end 
+`ifdef NALU3
 			end else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==16 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r3
 				if (NUM_TRANSFER_PORTS == 4) begin :x4
@@ -2197,6 +2205,7 @@ end
 				if (NUM_TRANSFER_PORTS == 8) begin :y4
 `include "rfile_16_3_8_2_8_32_4.inc"
 				end 
+`endif
 			end
 `endif
 		end

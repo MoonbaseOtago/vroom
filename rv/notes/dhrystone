@@ -136,15 +136,15 @@ IPC = 1.65
 BTC hit rate = %96
 ==================================
 7/11/21 - simulator m-mode - optimise divder
-Microseconds for one run through Dhrystone: 6.40
-Dhrystones per Second:                      155935
-DMips:                                      88.7
-DMips/(25)MHZ:                              3.55
-mcycle = 320755
-minstret = 602031
-hpmcounter4 = 110006
-hpmcounter5 = 109993
+Microseconds for one run through Dhrystone: 6.32
+Dhrystones per Second:                      157898
+DMips:                                      89.8
+DMips/(25)MHZ:                              3.59
+mcycle = 316782
+minstret = 602037
+hpmcounter4 = 110008
+hpmcounter5 = 109991
 
-IPC = 1.87
+IPC = 1.90
 BTC hit rate = %99
 

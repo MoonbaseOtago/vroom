@@ -31,6 +31,7 @@ module rename_ctrl(
 		output   [RV-1:1]pc_dest_out,
 
 		output  [LNCOMMIT-1:0]count_out,
+		output  [3:0]rename_count_out,
 		output 	    proceed,
 		output		rename_reloading,
 		output	    rename_stall);
@@ -54,6 +55,10 @@ module rename_ctrl(
 	assign rename_stall = !reset && c_count_out > current_available;
 	wire stall_in = commit_br_enable|commit_trap_br_enable|r_force_fetch_rename;
 	reg [1:0]r_stall;
+	reg [3:0]r_count_out;
+	always @(posedge clk)
+		r_count_out <= (reset?0:count_out);
+	assign rename_count_out = r_count_out;	// 1 clock later for accounting
 
 
 	reg		r_force_fetch_rename;

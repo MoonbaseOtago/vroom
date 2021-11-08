@@ -147,4 +147,17 @@ hpmcounter5 = 109991
 
 IPC = 1.90
 BTC hit rate = %99
+==================================
+8/11/21 - simulator m-mode - reduce micro BTC  misses on returns
+Microseconds for one run through Dhrystone: 6.28
+Dhrystones per Second:                      158902
+DMips:                                      90.4
+DMips/(25)MHZ:                              3.61
+mcycle = 314781
+minstret = 602037
+hpmcounter4 = 110008
+hpmcounter5 = 109991
+
+IPC = 1.91
+BTC hit rate = %99
 

@@ -625,7 +625,7 @@ module pc(input clk,  input reset,
 					if (r_pc != return_branch_pc) begin
 						push_enable = 1;
 						push_noissue = unconditional_jmp && !might_branch && (!(r_fetch_br_valid && r_fetch_br_taken) || r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
-						push_taken = (r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
+						push_taken = 1; //(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_valid && r_fetch_br_taken ? r_fetch_br_predict_dec : dec_br_offset;
 						push_dest = return_branch_pc;
 					//	c_fetch_br_default = r_pc_br_default;

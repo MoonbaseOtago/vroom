@@ -916,6 +916,7 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 					casez ({push_taken, push_context.global_prediction_prev[1], push_context.bimodal_prediction_prev[1],
 							push_context.global_prediction_dec==push_branch_decoder,
 							push_context.bimodal_prediction_dec==push_branch_decoder}) // synthesis full_case parallel_case
+5'b1_11_11,
 					5'b1_11_10,
 					5'b1_10_1?,
 					5'b0_01_??:	if (push_context.combined_prediction_prev!=3) begin
@@ -929,7 +930,7 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 									r_pend_combined_pred[P] <= push_context.combined_prediction_prev-1;
 								end else begin
 									r_pend_combined_pred[P] <= push_context.combined_prediction_prev;
-								end
+								end 
 					default:	r_pend_combined_pred[P] <= push_context.combined_prediction_prev;
 					endcase
 					r_pend_global_prev[P] <= push_context.global_prediction_prev;

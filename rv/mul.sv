@@ -104,7 +104,7 @@ module mul(
 	assign sgn = control[2:1];
 
 
-	reg [7:0]r_div_count, c_div_count;
+	reg    [5:0]r_div_count, c_div_count;
 	reg [RV-1:0]r_div_res, c_div_res;
 	reg			r_div_start, c_div_start;
 	reg			r_div_next, c_div_next;
@@ -114,6 +114,7 @@ module mul(
 	reg [2*RV-1:0]r_remainder, c_remainder;
 	reg [RV-1:0]r_quotient, c_quotient;
 	reg [RV-1:0]r_divisor, c_divisor;
+	reg [RV+1:0]r_divisor3, c_divisor3;
 	reg [LNCOMMIT-1:0]r_div_rd, c_div_rd;
 	reg			r_div_makes_rd, c_div_makes_rd;
 	reg  [(NHART==0?0:LNHART-1):0]r_div_hart, c_div_hart;
@@ -324,6 +325,7 @@ module mul(
 		c_div_busy = r_div_busy&!reset;
 		c_div_makes_rd = r_div_makes_rd&&!commit_kill_0[r_div_rd];
 		c_divisor = r_divisor;
+		c_divisor3 = r_divisor3;
 		c_div_count = r_div_count;
 		if (enable && !mul && !bopt) begin
 			c_div_busy = !commit_kill_0[rd];
@@ -351,13 +353,13 @@ module mul(
 						c_div_sign = r_div_sign&(r1[31]^r2[31]);
 						c_divisor = {32'b0, r_div_sign&r2[31]?(~r2[31:0])+32'b1:r2[31:0]};
 						c_remainder = {63'b0, (r_div_sign&r1[31]?(~r1[31:0])+32'b1:r1[31:0]), 33'b0};
-						c_div_count = 31;
+						c_div_count = 15;
 						c_div_last = r2[31:0]==0;
 					end else begin
 						c_div_sign = r_div_sign&(r1[63]^r2[63]);
 						c_divisor = r_div_sign&r2[63]?(~r2)+64'b1:r2;
 						c_remainder = {63'b0, (r_div_sign&r1[63]?(~r1)+64'b1:r1), 1'b0};
-						c_div_count = 63;
+						c_div_count = 31;
 						c_div_last = r2==0;
 					end
 					c_div_next = !c_div_last;
@@ -366,20 +368,21 @@ module mul(
 					c_div_start = 0;
 				end
 		6'b0?1???: begin			// short circuit early 0s
-					if (r_div_count >= 32 && r_remainder[127:96] == 32'h0 && r_divisor >= r_remainder[95:32]) begin
-						c_div_count = r_div_count-32;
+					c_divisor3 = {2'b0, r_divisor} + {1'b0, r_divisor, 1'b0};
+					if (r_div_count >= 16 && r_remainder[127:96] == 32'h0 && r_divisor >= r_remainder[95:32]) begin
+						c_div_count = r_div_count-16;
 						c_remainder = {r_remainder[95:0], 32'h0};
 					end else
-					if (r_div_count >= 16 && r_remainder[127:112] == 16'h0 && r_divisor >= r_remainder[111:48]) begin
-						c_div_count = r_div_count-16;
+					if (r_div_count >= 8 && r_remainder[127:112] == 16'h0 && r_divisor >= r_remainder[111:48]) begin
+						c_div_count = r_div_count-8;
 						c_remainder = {r_remainder[111:0], 16'h0};
 					end else
-					if (r_div_count >= 8 && r_remainder[127:120] == 8'h0 && r_divisor >= r_remainder[119:56]) begin
-						c_div_count = r_div_count-8;
+					if (r_div_count >= 4 && r_remainder[127:120] == 8'h0 && r_divisor >= r_remainder[119:56]) begin
+						c_div_count = r_div_count-4;
 						c_remainder = {r_remainder[119:0], 8'h0};
 					end else
-					if (r_div_count >= 4 && r_remainder[127:124] == 4'h0 && r_divisor >= r_remainder[123:60]) begin
-						c_div_count = r_div_count-4;
+					if (r_div_count >= 2 && r_remainder[127:124] == 4'h0 && r_divisor >= r_remainder[123:60]) begin
+						c_div_count = r_div_count-2;
 						c_remainder = {r_remainder[123:0], 4'h0};
 						c_div_next = 0;
 					end else begin
@@ -389,13 +392,37 @@ module mul(
 					c_quotient = 0;
 				  end 
 		6'b000100: begin: dd		// core of divider
-					reg [64:0]c_new_remainder;
+					reg [66:0]c_new_remainder3;
+					reg [66:0]c_new_remainder2;
+					reg [66:0]c_new_remainder1;
 					reg [63:0]c_rem;
 
-					c_new_remainder = {1'b0, r_remainder[127:64]}-{1'b0, r_divisor};
-					c_rem = (c_new_remainder[64] ? r_remainder[127:64]: c_new_remainder[63:0]);
-					c_remainder = {c_rem[62:0], r_remainder[63:0], 1'b0};
-					c_quotient = {r_quotient[62:0], ~c_new_remainder[64]};
+					// 2 bits/clock
+					c_new_remainder3 = {2'b0, r_remainder[127:63]}-{1'b0, r_divisor3};
+					c_new_remainder2 = {2'b0, r_remainder[127:63]}-{2'b0, r_divisor, 1'b0};
+					c_new_remainder1 = {2'b0, r_remainder[127:63]}-{3'b0, r_divisor};
+					casez ({c_new_remainder3[66], c_new_remainder2[66], c_new_remainder1[66]}) // synthesis full_case parallel_case
+					3'b0??:	begin
+								c_quotient = {r_quotient[61:0], 2'b11};
+								c_remainder = {c_new_remainder3[62:0], r_remainder[62:0], 2'b0};
+								c_rem = c_new_remainder3[63:0];
+							end
+					3'b10?:	begin
+								c_quotient = {r_quotient[61:0], 2'b10};
+								c_remainder = {c_new_remainder2[62:0], r_remainder[62:0], 2'b0};
+								c_rem = c_new_remainder2[63:0];
+							end
+					3'b110:	begin
+								c_quotient = {r_quotient[61:0], 2'b01};
+								c_remainder = {c_new_remainder1[62:0], r_remainder[62:0], 2'b0};
+								c_rem = c_new_remainder1[63:0];
+							end
+					3'b111:	begin
+								c_quotient = {r_quotient[61:0], 2'b00};
+								c_remainder = {r_remainder[125:0], 2'b00};
+								c_rem = r_remainder[126:63];
+							end
+					endcase
 					c_div_count = r_div_count-1;
 					if (r_div_count == 0) begin
 						c_dividing = 0;
@@ -456,6 +483,7 @@ module mul(
 		r_div_addw <= c_div_addw;
 		r_div_rem <= c_div_rem;
 		r_divisor <= c_divisor;
+		r_divisor3 <= c_divisor3;
 
 		r_mul_busy_1 <= c_mul_busy_1;
 		r_mul_busy_2 <= c_mul_busy_2;

@@ -156,7 +156,11 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 `endif
 	parameter NSHIFT = 1;
 	parameter NLOAD = 2;
+`ifdef NSTORE2
+	parameter NSTORE = 2;
+`else
 	parameter NSTORE = 1;
+`endif
 	parameter	NLDSTQ = 8;
 	parameter NMUL = 1;
 	parameter NBRANCH = 1;	// number of branch units per-hart
@@ -1272,6 +1276,9 @@ end
 				end else
 				if (NLOAD == 3 && NSTORE == 2 && NMUL == 1) begin
 `include "mk14_3_2_1.inc"
+				end else
+				if (NLOAD == 2 && NSTORE == 2 && NMUL == 1) begin
+`include "mk14_2_2_1.inc"
 				end 
 
 				assign commit_load[H][C] = xload&~(commit_br_enable[0][H]|commit_trap_br_enable[H]|commit_int_br_enable[H]);
@@ -1358,13 +1365,17 @@ end
 							      || (load_vm_stall[1] && reg_write_addr[NSHIFT+NALU+1] == C && hart_sched[NSHIFT+NALU+1] == H) 
 							    //|| (load_vm_stall[2] && reg_write_addr[NSHIFT+NALU+2] == C && hart_sched[NSHIFT+NALU+2] == H) 
 							      || (store_vm_stall[0] && (store_running_commit[0]==C) && (store_running_hart[0]==H))
-							    //|| (store_vm_stall[1] && (store_running_commit[1]==C) && (store_running_hart[1]==H))
+`ifdef NSTORE2
+							      || (store_vm_stall[1] && (store_running_commit[1]==C) && (store_running_hart[1]==H))
+`endif
 									),
 					.commit_vm_pause((load_vm_pause[0] && reg_write_addr[NSHIFT+NALU+0] == C && hart_sched[NSHIFT+NALU+0] == H) 
 							      || (load_vm_pause[1] && reg_write_addr[NSHIFT+NALU+1] == C && hart_sched[NSHIFT+NALU+1] == H) 
 							    //|| (load_vm_pause[2] && reg_write_addr[NSHIFT+NALU+2] == C && hart_sched[NSHIFT+NALU+2] == H) 
 							      || (store_vm_pause[0] && (store_running_commit[0]==C) && (store_running_hart[0]==H))
-							    //|| (store_vm_pause[1] && (store_running_commit[1]==C) && (store_running_hart[1]==H))
+`ifdef NSTORE2
+							      || (store_vm_pause[1] && (store_running_commit[1]==C) && (store_running_hart[1]==H))
+`endif
 									),
 					.commit_vm_done(commit_vm_done && commit_vm_done_commit == C && commit_vm_done_hart == H),
 					.commit_vm_done_fail(commit_vm_done_fail),
@@ -1711,24 +1722,26 @@ end
 			.store_running_hart_0(store_running_hart[0]),
 			.store_running_commit_0(store_running_commit[0]),
 
-			//.store_enable_1(enable_sched[NALU+NSHIFT+NLOAD+1]),
-			//.store_rd_1(alu_sched[NSHIFT+NALU+NLOAD+1]),
-			//.store_makes_rd_1(makes_rd_commit[hart_sched[NSHIFT+NALU+NLOAD+1]][alu_sched[NSHIFT+NALU+NLOAD+1]]),
-			//.store_control_1(control_commit[alu_sched[NSHIFT+NALU+NLOAD+1]][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-			//.store_r1_1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+1)][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-			//.store_r2_1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+1)+1][hart_sched[NSHIFT+NALU+NLOAD+1]]),
+`ifdef NSTORE2
+			.store_enable_1(enable_sched[NALU+NSHIFT+NLOAD+1]),
+			.store_rd_1(alu_sched[NSHIFT+NALU+NLOAD+1]),
+			.store_makes_rd_1(makes_rd_commit[hart_sched[NSHIFT+NALU+NLOAD+1]][alu_sched[NSHIFT+NALU+NLOAD+1]]),
+			.store_control_1(control_commit[alu_sched[NSHIFT+NALU+NLOAD+1]][hart_sched[NSHIFT+NALU+NLOAD+1]]),
+			.store_r1_1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+1)][hart_sched[NSHIFT+NALU+NLOAD+1]]),
+			.store_r2_1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+1)+1][hart_sched[NSHIFT+NALU+NLOAD+1]]),
 `ifdef FP
-			//.store_r2_fp_0(fpu_reg_read_data[1][hart_sched[NSHIFT+NALU+NLOAD+0]]),
+			.store_r2_fp_1(fpu_reg_read_data[1][hart_sched[NSHIFT+NALU+NLOAD+0]]),
 `endif
-			//.store_immed_1(immed_commit[alu_sched[NSHIFT+NALU+NLOAD+1]][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-			//.store_hart_1(hart_sched[NSHIFT+NALU+NLOAD+1]),
-			//.store_vm_stall_1(store_vm_stall[1]),
-			//.store_vm_pause_1(store_vm_pause[1]),
+			.store_immed_1(immed_commit[alu_sched[NSHIFT+NALU+NLOAD+1]][hart_sched[NSHIFT+NALU+NLOAD+1]]),
+			.store_hart_1(hart_sched[NSHIFT+NALU+NLOAD+1]),
+			.store_vm_stall_1(store_vm_stall[1]),
+			.store_vm_pause_1(store_vm_pause[1]),
 
-			//.store_running_1(store_running[1]),
-			//.store_running_trap_type_1(store_running_trap_type[1]),
-			//.store_running_hart_0(store_running_hart[1]),
-			//.store_running_commit_1(store_running_commit[1]),
+			.store_running_1(store_running[1]),
+			.store_running_trap_type_1(store_running_trap_type[1]),
+			.store_running_hart_1(store_running_hart[1]),
+			.store_running_commit_1(store_running_commit[1]),
+`endif
 
 			.vm_done(commit_vm_done),
 			.vm_done_fail(commit_vm_done_fail),
@@ -2177,6 +2190,16 @@ end
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_13_3_6_2_8_32_1.inc"  
 				end 
+`ifdef NSTORE2
+			end else
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 2) begin :r22
+				if (NUM_TRANSFER_PORTS == 4) begin :x
+`include "rfile_15_3_6_2_4_32_2.inc"
+				end 
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_15_3_6_2_8_32_2.inc"  
+				end 
+`endif
 `ifdef NALU3
 			end else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r
@@ -2222,6 +2245,18 @@ end
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_2_1_0.inc"
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl_22
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_2_1_1_1_2_2_0.inc"
 `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin : alu_ctrl
@@ -2249,6 +2284,18 @@ end
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_2_1_1.inc"
+		end
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin : alu_ctrlf_22
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_2_1_1_1_2_2_1.inc"
 		end
 `endif
 	endgenerate

@@ -104,7 +104,7 @@ module chip (input ireset,
 	parameter NPHYS=56;
 	parameter CACHE_LINE_SIZE=512;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
-	parameter NLDSTQ=8;
+	parameter NLDSTQ=16;
 	parameter TRANS_ID_SIZE=6;	// 6 for i/tcaches
 	parameter NI=NCPU*2;
 	parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);

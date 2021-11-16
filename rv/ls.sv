@@ -130,23 +130,25 @@ module load_store(
 	output			store_vm_pause_0,
 
 
-//	input 		      store_enable_1,
-//	input   [LNCOMMIT-1:0]store_rd_1,
-//	input [CNTRL_SIZE-1:0]store_control_1,
-//	input [RV-1:0]store_r1_1, store_r2_1,
+`ifdef NSTORE2
+	input 		      store_enable_1,
+	input   [LNCOMMIT-1:0]store_rd_1,
+	input [CNTRL_SIZE-1:0]store_control_1,
+	input [RV-1:0]store_r1_1, store_r2_1,
 `ifdef FP
-//	input [RV-1:0]store_r2_fp_1,
+	input [RV-1:0]store_r2_fp_1,
 `endif
-//	input [31:0]store_immed_1,
-//	input	[(NHART==1?0:LNHART-1):0]store_hart_1,
-//	input	store_makes_rd_1,
+	input [31:0]store_immed_1,
+	input	[(NHART==1?0:LNHART-1):0]store_hart_1,
+	input	store_makes_rd_1,
 
-//	output			store_running_1,
-//	output	[ 1: 0]store_running_trap_type_1,	// 0 for no trap, 1 align, 2 access, 3 page
-//	output [(NHART==1?0:LNHART-1):0]store_running_hart_1,
-//	output	[LNCOMMIT-1:0]store_running_commit_1,
-//	output			store_vm_stall_1,
-//	output			store_vm_pause_1,
+	output			store_running_1,
+	output	[ 1: 0]store_running_trap_type_1,	// 0 for no trap, 1 align, 2 access, 3 page
+	output [(NHART==1?0:LNHART-1):0]store_running_hart_1,
+	output	[LNCOMMIT-1:0]store_running_commit_1,
+	output			store_vm_stall_1,
+	output			store_vm_pause_1,
+`endif
 
 	output			vm_done,
 	output			vm_done_fail,
@@ -415,6 +417,19 @@ module load_store(
 	assign istore_enable[0] = store_enable_0;
 	wire  [NSTORE-1:0]istore_makes_rd;
 	assign istore_makes_rd[0] = store_makes_rd_0;
+`ifdef NSTORE2
+	assign istore_r1[1] = store_r1_1;
+	assign istore_r2[1] = store_r2_1;
+`ifdef FP
+	assign istore_r2_fp[1] = store_r2_fp_1;
+`endif
+	assign istore_control[1] = store_control_1;
+	assign istore_immed[1] = store_immed_1;
+	assign istore_hart[1] = store_hart_1;
+	assign istore_rd[1] = store_rd_1;
+	assign istore_enable[1] = store_enable_1;
+	assign istore_makes_rd[1] = store_makes_rd_1;
+`endif
 
 	reg 	[NLOAD-1:0]r_load_vm_stall, c_load_vm_stall;
 	reg 	[NLOAD-1:0]r_load_vm_pause, c_load_vm_pause;
@@ -428,9 +443,11 @@ module load_store(
 	reg 	[NSTORE-1:0]r_store_vm_stall, c_store_vm_stall;
 	reg 	[NSTORE-1:0]r_store_vm_pause, c_store_vm_pause;
 	assign store_vm_stall_0 = r_store_vm_stall[0];
-	//assign store_vm_stall_1 = r_store_vm_stall[1];
 	assign store_vm_pause_0 = r_store_vm_pause[0];
-	//assign store_vm_pause_1 = r_store_vm_pause[1];
+`ifdef NSTORE2
+	assign store_vm_stall_1 = r_store_vm_stall[1];
+	assign store_vm_pause_1 = r_store_vm_pause[1];
+`endif
 
 	wire [ 3: 0]cpu_mode[0:NHART-1];
 	wire [ 3: 0]mprv[0:NHART-1];
@@ -654,6 +671,13 @@ wire [(NHART==1?0:LNHART-1):0]r_store_hart_0=r_store_hart[0];
 	reg		[1:0]r_store_running_trap_type[0:NSTORE-1], c_store_running_trap_type[0:NSTORE-1]; // 0 for no trap, 1 align, 2 access, 3 page
 	assign store_running_trap_type_0 = r_store_running_trap_type[0];
 	
+`ifdef NSTORE2
+	assign	store_running_commit_1=r_store_rd2[1];
+	assign	store_running_hart_1=r_store_hart2[1];
+	assign store_running_1 = r_store_running[1];
+	assign store_running_trap_type_1 = r_store_running_trap_type[1];
+`endif
+	
 
 	wire [NLOAD+NSTORE-1:0]tlb_rd_enable;
     wire [VA_SZ-1:12]tlb_rd_vaddr[0:NLOAD+NSTORE-1];       // read path
@@ -708,7 +732,7 @@ wire [RV-1:0]dc_rd_data_0=dc_rd_data[0];
 	wire [5:0]wq_amo[0:NLDSTQ-1];
 	wire [1:0]wq_aq_rl[0:NLDSTQ-1];
 
-	wire [$clog2(NSTORE+NLOAD)-1:0]num_allocate;
+	wire [$clog2(NSTORE+NLOAD+1)-1:0]num_allocate;
 
     reg [NPHYS-1:ACACHE_LINE_SIZE]dc_raddr_out;
 	assign	dc_raddr = dc_raddr_out;
@@ -1485,6 +1509,7 @@ wire [NLOAD-1:0]h_store_vm_stall_0=h_store_vm_stall[0];
 					c_store_io[S] = 0; // FIXME maybe
 				end
 			end
+
 			always @(*) begin
 				wr_addr_ok[S] = 1'bx;
 				casez ({wr_mprv[S][3], wr_sup_vm_mode[S]}) // synthesis full_case parallel_case
@@ -1733,9 +1758,21 @@ wire [NLOAD-1:0]h_store_vm_stall_0=h_store_vm_stall[0];
 		assign tlb_wr_inv_unified = unified_asid[tlb_inv_hart];
 		assign tlb_wr_inv_asid = {unified_asid[tlb_inv_hart]?tlb_inv_asid[15]:tlb_inv_hart,tlb_inv_asid[14:0]};
 
+`ifdef NSTORE2
+		if (NLDSTQ == 8 && NLOAD == 2 && NSTORE == 2) begin
+`include "mk13_8_2_2.inc"
+		end
+		if (NLDSTQ == 16 && NLOAD == 2 && NSTORE == 2) begin
+`include "mk13_16_2_2.inc"
+		end
+`else
 		if (NLDSTQ == 8 && NLOAD == 2 && NSTORE == 1) begin
 `include "mk13_8_2_1.inc"
 		end
+		if (NLDSTQ == 16 && NLOAD == 2 && NSTORE == 1) begin
+`include "mk13_16_2_1.inc"
+		end
+`endif
         wire [NLDSTQ-1:0]all_active;
         wire [NLDSTQ-1:0]store_mem_hit = dc_wr_hit_ok_write[0]?store_mem:0;
 
@@ -1898,6 +1935,9 @@ wire [NLOAD-1:0]h_store_vm_stall_0=h_store_vm_stall[0];
 		if (NLDSTQ == 16) begin
 `include "mk16_16.inc"
 		end 
+		if (NLDSTQ == 32) begin
+`include "mk16_32.inc"
+		end 
 
 		for (H = 0; H < NHART; H=H+1) begin
 
@@ -1942,7 +1982,7 @@ wire [NLOAD-1:0]h_store_vm_stall_0=h_store_vm_stall[0];
 	reg [RV-1:0]wdata[0:NSTORE-1];
 	for (S = 0; S < NSTORE; S=S+1) begin
 		if (S != 0) begin
-			assign wdata[S] = dc_wr_data[S];
+			always @(*) wdata[S] = dc_wr_data[S];
 		end else begin
 			always @(*) begin :amo
 				reg [63:0]dc_rd;
@@ -2137,11 +2177,17 @@ wire [VMQ_LEN-1:0]vmq_hart_busy_0=vmq_hart_busy[0];
 			end else
 			if (NLOAD == 3 && NSTORE == 2) begin
 `include "mk17_1_3_2.inc"
+			end else
+			if (NLOAD == 2 && NSTORE == 2) begin
+`include "mk17_1_2_2.inc"
 			end 
 		end else
 		if (NHART == 2) begin
 			if (NLOAD == 3 && NSTORE == 2) begin
 `include "mk17_2_3_2.inc"
+			end else
+			if (NLOAD == 2 && NSTORE == 2) begin
+`include "mk17_2_2_2.inc"
 			end 
 		end
 		for (V = 0; V < VMQ_LEN; V = V + 1) begin
@@ -2353,6 +2399,19 @@ wire [VMQ_LEN-1:0]vmq_hart_busy_0=vmq_hart_busy[0];
 			.rd_512gB_2(tlb_rd_512gB[2]),
 			.rd_paddr_2(tlb_rd_paddr[2]),
 			.rd_aduwrx_2(tlb_rd_aduwrx[2]),
+
+`ifdef NSTORE2
+			.rd_enable_3(tlb_rd_enable[3]),
+			.rd_vaddr_3(tlb_rd_vaddr[3]),
+			.rd_asid_3(tlb_rd_asid[3]),
+			.rd_valid_3(tlb_rd_valid[3]),
+			.rd_2mB_3(tlb_rd_2mB[3]),
+			.rd_4mB_3(tlb_rd_4mB[3]),
+			.rd_1gB_3(tlb_rd_1gB[3]),
+			.rd_512gB_3(tlb_rd_512gB[3]),
+			.rd_paddr_3(tlb_rd_paddr[3]),
+			.rd_aduwrx_3(tlb_rd_aduwrx[3]),
+`endif
 
 			.wr_vaddr(tlb_d_data_vaddr),     // write path
 			.wr_asid(tlb_d_data_asid),

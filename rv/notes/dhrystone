@@ -186,4 +186,16 @@ hpmcounter5 = 109991
 
 IPC = 1.93
 BTC hit rate = %99
+==================================
+16/11/21 - simulator m-mode - double store instruction issue rate into storeQ 
+Microseconds for one run through Dhrystone: 5.68
+Dhrystones per Second:                      175643
+DMips:                                      99.9
+DMips/(25)MHZ:                              3.99
+mcycle = 284791
+minstret = 602037
+hpmcounter4 = 110008
+hpmcounter5 = 109991
 
+IPC = 2.11
+BTC hit rate = %99

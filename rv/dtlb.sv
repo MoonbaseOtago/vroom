@@ -51,6 +51,19 @@ module dtlb(input clk, input reset,
 	output	[NPHYS-1:12]rd_paddr_2,
 	output	[5: 0]rd_aduwrx_2,
 
+`ifdef NSTORE2
+	input	    rd_enable_3,
+	input [VA_SZ-1:12]rd_vaddr_3,		// read path
+	input	[15:0]rd_asid_3,
+	output  	rd_valid_3,
+	output  	rd_2mB_3,
+	output  	rd_4mB_3,
+	output  	rd_1gB_3,
+	output  	rd_512gB_3,
+	output	[NPHYS-1:12]rd_paddr_3,
+	output	[5: 0]rd_aduwrx_3,
+`endif
+
 	input [VA_SZ-1:12]wr_vaddr,		// write path
 	input	[15:0]wr_asid,
 	input	[NPHYS-1:12]wr_paddr,
@@ -93,10 +106,19 @@ module dtlb(input clk, input reset,
 	reg	[ 5: 0]rd_aduwrx_res_2;
 	assign rd_aduwrx_2 = rd_aduwrx_res_2;
 
+`ifdef NSTORE2
+	reg	[NPHYS-1:12]rd_paddr_res_3;
+	assign rd_paddr_3 = rd_paddr_res_3;
+	reg	[ 5: 0]rd_aduwrx_res_3;
+	assign rd_aduwrx_3 = rd_aduwrx_res_3;
+`endif
 
 	genvar I;
 	generate
 		wire [TLB_ENTRIES-1:0]rd_match_0, rd_match_1, rd_match_2;
+`ifdef NSTORE2
+		wire [TLB_ENTRIES-1:0]rd_match_3;
+`endif
 
 		reg [TLB_ENTRIES-1:0]r_tlb_valid;
 		reg [16-1:0]r_tlb_asid[0:TLB_ENTRIES-1];
@@ -116,6 +138,9 @@ module dtlb(input clk, input reset,
 		if (wr_entry ||
 		    rd_enable_0&&rd_match_0[r_repl] ||
 		    rd_enable_1&&rd_match_1[r_repl] ||
+`ifdef NSTORE2
+		    rd_enable_3&&rd_match_3[r_repl] ||
+`endif
 		    rd_enable_2&&rd_match_2[r_repl]) begin
 			r_repl <= r_repl+1;
 		end 
@@ -145,6 +170,15 @@ module dtlb(input clk, input reset,
 						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == rd_vaddr_2[29:22]) &&
 						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == rd_vaddr_2[21]) &&
 						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == rd_vaddr_2[20:12]);
+
+`ifdef NSTORE2
+			assign rd_match_3[I] = rd_vld && ((rd_asid_3 == rd_as) || r_tlb_gaduwrx[I][6]) && 
+						rd_va[VA_SZ-1:39] == rd_vaddr_3[VA_SZ-1:39] &&
+						(r_tlb_512gB[I] || rd_va[38:30] == rd_vaddr_3[38:30]) &&
+						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == rd_vaddr_3[29:22]) &&
+						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == rd_vaddr_3[21]) &&
+						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == rd_vaddr_3[20:12]);
+`endif
 
 			wire [15:0]wr_as = r_tlb_asid[I];
 			wire [VA_SZ-1:12]wr_va = r_tlb_vaddr[I];
@@ -179,7 +213,11 @@ module dtlb(input clk, input reset,
 //`include "mk11_16_3.inc"
 	//	end else
 		if (TLB_ENTRIES == 32) begin
+`ifdef NSTORE2
+`include "mk11_32_4.inc"
+`else
 `include "mk11_32_3.inc"
+`endif
 //		end else
 //		if (TLB_ENTRIES == 64) begin
 //`include "mk11_64_3.inc"
@@ -202,6 +240,14 @@ module dtlb(input clk, input reset,
 		assign rd_4mB_2 = |(rd_match_2&r_tlb_4mB);
 		assign rd_1gB_2 = |(rd_match_2&r_tlb_1gB);
 		assign rd_512gB_2 = |(rd_match_2&r_tlb_512gB);
+
+`ifdef NSTORE2
+		assign rd_valid_3 = |rd_match_3;
+		assign rd_2mB_3 = |(rd_match_3&r_tlb_2mB);
+		assign rd_4mB_3 = |(rd_match_3&r_tlb_4mB);
+		assign rd_1gB_3 = |(rd_match_3&r_tlb_1gB);
+		assign rd_512gB_3 = |(rd_match_3&r_tlb_512gB);
+`endif
 
 	endgenerate
 

@@ -336,7 +336,26 @@ int main(int argc, char ** argv)
 	}
 	printf("		%d'h%x", nload, k);
 	}
-	printf(": num_unused = %d;\n", j);	
+	printf(": num_load_unused = %d;\n", j);	
+	}
+	printf("		endcase\n");
+	printf("	end\n");
+	printf(";\n");
+
+	printf("	always @(*) begin\n");
+	printf("		case (r_store_enable&~store_allocate) // synthesis full_case parallel_case\n");
+	for (j = 0; j <= (nstore); j++) {
+	int first = 1;
+	for (k = 0; k < (1<<nstore); k++) 
+	if (popcount(k) == j) {
+	if (first) {
+		first = 0;
+	} else {
+		printf(",\n");
+	}
+	printf("		%d'h%x", nstore, k);
+	}
+	printf(": num_store_unused = %d;\n", j);	
 	}
 	printf("		endcase\n");
 	printf("	end\n");

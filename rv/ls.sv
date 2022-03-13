@@ -403,7 +403,8 @@ module load_store(
 	//
 	
 	wire [$clog2(NLDSTQ):0]num_free;
-	reg [$clog2(NLDSTQ):0]num_unused;
+	reg [$clog2(NLDSTQ):0]num_load_unused;
+	reg [$clog2(NLDSTQ):0]num_store_unused;
 	reg [$clog2(NLDSTQ):0]num_load_used;
 	reg [$clog2(NLDSTQ):0]num_store_used;
 
@@ -412,7 +413,7 @@ module load_store(
 		if (reset) begin
 			r_num_available <= NLDSTQ;
 		end else begin
-			r_num_available <= r_num_available - (num_store_used+num_load_used) + (num_unused+num_free);
+			r_num_available <= r_num_available - (num_store_used+num_load_used) + (num_load_unused+num_store_unused+num_free);
 		end
 	end
 

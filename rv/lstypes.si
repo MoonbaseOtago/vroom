@@ -1,0 +1,192 @@
+//
+// RVOOM! Risc-V superscalar O-O
+// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+
+`ifndef LS_TYPES_H
+`define LS_TYPES_H
+
+interface DCACHE_LOAD #(int  RV=64, NPHYS=56, NLOAD=2);
+    typedef struct packed {
+		bit [NPHYS-1:$clog2(RV/8)]addr;	// CPU read port
+	} DCACHE_REQ;
+	typedef struct packed {
+		bit hit;
+		bit hit_need_o;
+		bit [RV-1:0]data;
+	} DCACHE_ACK;
+	DCACHE_REQ req[0:NLOAD-1];
+	DCACHE_ACK ack[0:NLOAD-1];
+endinterface
+
+interface LS_READY #(int LNCOMMIT=5, NHART=1, NCOMMIT=32);
+	bit [NCOMMIT-1:0]load_addr_ready[0:NHART-1];
+	bit [NCOMMIT-1:0]load_addr_not_ready[0:NHART-1];
+	bit [NCOMMIT-1:0]store_addr_ready[0:NHART-1];
+	bit [NCOMMIT-1:0]store_addr_not_ready[0:NHART-1];
+	bit [NCOMMIT-1:0]store_data_ready[0:NHART-1];
+	bit [LNCOMMIT-1:0]current_start[0:NHART-1];
+endinterface
+
+interface LS_ADDR #(int  CNTRL_SIZE=6, NHART=1, LNHART=0, LNCOMMIT=5, NADDR=4, RV=64);
+    // inputs
+    typedef struct packed {
+    	bit               enable;
+    	bit               load;
+    	bit [CNTRL_SIZE-1:0]control;
+    	bit [(NHART==1?0:LNHART-1):0]hart;
+    	bit  [LNCOMMIT-1:0]rd;
+    	bit                makes_rd;
+    	bit          [31:0]immed;
+    	bit        [RV-1:0]r1;
+    } LS_ADDR_REQ;
+	
+    // outputs
+    typedef struct packed {
+    	bit [NHART-1:0]hart;
+    	bit [LNCOMMIT-1:0]rd;
+    	bit           [ 1: 0]trap_type; // 0 for no trap, 1 align, 2 access, 3 page
+    	bit                  vm_pause;
+    	bit                  vm_stall;
+    } LS_ADDR_ACK;
+    typedef struct packed {
+    	bit [(NHART==1?0:LNHART-1):0]hart;
+		bit  [LNCOMMIT-1:0]rd;
+		bit enable;
+	} LS_ADDR_SCHED;
+
+    LS_ADDR_REQ req[0:NADDR-1];
+    LS_ADDR_SCHED sched[0:NADDR-1];
+    LS_ADDR_ACK ack[0:NADDR-1];
+	
+endinterface
+
+
+interface LS_VM_ACK #(int  NHART=1, LNHART=0, LNCOMMIT=5);
+	bit [(NHART==1?0:LNHART-1):0]hart;
+	bit [LNCOMMIT-1:0]rd;
+	bit               pmp;
+	bit               fail;
+endinterface
+
+interface LD_DATA_WB #(int NHART=1, LNCOMMIT=5, NLOAD, RV=64);
+	typedef struct packed {
+		bit [NHART-1:0]hart;
+		bit    [RV-1:0]result;
+		bit [LNCOMMIT-1:0]rd;
+		bit            makes_rd;
+`ifdef FP
+		bit            fp;
+`endif
+	} LD_DATA;
+
+	LD_DATA wb[0:NLOAD-1];
+endinterface
+
+interface ST_DATA #(int RV=64, NSTORE=2, LNCOMMIT=5, NHART=1, LNHART=0);
+	typedef struct packed { // store data
+    	bit [(NHART==1?0:LNHART-1):0]hart;
+		bit  [LNCOMMIT-1:0]rd;
+		bit enable;
+`ifdef FP
+		bit			fp;
+`endif
+	} ST_REQ;
+	typedef struct packed { // store data
+`ifdef FP
+		bit [RV-1:0]fp;
+`endif
+		bit [RV-1:0]data;
+	} ST_ACK;
+	ST_REQ req[0:NSTORE-1];
+	ST_ACK ack[0:NSTORE-1];
+endinterface
+
+interface PMP #(int NUM_PMP=16, NPHYS=56);
+	bit [NUM_PMP-1:0]valid;     // sadly arrays of buses aren't well supported 
+	bit [NUM_PMP-1:0]locked;    // so we need to get verbose - unused wires will be optimised
+	bit [NPHYS-1:2]start[0:NUM_PMP-1];     // out during synthesis
+	bit [NPHYS-1:2]aend[0:NUM_PMP-1];
+	bit [2:0]prot[0:NUM_PMP-1];
+endinterface
+
+interface LOAD_SNOOP #(int NLDSTQ, NPHYS=56, LNHART=0, NHART=1, NLOAD=2, RV=64);
+	typedef struct packed { // load snoop interface
+		bit [NPHYS-1:$clog2(RV/8)]addr;     // input address
+		bit                       io;       // input io
+		bit             [RV/8-1:0]mask;     // input mask
+		bit [(NHART==1?0:LNHART-1):0]hart;  // input hart
+	} LOAD_SNOOP_REQ;
+
+	typedef struct packed { // load snoop interface
+		bit           [NLDSTQ-1:0]hit;      // output hit
+		bit           [NLDSTQ-1:0]hazard;   // output hazard  
+		bit           [NLDSTQ-1:0]line_busy;// output line busy
+	} LOAD_SNOOP_ACK;
+
+	LOAD_SNOOP_REQ req[0:NLOAD-1];
+	LOAD_SNOOP_ACK ack[0:NLOAD-1];
+endinterface
+
+interface STORE_SNOOP #(int NLDSTQ, int NPHYS=56, RV=64, NSTORE=2);
+	typedef struct packed { // store snoop interface
+		bit      [NPHYS-1:$clog2(RV/8)]addr;    // input address
+		bit                            io;      // input io
+		bit                  [RV/8-1:0]mask;    // input mask
+	} STORE_SNOOP_REQ;
+
+	typedef struct packed { // store snoop interface
+		bit              [NLDSTQ-1:0]hazard;	// output hazard
+		bit              [NLDSTQ-1:0]line_busy; // output line busy
+	} STORE_SNOOP_ACK;
+
+	STORE_SNOOP_REQ req[0:NSTORE-1];
+	STORE_SNOOP_ACK ack[0:NSTORE-1];
+endinterface
+
+interface TLB #(int  VA_SZ=43, NPHYS=56, NADDR=4);
+	typedef struct packed {
+    	bit               enable;
+    	bit   [VA_SZ-1:12]vaddr;
+    	bit         [15:0]asid;
+	} TLB_REQ;
+
+	typedef struct packed {
+    	bit               valid;
+    	bit               is2mB;
+    	bit               is4mB;
+    	bit               is1gB;
+    	bit               is512gB;
+    	bit   [NPHYS-1:12]paddr;
+    	bit          [6:0]aduwrx;
+	} TLB_ACK;
+    TLB_REQ req[0:NADDR-1];
+    TLB_ACK ack[0:NADDR-1];
+endinterface
+
+`endif
+/* For Emacs:
+ * Local Variables:
+ * mode:c
+ * indent-tabs-mode:t
+ * tab-width:4
+ * c-basic-offset:4
+ * End:
+ * For VIM:
+ * vim:set softtabstop=4 shiftwidth=4 tabstop=4:
+ */
+
+

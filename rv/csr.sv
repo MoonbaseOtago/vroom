@@ -16,6 +16,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+
+`include "lstypes.si"
+
 module csr(input clk, input reset, 
 `ifdef SIMD
 		input simd_enable,
@@ -70,6 +73,7 @@ module csr(input clk, input reset,
 		input			csr_wfi_pause,
 		output			csr_wfi_wake,
 
+		PMP			pmp,
 		output [NUM_PMP-1:0]pmp_valid,		// sadly arrays of buses aren't well supported 
 		output [NUM_PMP-1:0]pmp_locked,		// so we need to get verbose - unused wires will be optimised
 		output [NPHYS-1:2]pmp_start_0,		// out during synthesis
@@ -2391,7 +2395,7 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	reg		[NPHYS-1:2]c_pmp_end[0:NUM_PMP-1];
 	reg		[NUM_PMP-1:0]c_pmp_valid;
 
-	assign pmp_valid = c_pmp_valid;
+	assign pmp.valid = c_pmp_valid;
 
 	wire	[RV-1:0]pmp_data_0a;
 	wire	[31:0]pmp_data_0b;
@@ -2404,87 +2408,13 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 
 	genvar I;
 	generate 
-		if (NUM_PMP >= 1) begin
-				assign x_pmp_addr[0] = r_pmp_addr[0];
-		end else begin
-				assign x_pmp_addr[0] = 0;
+		for (I = 0; I < 16; I=I+1) begin
+			if (NUM_PMP >= (I+1)) begin
+					assign x_pmp_addr[I] = r_pmp_addr[I];
+			end else begin
+					assign x_pmp_addr[I] = 0;
+			end
 		end
-		if (NUM_PMP >= 2) begin
-				assign x_pmp_addr[1] = r_pmp_addr[1];
-		end else begin
-				assign x_pmp_addr[1] = 0;
-		end
-		if (NUM_PMP >= 3) begin
-				assign x_pmp_addr[2] = r_pmp_addr[2];
-		end else begin
-				assign x_pmp_addr[2] = 0;
-		end
-		if (NUM_PMP >= 4) begin
-				assign x_pmp_addr[3] = r_pmp_addr[3];
-		end else begin
-				assign x_pmp_addr[3] = 0;
-		end
-		if (NUM_PMP >= 5) begin
-				assign x_pmp_addr[4] = r_pmp_addr[4];
-		end else begin
-				assign x_pmp_addr[4] = 0;
-		end
-		if (NUM_PMP >= 6) begin
-				assign x_pmp_addr[5] = r_pmp_addr[5];
-		end else begin
-				assign x_pmp_addr[5] = 0;
-		end
-		if (NUM_PMP >= 7) begin
-				assign x_pmp_addr[6] = r_pmp_addr[6];
-		end else begin
-				assign x_pmp_addr[6] = 0;
-		end
-		if (NUM_PMP >= 89) begin
-				assign x_pmp_addr[7] = r_pmp_addr[7];
-		end else begin
-				assign x_pmp_addr[7] = 0;
-		end
-		if (NUM_PMP >= 9) begin
-				assign x_pmp_addr[8] = r_pmp_addr[8];
-		end else begin
-				assign x_pmp_addr[8] = 0;
-		end
-		if (NUM_PMP >= 10) begin
-				assign x_pmp_addr[9] = r_pmp_addr[9];
-		end else begin
-				assign x_pmp_addr[9] = 0;
-		end
-		if (NUM_PMP >= 11) begin
-				assign x_pmp_addr[10] = r_pmp_addr[10];
-		end else begin
-				assign x_pmp_addr[10] = 0;
-		end
-		if (NUM_PMP >= 12) begin
-				assign x_pmp_addr[11] = r_pmp_addr[11];
-		end else begin
-				assign x_pmp_addr[11] = 0;
-		end
-		if (NUM_PMP >= 13) begin
-				assign x_pmp_addr[12] = r_pmp_addr[12];
-		end else begin
-				assign x_pmp_addr[12] = 0;
-		end
-		if (NUM_PMP >= 14) begin
-				assign x_pmp_addr[13] = r_pmp_addr[13];
-		end else begin
-				assign x_pmp_addr[13] = 0;
-		end
-		if (NUM_PMP >= 15) begin
-				assign x_pmp_addr[14] = r_pmp_addr[14];
-		end else begin
-				assign x_pmp_addr[14] = 0;
-		end
-		if (NUM_PMP >= 16) begin
-				assign x_pmp_addr[15] = r_pmp_addr[15];
-		end else begin
-				assign x_pmp_addr[15] = 0;
-		end
-
 		if (NUM_PMP == 1) begin
 			assign pmp_data_0a = {56'b0,
 								  r_pmp_locked[0], 2'b0, r_pmp_a[0], r_pmp_prot[0]};
@@ -2702,173 +2632,12 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		end 
 
 
-
-
-
-
-		if (NUM_PMP >= 1) begin
-			assign pmp_start_0  = c_pmp_start[0];
-			assign pmp_end_0  = c_pmp_end[0];
-			assign pmp_prot_0  = r_pmp_prot[0];
+		for (I = 0; I < NUM_PMP; I=I+1) begin
+			assign pmp.start[I]  = c_pmp_start[I];
+			assign pmp.aend[I]  = c_pmp_end[I];
+			assign pmp.prot[I]  = r_pmp_prot[I];	
 		end
-		if (NUM_PMP >= 2) begin
-			assign pmp_start_1  = c_pmp_start[1];
-			assign pmp_end_1  = c_pmp_end[1];
-			assign pmp_prot_1  = r_pmp_prot[1];
-		end
-		if (NUM_PMP >= 3) begin
-			assign pmp_start_2  = c_pmp_start[2];
-			assign pmp_end_2  = c_pmp_end[2];
-			assign pmp_prot_2  = r_pmp_prot[2];
-		end
-		if (NUM_PMP >= 4) begin
-			assign pmp_start_3  = c_pmp_start[3];
-			assign pmp_end_3  = c_pmp_end[3];
-			assign pmp_prot_3  = r_pmp_prot[3];
-		end
-		if (NUM_PMP >= 5) begin
-			assign pmp_start_4  = c_pmp_start[4];
-			assign pmp_end_4  = c_pmp_end[4];
-			assign pmp_prot_4  = r_pmp_prot[4];
-		end
-		if (NUM_PMP >= 6) begin
-			assign pmp_start_5  = c_pmp_start[5];
-			assign pmp_end_5  = c_pmp_end[5];
-			assign pmp_prot_5  = r_pmp_prot[5];
-		end
-		if (NUM_PMP >= 7) begin
-			assign pmp_start_6  = c_pmp_start[6];
-			assign pmp_end_6  = c_pmp_end[6];
-			assign pmp_prot_6  = r_pmp_prot[6];
-		end
-		if (NUM_PMP >= 8) begin
-			assign pmp_start_7  = c_pmp_start[7];
-			assign pmp_end_7  = c_pmp_end[7];
-			assign pmp_prot_7  = r_pmp_prot[7];
-		end
-		if (NUM_PMP >= 9) begin
-			assign pmp_start_8  = c_pmp_start[8];
-			assign pmp_end_8  = c_pmp_end[8];
-			assign pmp_prot_8  = r_pmp_prot[8];
-		end
-		if (NUM_PMP >= 10) begin
-			assign pmp_start_9  = c_pmp_start[9];
-			assign pmp_end_9  = c_pmp_end[9];
-			assign pmp_prot_9  = r_pmp_prot[9];
-		end
-		if (NUM_PMP >= 11) begin
-			assign pmp_start_10  = c_pmp_start[10];
-			assign pmp_end_10  = c_pmp_end[10];
-			assign pmp_prot_10  = r_pmp_prot[10];
-		end
-		if (NUM_PMP >= 12) begin
-			assign pmp_start_11  = c_pmp_start[11];
-			assign pmp_end_11  = c_pmp_end[11];
-			assign pmp_prot_11  = r_pmp_prot[11];
-		end
-		if (NUM_PMP >= 13) begin
-			assign pmp_start_12  = c_pmp_start[12];
-			assign pmp_end_12  = c_pmp_end[12];
-			assign pmp_prot_12  = r_pmp_prot[12];
-		end
-		if (NUM_PMP >= 14) begin
-			assign pmp_start_13  = c_pmp_start[13];
-			assign pmp_end_13  = c_pmp_end[13];
-			assign pmp_prot_13  = r_pmp_prot[13];
-		end
-		if (NUM_PMP >= 15) begin
-			assign pmp_start_14  = c_pmp_start[14];
-			assign pmp_end_14  = c_pmp_end[14];
-			assign pmp_prot_14  = r_pmp_prot[14];
-		end
-		if (NUM_PMP >= 16) begin
-			assign pmp_start_15  = c_pmp_start[15];
-			assign pmp_end_15  = c_pmp_end[15];
-			assign pmp_prot_15  = r_pmp_prot[15];
-		end
-
-
-		if (NUM_PMP >= 1) begin
-			assign pmp_start_0  = c_pmp_start[0];
-			assign pmp_end_0  = c_pmp_end[0];
-			assign pmp_prot_0  = r_pmp_prot[0];
-		end
-		if (NUM_PMP >= 2) begin
-			assign pmp_start_1  = c_pmp_start[1];
-			assign pmp_end_1  = c_pmp_end[1];
-			assign pmp_prot_1  = r_pmp_prot[1];
-		end
-		if (NUM_PMP >= 3) begin
-			assign pmp_start_2  = c_pmp_start[2];
-			assign pmp_end_2  = c_pmp_end[2];
-			assign pmp_prot_2  = r_pmp_prot[2];
-		end
-		if (NUM_PMP >= 4) begin
-			assign pmp_start_3  = c_pmp_start[3];
-			assign pmp_end_3  = c_pmp_end[3];
-			assign pmp_prot_3  = r_pmp_prot[3];
-		end
-		if (NUM_PMP >= 5) begin
-			assign pmp_start_4  = c_pmp_start[4];
-			assign pmp_end_4  = c_pmp_end[4];
-			assign pmp_prot_4  = r_pmp_prot[4];
-		end
-		if (NUM_PMP >= 6) begin
-			assign pmp_start_5  = c_pmp_start[5];
-			assign pmp_end_5  = c_pmp_end[5];
-			assign pmp_prot_5  = r_pmp_prot[5];
-		end
-		if (NUM_PMP >= 7) begin
-			assign pmp_start_6  = c_pmp_start[6];
-			assign pmp_end_6  = c_pmp_end[6];
-			assign pmp_prot_6  = r_pmp_prot[6];
-		end
-		if (NUM_PMP >= 8) begin
-			assign pmp_start_7  = c_pmp_start[7];
-			assign pmp_end_7  = c_pmp_end[7];
-			assign pmp_prot_7  = r_pmp_prot[7];
-		end
-		if (NUM_PMP >= 9) begin
-			assign pmp_start_8  = c_pmp_start[8];
-			assign pmp_end_8  = c_pmp_end[8];
-			assign pmp_prot_8  = r_pmp_prot[8];
-		end
-		if (NUM_PMP >= 10) begin
-			assign pmp_start_9  = c_pmp_start[9];
-			assign pmp_end_9  = c_pmp_end[9];
-			assign pmp_prot_9  = r_pmp_prot[9];
-		end
-		if (NUM_PMP >= 11) begin
-			assign pmp_start_10  = c_pmp_start[10];
-			assign pmp_end_10  = c_pmp_end[10];
-			assign pmp_prot_10  = r_pmp_prot[10];
-		end
-		if (NUM_PMP >= 12) begin
-			assign pmp_start_11  = c_pmp_start[11];
-			assign pmp_end_11  = c_pmp_end[11];
-			assign pmp_prot_11  = r_pmp_prot[11];
-		end
-		if (NUM_PMP >= 13) begin
-			assign pmp_start_12  = c_pmp_start[12];
-			assign pmp_end_12  = c_pmp_end[12];
-			assign pmp_prot_12  = r_pmp_prot[12];
-		end
-		if (NUM_PMP >= 14) begin
-			assign pmp_start_13  = c_pmp_start[13];
-			assign pmp_end_13  = c_pmp_end[13];
-			assign pmp_prot_13  = r_pmp_prot[13];
-		end
-		if (NUM_PMP >= 15) begin
-			assign pmp_start_14  = c_pmp_start[14];
-			assign pmp_end_14  = c_pmp_end[14];
-			assign pmp_prot_14  = r_pmp_prot[14];
-		end
-		if (NUM_PMP >= 16) begin
-			assign pmp_start_15  = c_pmp_start[15];
-			assign pmp_end_15  = c_pmp_end[15];
-			assign pmp_prot_15  = r_pmp_prot[15];
-		end
-
+		
 		for (I = 0; I < NUM_PMP; I=I+1) begin: pmps
 			wire locked;
 			if (I == (NUM_PMP-1)) begin
@@ -2996,7 +2765,7 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 			if (r_control[1]) r_pmp_addr[I] <= r_pmp_addr[I]|in[RV-1:0]; else
 			if (r_control[2]) r_pmp_addr[I] <= r_pmp_addr[I]&~in[RV-1:0]; else r_pmp_addr[I] <= in[RV-1:0];
 
-			assign	pmp_locked[I] = locked;
+			assign	pmp.locked[I] = locked;
 		
 			reg [NPHYS-1:2]mask;
 			always @(*) 

@@ -54,20 +54,18 @@ int ffs(int x)
 int main(int argc, char ** argv)
 {
 	int m,n, i,j,k,l,t;
-	int ind=1,nhart, nload, nstore, vlen;
-    	if (argc < 4) {
+	int ind=1,nhart, naddr, vlen;
+    	if (argc < 3) {
 err:
-        	fprintf(stderr, "mk17 nhart nload nstore\n");
+        	fprintf(stderr, "mk17 nhart naddr\n");
         	exit(99);
     	}
     	if (ind >= argc) goto err;
     	nhart = strtol((const char *)argv[ind++], 0, 0);
     	if (ind >= argc) goto err;
-    	nload = strtol((const char *)argv[ind++], 0, 0);
-    	if (ind >= argc) goto err;
-    	nstore = strtol((const char *)argv[ind++], 0, 0);
+    	naddr = strtol((const char *)argv[ind++], 0, 0);
 
-	vlen = 2*nhart*(nload+nstore);
+	vlen = 2*nhart*(naddr);
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
 	printf("// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com\n");
@@ -108,21 +106,21 @@ err:
 	}
 	printf("		endcase\n");	
 	printf("	end\n");	
-	for (i = 0; i < (nload+nstore); i++) {
+	for (i = 0; i < (naddr); i++) {
 		printf("	always @(*) begin\n");	
 			printf("		casez (tlb_rd_stall) // synthesis full_case parallel_case\n");	
-			for (j = i; j < (nload+nstore); j++) {
-				printf("		%d'b", nload+nstore);
-				for (k = (nload+nstore)-1;k>=(i);k--) 
+			for (j = i; j < (naddr); j++) {
+				printf("		%d'b", naddr);
+				for (k = (naddr)-1;k>=(i);k--) 
 					printf(k >j?"?":k==j?"1":"0");
 				for (k = i-1;k>=0;k--) 
 					printf("1");
 				printf(": begin\n");	
                         	printf("				cv_stall[%d] = 1;\n",i);
-                        	printf("				cv_vaddr[%d] = tlb_rd_vaddr[%d];\n",i,j);
-                        	printf("				cv_asid[%d] = tlb_rd_asid[%d];\n",i,j);
-                        	printf("				cv_hart[%d] = tlb_rd_hart[%d];\n",i,j);
-                        	printf("				cv_commit[%d] = tlb_rd_commit[%d];\n",i,j);
+                        	printf("				cv_vaddr[%d] = dtlb.req[%d].vaddr;\n",i,j);
+                        	printf("				cv_asid[%d] = dtlb.req[%d].asid;\n",i,j);
+                        	printf("				cv_hart[%d] = addr_hart[%d];\n",i,j);
+                        	printf("				cv_commit[%d] = r_addr_rd[%d];\n",i,j);
 				printf("		         end\n");	
 			}
 			printf("		default: begin\n");	

@@ -50,13 +50,13 @@ xrecurse(int nresolve, int port, int nxferports, int s, int k)
 	px(port);printf("			%d'b", nresolve);
 	for (l = 0; l < nresolve; l++) printf(l < s?"?":l < k?"0":l==k?"1":"?");
 	printf(": begin\n");
-	px(port);printf("				if (commit_store_req_shift[%d]) begin\n", nresolve-k-1);
-	px(port);printf("					x_write_store_ack[s%d] = 1;\n", k);
-	px(port);printf("				end else begin\n");
+	//px(port);printf("				if (commit_store_req_shift[%d]) begin\n", nresolve-k-1);
+	//px(port);printf("					x_write_store_ack[s%d] = 1;\n", k);
+	//px(port);printf("				end else begin\n");
 	px(port);printf("					x_write_port_%d = s%d;\n", port, k);
 	px(port);printf("					x_write_enable[%d] = 1;\n", port);
 	px(port);printf("					x_write_ack[s%d] = 1;\n", k);
-	px(port);printf("				end\n");
+	//px(port);printf("				end\n");
 	port++;
 	if (port < nxferports && (k+1) < l) {
 		px(port-1);printf("				casez (commit_resolved_masked) // synthesis full_case parallel_case\n");
@@ -96,15 +96,18 @@ int main(int argc, char ** argv)
 	int n, i,j,k,l,t;
 	int ind=1,nxferports, nrename;
 	int nbranch = 2;
+	int ncommit = 32;
     	if (argc < 3) {
 err:
-        	fprintf(stderr, "mk7 num-rename num-xfer-ports\n");
+        	fprintf(stderr, "mk7 num-rename num-xfer-ports ncommit nbranch\n");
         	exit(99);
     	}
     	if (ind >= argc) goto err;
     	nrename = strtol((const char *)argv[ind++], 0, 0);
     	if (ind >= argc) goto err;
     	nxferports = strtol((const char *)argv[ind++], 0, 0);
+	if (ind < argc)
+    	ncommit = strtol((const char *)argv[ind++], 0, 0);
 	if (ind < argc)
     	nbranch = strtol((const char *)argv[ind++], 0, 0);
 
@@ -201,24 +204,26 @@ err:
 	printf("	wire[%d-1:0]commit_req_shift = {", NRESOLVE);
 	for (k = 0; k < NRESOLVE; k++)
 		printf("commit_req[s%d]%s", k,k!=(NRESOLVE-1)?",":"};\n");
-	printf("	wire[%d-1:0]commit_store_req_shift = {", NRESOLVE);
-	for (k = 0; k < NRESOLVE; k++)
-		printf("commit_store_req[s%d]%s", k,k!=(NRESOLVE-1)?",":"};\n");
-	printf("	always @(*) begin\n");
-	printf("		casez (commit_done_shift|commit_req_shift|commit_store_req_shift) // synthesis full_case parallel_case\n");
-	for (k = 0; k < (NRESOLVE+1); k++) {
-		printf("		%d'b", NRESOLVE);
-		for (l = 0; l < NRESOLVE; l++) printf(l < k?"1":l==k?"0":"?");
-		printf(": commit_req_mask = %d'b", NRESOLVE);
-		for (l = 0; l < NRESOLVE; l++) printf(l < k?"1":"0");
-		printf(";\n");
-	}
-	printf("		endcase\n");
-	printf("	end\n");
+	//printf("	wire[%d-1:0]commit_store_req_shift = {", NRESOLVE);
+	//for (k = 0; k < NRESOLVE; k++)
+		//printf("commit_store_req[s%d]%s", k,k!=(NRESOLVE-1)?",":"};\n");
+	//printf("	always @(*) begin\n");
+	//printf("		casez (commit_done_shift|commit_req_shift|commit_store_req_shift) // synthesis full_case parallel_case\n");
+	//printf("		casez (commit_done_shift|commit_req_shift) // synthesis full_case parallel_case\n");
+	//for (k = 0; k < (NRESOLVE+1); k++) {
+		//printf("		%d'b", NRESOLVE);
+		//for (l = 0; l < NRESOLVE; l++) printf(l < k?"1":l==k?"0":"?");
+		//printf(": commit_req_mask = %d'b", NRESOLVE);
+		//for (l = 0; l < NRESOLVE; l++) printf(l < k?"1":"0");
+		//printf(";\n");
+	//}
+	//printf("		endcase\n");
+	//printf("	end\n");
 
 
 
-	printf("	wire[%d-1:0]commit_resolved_masked = commit_req_mask&(commit_store_req_shift|commit_req_shift);", NRESOLVE);
+	//printf("	wire[%d-1:0]commit_resolved_masked = commit_req_mask&(commit_store_req_shift|commit_req_shift);", NRESOLVE);
+	printf("	wire[%d-1:0]commit_resolved_masked = commit_req_mask&commit_req_shift;", NRESOLVE);
 	printf("	reg [%d:0]x_write_enable;\n", nxferports-1);
 	for (k = 0; k < nxferports; k++) {
 		printf("	reg [LNCOMMIT-1:0]x_write_port_%d;\n", k);
@@ -227,8 +232,8 @@ err:
 	}
 	printf("	reg	[NCOMMIT-1:0]x_write_ack;\n");
 	printf("	assign commit_ack = x_write_ack;\n");
-	printf("	reg	[NCOMMIT-1:0]x_write_store_ack;\n");
-	printf("	assign commit_store_ack = x_write_store_ack;\n");
+	//printf("	reg	[NCOMMIT-1:0]x_write_store_ack;\n");
+	//printf("	assign commit_store_ack = x_write_store_ack;\n");
 	printf("	\n");
 	printf("	always @(*) begin\n");
 	printf("		x_write_enable = 0;\n");
@@ -236,7 +241,7 @@ err:
 		printf("		x_write_port_%d = 'bx;\n", k);
 	}
 	printf("		x_write_ack = 0;\n");
-	printf("		x_write_store_ack = 0;\n");
+	//printf("		x_write_store_ack = 0;\n");
 	printf("		casez (commit_resolved_masked) // synthesis full_case parallel_case\n");
 //start_commit_%d
 	for (k = 0; k < NRESOLVE; k++) {
@@ -244,5 +249,45 @@ err:
 	}
 	printf("		default:;\n");
 	printf("		endcase\n");
-	printf("	end\n");
+	printf("	end\n");	
+	printf("	wire [NCOMMIT-1:0]req_done = commit_done|commit_req|commit_store_req;\n");	
+	printf("	reg [NCOMMIT-1:0]commit_done_sh_mask;\n");
+	printf("	always @(*) begin\n");
+	printf("		case (r_commit_start) // synthesis full_case parallel_case\n");
+	for (i = 0; i < ncommit; i++) {
+	printf("		%d: begin\n", i);
+	if (i == 0) {
+	for (j = 0; j < ncommit; j++) 
+	printf("			commit_done_sh_mask[%d] = &req_done[%d:0];\n", j, j);
+	} else {
+	for (j = 0; j < ncommit; j++) 
+	if (j >= i) {
+	printf("			commit_done_sh_mask[%d] = &req_done[%d:%d];\n", j, j, i);
+	} else {
+	printf("			commit_done_sh_mask[%d] = &req_done[NCOMMIT-1:%d] & (&req_done[%d:0]);\n", j, i, j);
+	}
+	}
+	printf("		    end\n");
+	}
+	printf("		endcase\n");
+	printf("	end\n");	
+	printf("	always @(*) begin\n");
+	printf("		case (r_commit_start) // synthesis full_case parallel_case\n");
+	for (i = 0; i < ncommit; i++) {
+	printf("		%d: begin\n", i);
+	printf("		    	commit_req_mask = {");
+	for (j = 0; j < NRESOLVE; j++) {
+	char *cp = (j==(NRESOLVE-1)?"};\n":",");
+	if ((i+j) >= ncommit) {
+	printf("commit_done_sh_mask[%d]%s",i+j-ncommit,cp);
+	} else {
+	printf("commit_done_sh_mask[%d]%s",i+j,cp);
+	}
+	}
+	printf("		    end\n");
+	}
+	printf("		endcase\n");
+	printf("	end\n");	
+	printf("	assign commit_store_ack = commit_done_sh_mask&commit_store_req;\n\n");	
+	
 }

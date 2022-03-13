@@ -168,7 +168,15 @@ module plic(
 		end
 
 		reg claiming;
-		wire claimed = claiming&data_req&data_ack;
+		reg r_claiming;
+		reg [7:0]r_claim;
+		wire [7:0]c_claim = addr[20:12] < NHART ?int_id_1[addr[20:12]]: 8'b0;
+		always @(posedge clk)
+		if (addr_req&&addr_ack) begin
+			r_claiming <= claiming;
+			r_claim <= c_claim;
+		end
+		wire claimed = r_claiming&data_req&data_ack;
 		wire freed = addr_req && sel && !read && addr[21]&&mask[7:4]==4'b1111&&addr[20:12]<NHART&&enabled[wdata[39:32]][addr[20:12]];
 
 		wire [9:0]hh=NHART;
@@ -190,7 +198,7 @@ module plic(
 				end else
 				if ({addr[21:12],12'b0} >= 22'h200000 && {addr[21:12],12'b0} < (22'h200000|{hh,12'b0}) && addr[11:4]==0) begin
 					claiming = addr[2];
-					c_rdata = {24'b0,claim, 21'b0,r_threshold[addr[20:12]]};
+					c_rdata = {24'b0,c_claim, 21'b0,r_threshold[addr[20:12]]};
 				end else begin
 					c_rdata = 64'b0;
 				end
@@ -205,7 +213,6 @@ module plic(
 			//assign int_prio[H][NPLICINT]=0;
 		//end
 		wire [7:0]free = addr[20:12] < NHART ?wdata[39:32]: 8'b0;
-		wire [7:0]claim;
 
 
 		//for (I=1; I < NPLICINT; I=I+1) begin	// sadly verilator is broken in and around arrays so we can't generate here
@@ -217,7 +224,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[15]),
 					.pending(pending[15]),
-					.claimed(claimed&&claim==15),
+					.claimed(claimed&&r_claim==15),
 					.freed(freed&&free==15),
 					.ie(enabled[15]),
 					.prio(r_priority_1[15>>1]),
@@ -234,7 +241,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[14]),
 					.pending(pending[14]),
-					.claimed(claimed&&claim==14),
+					.claimed(claimed&&r_claim==14),
 					.freed(freed&&free==14),
 					.ie(enabled[14]),
 					.prio(r_priority_0[14>>1]),
@@ -251,7 +258,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[13]),
 					.pending(pending[13]),
-					.claimed(claimed&&claim==13),
+					.claimed(claimed&&r_claim==13),
 					.freed(freed&&free==13),
 					.ie(enabled[13]),
 					.prio(r_priority_1[13>>1]),
@@ -268,7 +275,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[12]),
 					.pending(pending[12]),
-					.claimed(claimed&&claim==12),
+					.claimed(claimed&&r_claim==12),
 					.freed(freed&&free==12),
 					.ie(enabled[12]),
 					.prio(r_priority_0[12>>1]),
@@ -285,7 +292,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[11]),
 					.pending(pending[11]),
-					.claimed(claimed&&claim==11),
+					.claimed(claimed&&r_claim==11),
 					.freed(freed&&free==11),
 					.ie(enabled[11]),
 					.prio(r_priority_1[11>>1]),
@@ -302,7 +309,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[10]),
 					.pending(pending[10]),
-					.claimed(claimed&&claim==10),
+					.claimed(claimed&&r_claim==10),
 					.freed(freed&&free==10),
 					.ie(enabled[10]),
 					.prio(r_priority_0[10>>1]),
@@ -319,7 +326,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[9]),
 					.pending(pending[9]),
-					.claimed(claimed&&claim==9),
+					.claimed(claimed&&r_claim==9),
 					.freed(freed&&free==9),
 					.ie(enabled[9]),
 					.prio(r_priority_1[9>>1]),
@@ -336,7 +343,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[8]),
 					.pending(pending[8]),
-					.claimed(claimed&&claim==8),
+					.claimed(claimed&&r_claim==8),
 					.freed(freed&&free==8),
 					.ie(enabled[8]),
 					.prio(r_priority_0[8>>1]),
@@ -353,7 +360,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[7]),
 					.pending(pending[7]),
-					.claimed(claimed&&claim==7),
+					.claimed(claimed&&r_claim==7),
 					.freed(freed&&free==7),
 					.ie(enabled[7]),
 					.prio(r_priority_1[7>>1]),
@@ -370,7 +377,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[6]),
 					.pending(pending[6]),
-					.claimed(claimed&&claim==6),
+					.claimed(claimed&&r_claim==6),
 					.freed(freed&&free==6),
 					.ie(enabled[6]),
 					.prio(r_priority_0[6>>1]),
@@ -387,7 +394,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[5]),
 					.pending(pending[5]),
-					.claimed(claimed&&claim==5),
+					.claimed(claimed&&r_claim==5),
 					.freed(freed&&free==5),
 					.ie(enabled[5]),
 					.prio(r_priority_1[5>>1]),
@@ -404,7 +411,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[4]),
 					.pending(pending[4]),
-					.claimed(claimed&&claim==4),
+					.claimed(claimed&&r_claim==4),
 					.freed(freed&&free==4),
 					.ie(enabled[4]),
 					.prio(r_priority_0[4>>1]),
@@ -421,7 +428,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[3]),
 					.pending(pending[3]),
-					.claimed(claimed&&claim==3),
+					.claimed(claimed&&r_claim==3),
 					.freed(freed&&free==3),
 					.ie(enabled[3]),
 					.prio(r_priority_1[3>>1]),
@@ -438,7 +445,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[2]),
 					.pending(pending[2]),
-					.claimed(claimed&&claim==2),
+					.claimed(claimed&&r_claim==2),
 					.freed(freed&&free==2),
 					.ie(enabled[2]),
 					.prio(r_priority_0[2>>1]),
@@ -455,7 +462,7 @@ module plic(
 					.lock(lock),
 					.irq(irq[1]),
 					.pending(pending[1]),
-					.claimed(claimed&&claim==1),
+					.claimed(claimed&&r_claim==1),
 					.freed(freed&&free==1),
 					.ie(enabled[1]),
 					.prio(r_priority_1[1>>1]),
@@ -465,7 +472,6 @@ module plic(
 					.id_out_0(int_id_1[0])
 					);
 		//end
-		assign claim = addr[20:12] < NHART ?int_id_1[addr[20:12]]: 8'b0;
 		for (H = 0; H < NHART; H=H+1) begin
 			assign interrupt_pending[H] = int_prio_1[H] > r_threshold[H];
 		end

@@ -137,27 +137,29 @@ module commit_ctrl(input clk,
 	end
 
 	generate
-		if (NUM_TRANSFER_PORTS==8) begin
-			if (NDEC==2) begin : t82
-`include "mk7_4_8.inc"
+		if (NCOMMIT == 32) begin: c32
+			if (NUM_TRANSFER_PORTS==8) begin
+				if (NDEC==2) begin : t82
+`include "mk7_4_8_32.inc"
+				end else
+				if (NDEC==4) begin : t84
+`include "mk7_8_8_32.inc"
+				end else
+				if (NDEC==8) begin: t88
+`include "mk7_16_8_32.inc"
+				end 
 			end else
-			if (NDEC==4) begin : t84
-`include "mk7_8_8.inc"
-			end else
-			if (NDEC==8) begin: t88
-`include "mk7_16_8.inc"
-			end 
-		end else
-		if (NUM_TRANSFER_PORTS==4) begin
-			if (NDEC==2) begin: t42
-`include "mk7_4_4.inc" 
-			end else
-			if (NDEC==4) begin: t44
-`include "mk7_8_4.inc"
-			end else
-			if (NDEC==8) begin: t48
-`include "mk7_16_4.inc"
-			end 
+			if (NUM_TRANSFER_PORTS==4) begin
+				if (NDEC==2) begin: t42
+`include "mk7_4_4_32.inc" 
+				end else
+				if (NDEC==4) begin: t44
+`include "mk7_8_4_32.inc"
+				end else
+				if (NDEC==8) begin: t48
+`include "mk7_16_4_32.inc"
+				end	
+			end
 		end
 		if (NCOMMIT == 16) begin :t16
 `include "mk12_16.inc"
@@ -239,6 +241,7 @@ module commit(input clk,
 	output		 rs3_fp_out,
 `endif
 	output [CNTRL_SIZE-1:0]control_out,
+	output     [3:0]unit_type_out,
 	output  [RV-1:1]pc_out,
 	output  [RV-1:1]branch_dest_out,
 	output  [BDEC-1:1]branch_dec_out,
@@ -251,10 +254,11 @@ module commit(input clk,
     output	branch_ready,
     output	mul_ready,
     output	div_ready,
-    output	load_ready,
-    output	load_not_ready,
-    output	store_ready,
-    output	store_not_ready,
+    output	load_addr_ready,
+    output	load_addr_not_ready,
+    output	store_addr_ready,
+    output	store_addr_not_ready,
+    output	store_data_ready,
     output	csr_ready,
     output	csr_wfi_pause,
     input	csr_wfi_wake,
@@ -264,6 +268,7 @@ module commit(input clk,
 	input   commit_ended,
 
 	input	schedule,	// true
+	input	schedule_d,
 
 	input	force_fetch,
 
@@ -282,10 +287,10 @@ module commit(input clk,
 
 	input		 commit_divide_busy,
 
-	input		 commit_load_done,
-	input   [1:0]commit_load_trap_type,				// valid when commit_load_done is true
-	input		 commit_load_pending, 
+	input		 commit_addr_done,
+	input   [1:0]commit_addr_trap_type,					// valid when commit_addr_done is true
 
+	input		 commit_load_done,
 
 	input		 commit_vm_stall,					// true if this load or store is stalled
 	input		 commit_vm_pause,					// true if this load or store is pause (just resched)
@@ -295,8 +300,6 @@ module commit(input clk,
 	input		 commit_vm_done_pmp,					// did we get a VM accees fail because of pmp?
 
 	output		 commit_store_req,
-	input		 commit_store_running,
-	input   [1:0]commit_store_running_trap_type,	// valid when commit_store_running is true
 	input		 commit_store_ack);
 
     parameter RN=7;
@@ -355,6 +358,7 @@ module commit(input clk,
 	assign rs3_fp_out = r_rs3_fp;
 `endif
 	assign control_out = r_control;
+	assign unit_type_out = r_unit_type;
 	assign valid_out = r_valid;
 	assign commit_req = r_commit_req;
 	assign commit_store_req = r_commit_store_req;
@@ -477,9 +481,11 @@ module commit(input clk,
 	reg r_busy, c_busy;
 	reg r_busy2, c_busy2;
 	reg r_read, c_read;
+	reg r_read_d, c_read_d;
 	reg r_vm_stall, c_vm_stall;
 
 	reg r_load_trap, c_load_trap;
+	reg	  r_addr_done, c_addr_done;
 	reg	r_br_ok, c_br_ok;
 
 	wire lres_ready = commit_first|!r_control[4];
@@ -496,12 +502,13 @@ module commit(input clk,
 	assign alu_ready = ready&(r_unit_type==0)&r_valid&!r_read;
 	assign shift_ready = ready&(r_unit_type==1)&r_valid&!r_read;
 	assign branch_ready = ready&(r_unit_type==6)&r_valid&!r_read;
-	assign load_ready = !r_vm_stall&lres_ready&ready&(r_unit_type==3)&r_valid&!r_read&!r_load_trap;
-	assign load_not_ready = ((r_vm_stall|!lres_ready|!ready)&(r_unit_type==3)&r_valid&!r_read&!r_load_trap) || 
+	assign load_addr_ready = !r_vm_stall&lres_ready&addr_ready&(r_unit_type==3)&r_valid&!r_read&!r_load_trap;
+	assign load_addr_not_ready = ((r_vm_stall|!lres_ready|!addr_ready)&(r_unit_type==3)&r_valid&!r_read&!r_load_trap) || 
 						  (commit_vm_stall&&commit_load_done&&(r_unit_type==3)&&r_valid);
-	assign store_ready = !r_vm_stall&amod_ready&ready&(r_unit_type==4)&r_valid&!r_read&!r_load_trap;
-	assign store_not_ready = ((r_vm_stall|!amod_ready|!ready)&(r_unit_type==4)&r_valid&!r_read&!r_load_trap) ||
+	assign store_addr_ready = !r_vm_stall&amod_ready&addr_ready&(r_unit_type==4)&r_valid&!r_read&!r_load_trap;
+	assign store_addr_not_ready = ((r_vm_stall|!amod_ready|!addr_ready)&(r_unit_type==4)&r_valid&!r_read&!r_load_trap) ||
 						  (commit_vm_stall&&commit_load_done&&(r_unit_type==4)&&r_valid);
+	assign store_data_ready = !r_vm_stall&amod_ready&data_ready&(r_unit_type==4)&r_valid&!r_read_d&!r_load_trap;
 	assign mul_ready = ready&(r_unit_type==2)&r_valid&!r_read&r_control[0];
 	assign div_ready = ready&(r_unit_type==2)&r_valid&!r_read&~r_control[0];
 	reg		r_wfi_pause, c_wfi_pause;
@@ -523,6 +530,8 @@ module commit(input clk,
 		c_done = r_done;
 		c_busy = r_busy;
 		c_read = r_read;
+		c_read_d = r_read_d;
+		c_addr_done = r_addr_done;
 `ifdef FP
 		c_rd_fp = r_rd_fp;
 `endif
@@ -541,6 +550,7 @@ module commit(input clk,
 			c_done = 0;
 			c_valid = 0;
 			c_read = 0;
+			c_read_d = 0;
 			c_commit_req = 0;
 			c_busy = 0;
 			c_completed = 0;
@@ -550,16 +560,19 @@ module commit(input clk,
 			c_vm_stall = 0;
 			c_wfi_pause = 0;
 			c_br_ok = 0;
+			c_addr_done = 0;
 		end else
 		if (load&!commit_kill) begin
 `ifdef FP
 			c_rd_fp = rd_fp&makes_rd;
 `endif
 			c_done = 0;
+			c_addr_done = 0;
 			c_busy = 0;
 			c_busy2 = 0;
 			c_valid = 1;
 			c_read = 0;
+			c_read_d = 0;
 			c_commit_req = 0;
 			c_completed = 0;
 			c_load_trap = 0;
@@ -710,39 +723,42 @@ module commit(input clk,
 						c_read = 0;
 					end else
 					if (r_busy & !r_busy2) begin
-						if (commit_load_done&&commit_vm_pause) begin
+						if (commit_addr_done&&commit_vm_pause) begin
 							c_read = 0;
 							c_busy = 0;
 							c_vm_stall = 0;
 						end else
-						if (commit_load_done&&commit_vm_stall) begin
+						if (commit_addr_done&&commit_vm_stall) begin
 							c_busy = 0;
 							c_busy2 = 0;
 							c_read = 0;
 							c_vm_stall = 1;
 						end else
-						if (commit_load_done&&!commit_load_pending) begin	
-							if (commit_load_trap_type == 0) begin
-								c_completed = 1;
-								c_busy2 = r_makes_rd;
-								c_busy = r_makes_rd;
-								c_commit_req = r_makes_rd;
-								c_done = !r_makes_rd;
+						if (commit_addr_done) begin	
+							if (commit_addr_trap_type == 0) begin
+								c_addr_done = 1;
 							end else begin
-								// something here for traps: commit_load_trap_type valid here
+								// something here for traps: commit_addr_trap_type valid here
 								c_read = 0;
 								c_load_trap = 1;
 								c_done = 0;
 								c_commit_req = 0;
 								clear_immed = r_control[4];
 								c_busy = 0;
-								casez (commit_load_trap_type) // synthesis full_case parallel_case
+								casez (commit_addr_trap_type) // synthesis full_case parallel_case
 								3: c_control = 6'b001101; // load page fault
 								2: c_control = 6'b000101; // load prot fault
 								1: c_control = 6'b000100; // load aligned fault
 								default: c_control = 6'bx;
 								endcase
 							end
+						end
+						if (commit_load_done && r_addr_done) begin
+							c_completed = 1;
+							c_busy2 = r_makes_rd;
+							c_busy = r_makes_rd;
+							c_commit_req = r_makes_rd;
+							c_done = !r_makes_rd;
 						end
 					end
 					if (r_makes_rd&&commit_ack[ADDR]) begin
@@ -786,7 +802,7 @@ module commit(input clk,
 							// 1		hfence.vvma
 							// 2		hfence.gvma
 							// 3		fence.i		
-							if (commit_store_running && commit_vm_stall) begin	
+							if (commit_addr_done && commit_vm_stall) begin	
 		                        if (commit_vm_done) begin
 									c_vm_stall = 0;
 									c_read = 0;
@@ -799,7 +815,7 @@ module commit(input clk,
 									c_vm_stall = 1;
 								end
 							end else 
-							if (r_control[2:0]==3?(commit_load_done&&!commit_load_pending):commit_store_running) begin // it's been accepted
+							if (r_control[2:0]==3?commit_load_done:r_read_d) begin // it's been accepted
 								c_busy = 0;
 								c_control = 6'b111000;		// pipe break
 								c_unit_type = 7;
@@ -823,12 +839,12 @@ module commit(input clk,
 							c_busy2 = 0;
 						end else
 						if (r_busy && !r_busy2) begin
-							if (commit_vm_pause && !r_control[5]) begin
+							if (commit_addr_done && commit_vm_pause && !r_control[5]) begin
 								c_read = 0;
 								c_busy = 0;
 								c_vm_stall = 0;
 							end else
-							if (commit_store_running) begin	// it's been accepted
+							if (commit_addr_done) begin	// it's been accepted
 								if (commit_vm_stall && !r_control[5]) begin
 									if (commit_vm_done) begin
 										if (commit_vm_done_fail) begin
@@ -850,24 +866,23 @@ module commit(input clk,
 										c_vm_stall = 1;
 									end
 								end else
-								if (commit_store_running_trap_type == 0 || r_control[5]) begin
+								if (commit_addr_trap_type == 0 || r_control[5]) begin
+									c_addr_done = 1;
 									if (r_control[5:4]==2'b01) begin 
 										c_commit_store_req = 0;
 										c_completed = 0;
-									end else begin
-										c_commit_store_req = 1;
-										c_completed = 1;
 									end
 									c_busy2 = 1;
 									//c_commit_req = !r_makes_rd;
 								end else begin
-									// something here for traps: commit_store_running_trap_type valid here
+									// something here for traps: commit_addr_trap_type valid here
 									c_read = 0;
+									c_read_d = 0;
 									c_busy = 0;
 									c_unit_type = 7;
 									clear_immed = r_control[4];
 									c_load_trap = 1;
-									casez (commit_store_running_trap_type) // synthesis full_case parallel_case
+									casez (commit_addr_trap_type) // synthesis full_case parallel_case
 									3: c_control = 6'b001111; // store page fault
 									2: c_control = 6'b000111; // store prot fault
 									1: c_control = 6'b000110; // store aligned fault
@@ -875,12 +890,22 @@ module commit(input clk,
 									endcase
 								end
 							end else
-							if (commit_load_done&&!commit_load_pending) begin 
+							if (r_read_d && r_addr_done && (r_control[5:4]!=2'b01 || r_immed[28:27]==2'b11)) begin
+								c_commit_store_req = 1;
+								c_completed = 1;
+								c_busy2 = 1;
+							end else
+							if (commit_load_done) begin 
 								c_commit_store_req = !r_makes_rd;
 								c_completed = 1;
 								c_busy2 = 1;
 								c_commit_req = r_makes_rd;
 							end
+						end else
+						if (r_read_d && r_addr_done && (r_control[5:4]!=2'b01 || r_immed[28:27]==2'b11) && !r_completed) begin
+							c_commit_store_req = 1;
+							c_completed = 1;
+							c_busy2 = 1;
 						end else
 						if (commit_store_ack) begin
 							c_commit_store_req = 0;
@@ -889,12 +914,12 @@ module commit(input clk,
 								c_busy2 = 0;
 								c_done = 1;
 							end else
-							if (commit_load_done&&!commit_load_pending&& r_control[5:4]==2'b01) begin 
+							if (commit_load_done&& r_control[5:4]==2'b01) begin 
 								c_commit_req = 1;
 								c_completed = 1;
 							end
 						end else
-						if (commit_load_done&&!commit_load_pending&& r_control[5:4]==2'b01) begin 
+						if (commit_load_done&& r_control[5:4]==2'b01) begin 
 							c_commit_req = 1;
 							c_completed = 1;
 						end else
@@ -911,21 +936,31 @@ module commit(input clk,
 			endcase
 			if (schedule)
 				c_read = 1;
+			if (schedule_d)
+				c_read_d = 1;
 		end
 	end
 
-	reg		r_ready;
+	reg		r_ready, r_ready_addr;
 	assign ready = r_valid&(r_ready|((!r_rs1[RA-1]|completed[r_rs1[LNCOMMIT-1:0]])&
 								     ((!r_rs2[RA-1]|completed[r_rs2[LNCOMMIT-1:0]])|!r_needs_rs2)&
 								     ((!r_rs3[RA-1]|completed[r_rs3[LNCOMMIT-1:0]])|!r_needs_rs3)));
+	assign addr_ready = r_valid&(r_ready_addr|(!r_rs1[RA-1]|completed[r_rs1[LNCOMMIT-1:0]]));
+`ifdef FP
+	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0&&!r_rs2_fp)|completed[r_rs2[LNCOMMIT-1:0]]));
+`else
+	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0)|completed[r_rs2[LNCOMMIT-1:0]]));
+`endif
 
 	always @(posedge clk) begin
 		r_br_ok <= c_br_ok;
 		r_vm_stall <= c_vm_stall;
 		r_ready <= !reset&r_valid&((ready|r_force_fetch)|r_ready);
+		r_ready_addr <= !reset&r_valid&((addr_ready|r_force_fetch)|r_ready_addr);
 		r_busy <= c_busy&!commit_kill;
 		r_busy2 <= c_busy2&!commit_kill;
 		r_read <= c_read;
+		r_read_d <= c_read_d;
 		r_wfi_pause <= c_wfi_pause;
 		r_load_trap <= (!commit_ended&!commit_kill?c_load_trap:0);
 		r_commit_req <= c_commit_req&!commit_ended&!commit_kill;
@@ -934,6 +969,7 @@ module commit(input clk,
 		r_valid <= c_valid&!commit_ended&!commit_kill;
 		r_completed <= c_completed&!commit_ended&!commit_kill;
 		r_control <= c_control;
+		r_addr_done <= c_addr_done;
 		r_unit_type <= c_unit_type;
 `ifdef FP
 		r_rd_fp <= c_rd_fp;
@@ -1023,7 +1059,7 @@ if (commit_ended && simd_enable) $display("D %d %x %x %x", $time,ADDR,{r_pc,1'b0
            .valid(r_valid),
            .typ(r_unit_type),
            .pc({r_pc[31:1],1'b0}),
-           .state({3'b0, completed[r_rs1[LNCOMMIT-1:0]], completed[r_rs2[LNCOMMIT-1:0]], load_ready, load_not_ready, commit_load_done}),
+           .state({3'b0, completed[r_rs1[LNCOMMIT-1:0]], completed[r_rs2[LNCOMMIT-1:0]], load_addr_ready, load_addr_not_ready, commit_load_done}),
            .schedule(schedule),
            .commit_req(commit_req),
            .ready(ready),
@@ -1031,7 +1067,6 @@ if (commit_ended && simd_enable) $display("D %d %x %x %x", $time,ADDR,{r_pc,1'b0
            .rs2(r_rs2),
            .needs_rs2(r_needs_rs2),
 	       .commit_load_done(commit_load_done),
-           .commit_load_pending(commit_load_pending),
            .p0(r_busy),
            .p1(r_busy2),
            .p2(1'b0),

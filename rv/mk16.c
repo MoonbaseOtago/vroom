@@ -89,14 +89,10 @@ err:
         printf("		dc_raddr_snoop_out = 'bx;\n");
         printf("		dc_raddr_out = 'bx;\n");
         printf("		mem_req = 'bx;\n");
-        printf("		casez ({r_ldstq_in, (mem_read_req|mem_write_req)&~write_mem_io}) // synthesis full_case parallel_case\n");
-
-	for (i = 0; i < nldstq; i++) {
+        printf("		casez ((mem_read_req|mem_write_req)&~write_mem_io) // synthesis full_case parallel_case\n");
+	i=0;
 		for (j = 0; j < nldstq;j++) {
-			printf("		%d'b",lnldstq+nldstq);
-			for (k = lnldstq-1; k >= 0; k--) 
-				printf((i&(1<<k))?"1":"0");
-			printf("_");
+			printf("		%d'b",nldstq);
 			for (k = nldstq-1; k >= 0; k--) {
 				int n = i+j;
 				
@@ -107,12 +103,7 @@ err:
 			}
 			printf(": mem_req = %d;\n", j);
 		}
-		printf("\n");
-	}
-	printf("                %d'b",lnldstq+nldstq);
-	for (k = lnldstq-1; k >= 0; k--) 
-		printf("?");
-	printf("_");
+	printf("                %d'b",nldstq);
 	for (k = nldstq-1; k >= 0; k--) 
 		printf("0");
 	printf(": dc_raddr_req_out = 0;\n");

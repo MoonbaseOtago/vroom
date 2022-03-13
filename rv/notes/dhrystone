@@ -199,3 +199,30 @@ hpmcounter5 = 109991
 
 IPC = 2.11
 BTC hit rate = %99
+==================================
+5/4/22 simulator m-mode - switch from gcc to clang (not an architectural change - same as above)
+Microseconds for one run through Dhrystone: 5.32
+Dhrystones per Second:                      187577
+DMips:                                      106.7
+DMips/(25)MHZ:                              4.27
+mcycle = 266675
+minstret = 452037
+hpmcounter4 = 82008
+hpmcounter5 = 79991
+
+IPC = 1.69
+BTC hit rate = %97
+
+5/3/22 - simulator m-mode - 644 address unit store instruction issue rate into storeQ 
+
+Microseconds for one run through Dhrystone: 3.84
+Dhrystones per Second:                      258295
+DMips:                                      147.0
+DMips/(25)MHZ:                              5.88
+mcycle = 193694
+minstret = 452037
+hpmcounter4 = 82008
+hpmcounter5 = 79991
+
+IPC = 2.33
+BTC hit rate = %97

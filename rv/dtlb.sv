@@ -16,53 +16,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+`include "lstypes.si"
+
 module dtlb(input clk, input reset,
 
-	input	    rd_enable_0,
-	input [VA_SZ-1:12]rd_vaddr_0,		// read path
-	input	[15:0]rd_asid_0,
-	output  	rd_valid_0,
-	output  	rd_2mB_0,
-	output  	rd_4mB_0,
-	output  	rd_1gB_0,
-	output  	rd_512gB_0,
-	output [NPHYS-1:12]rd_paddr_0,
-	output	[5: 0]rd_aduwrx_0,
-
-	input	    rd_enable_1,
-	input [VA_SZ-1:12]rd_vaddr_1,		// read path
-	input	[15:0]rd_asid_1,
-	output  	rd_valid_1,
-	output  	rd_2mB_1,
-	output  	rd_4mB_1,
-	output  	rd_1gB_1,
-	output  	rd_512gB_1,
-	output	[NPHYS-1:12]rd_paddr_1,
-	output	[5: 0]rd_aduwrx_1,
-
-	input	    rd_enable_2,
-	input [VA_SZ-1:12]rd_vaddr_2,		// read path
-	input	[15:0]rd_asid_2,
-	output  	rd_valid_2,
-	output  	rd_2mB_2,
-	output  	rd_4mB_2,
-	output  	rd_1gB_2,
-	output  	rd_512gB_2,
-	output	[NPHYS-1:12]rd_paddr_2,
-	output	[5: 0]rd_aduwrx_2,
-
-`ifdef NSTORE2
-	input	    rd_enable_3,
-	input [VA_SZ-1:12]rd_vaddr_3,		// read path
-	input	[15:0]rd_asid_3,
-	output  	rd_valid_3,
-	output  	rd_2mB_3,
-	output  	rd_4mB_3,
-	output  	rd_1gB_3,
-	output  	rd_512gB_3,
-	output	[NPHYS-1:12]rd_paddr_3,
-	output	[5: 0]rd_aduwrx_3,
-`endif
+    TLB			tlb,
 
 	input [VA_SZ-1:12]wr_vaddr,		// write path
 	input	[15:0]wr_asid,
@@ -89,36 +47,18 @@ module dtlb(input clk, input reset,
 	parameter VA_SZ=48;
 	parameter NHART=1;
 	parameter LNHART=1;
+	parameter NADDR=6;
 
+	wire [TLB_ENTRIES-1:0]rd_match[0:NADDR-1];
+	reg	[ 5: 0]rd_aduwrx_res[0:NADDR-1];
+	reg	[NPHYS-1:12]rd_paddr_res[0:NADDR-1];
 
-	reg	[NPHYS-1:12]rd_paddr_res_0;
-	assign rd_paddr_0 = rd_paddr_res_0;
-	reg	[ 5: 0]rd_aduwrx_res_0;
-	assign rd_aduwrx_0 = rd_aduwrx_res_0;
-
-	reg	[NPHYS-1:12]rd_paddr_res_1;
-	assign rd_paddr_1 = rd_paddr_res_1;
-	reg	[ 5: 0]rd_aduwrx_res_1;
-	assign rd_aduwrx_1 = rd_aduwrx_res_1;
-
-	reg	[NPHYS-1:12]rd_paddr_res_2;
-	assign rd_paddr_2 = rd_paddr_res_2;
-	reg	[ 5: 0]rd_aduwrx_res_2;
-	assign rd_aduwrx_2 = rd_aduwrx_res_2;
-
-`ifdef NSTORE2
-	reg	[NPHYS-1:12]rd_paddr_res_3;
-	assign rd_paddr_3 = rd_paddr_res_3;
-	reg	[ 5: 0]rd_aduwrx_res_3;
-	assign rd_aduwrx_3 = rd_aduwrx_res_3;
-`endif
-
-	genvar I;
+	genvar I, A;
 	generate
-		wire [TLB_ENTRIES-1:0]rd_match_0, rd_match_1, rd_match_2;
-`ifdef NSTORE2
-		wire [TLB_ENTRIES-1:0]rd_match_3;
-`endif
+		for (A = 0; A < NADDR; A=A+1) begin
+			assign tlb.ack[A].paddr= rd_paddr_res[A];
+			assign tlb.ack[A].aduwrx = rd_aduwrx_res[A];
+		end
 
 		reg [TLB_ENTRIES-1:0]r_tlb_valid;
 		reg [16-1:0]r_tlb_asid[0:TLB_ENTRIES-1];
@@ -130,18 +70,17 @@ module dtlb(input clk, input reset,
 		reg [TLB_ENTRIES-1:0]r_tlb_1gB;
 		reg [TLB_ENTRIES-1:0]r_tlb_512gB;
 
+		wire [NADDR-1:0]imatch;
+		for (A = 0; A < NADDR; A=A+1) begin
+			assign  imatch[A] = tlb.req[A].enable&&rd_match[A][r_repl];
+		end
+
 		reg [$clog2(TLB_ENTRIES)-1:0]r_repl;
 		always @(posedge clk)
 		if (reset) begin
 			r_repl <= 0;
 		end else
-		if (wr_entry ||
-		    rd_enable_0&&rd_match_0[r_repl] ||
-		    rd_enable_1&&rd_match_1[r_repl] ||
-`ifdef NSTORE2
-		    rd_enable_3&&rd_match_3[r_repl] ||
-`endif
-		    rd_enable_2&&rd_match_2[r_repl]) begin
+		if (wr_entry || |imatch) begin
 			r_repl <= r_repl+1;
 		end 
 
@@ -150,35 +89,14 @@ module dtlb(input clk, input reset,
 			wire [15:0]rd_as = r_tlb_asid[I];
 			wire [VA_SZ-1:12]rd_va = r_tlb_vaddr[I];
 
-			assign rd_match_0[I] = rd_vld && ((rd_asid_0 == rd_as) || r_tlb_gaduwrx[I][6]) && 
-						rd_va[VA_SZ-1:39] == rd_vaddr_0[VA_SZ-1:39] &&
-						(r_tlb_512gB[I] || rd_va[38:30] == rd_vaddr_0[38:30]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == rd_vaddr_0[29:22]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == rd_vaddr_0[21]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == rd_vaddr_0[20:12]);
-
-			assign rd_match_1[I] = rd_vld && ((rd_asid_1 == rd_as) || r_tlb_gaduwrx[I][6]) && 
-						rd_va[VA_SZ-1:39] == rd_vaddr_1[VA_SZ-1:39] &&
-						(r_tlb_512gB[I] || rd_va[38:30] == rd_vaddr_1[38:30]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == rd_vaddr_1[29:22]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == rd_vaddr_1[21]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == rd_vaddr_1[20:12]);
-
-			assign rd_match_2[I] = rd_vld && ((rd_asid_2 == rd_as) || r_tlb_gaduwrx[I][6]) && 
-						rd_va[VA_SZ-1:39] == rd_vaddr_2[VA_SZ-1:39] &&
-						(r_tlb_512gB[I] || rd_va[38:30] == rd_vaddr_2[38:30]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == rd_vaddr_2[29:22]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == rd_vaddr_2[21]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == rd_vaddr_2[20:12]);
-
-`ifdef NSTORE2
-			assign rd_match_3[I] = rd_vld && ((rd_asid_3 == rd_as) || r_tlb_gaduwrx[I][6]) && 
-						rd_va[VA_SZ-1:39] == rd_vaddr_3[VA_SZ-1:39] &&
-						(r_tlb_512gB[I] || rd_va[38:30] == rd_vaddr_3[38:30]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == rd_vaddr_3[29:22]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == rd_vaddr_3[21]) &&
-						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == rd_vaddr_3[20:12]);
-`endif
+			for (A = 0; A < NADDR; A=A+1) begin
+				assign rd_match[A][I] = rd_vld && ((tlb.req[A].asid == rd_as) || r_tlb_gaduwrx[I][6]) && 
+						rd_va[VA_SZ-1:39] == tlb.req[A].vaddr[VA_SZ-1:39] &&
+						(r_tlb_512gB[I] || rd_va[38:30] == tlb.req[A].vaddr[38:30]) &&
+						(r_tlb_512gB[I] || r_tlb_1gB[I] || rd_va[29:22] == tlb.req[A].vaddr[29:22]) &&
+						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || rd_va[21] == tlb.req[A].vaddr[21]) &&
+						(r_tlb_512gB[I] || r_tlb_1gB[I] || r_tlb_4mB[I] || r_tlb_2mB[I] || rd_va[20:12] == tlb.req[A].vaddr[20:12]);
+			end
 
 			wire [15:0]wr_as = r_tlb_asid[I];
 			wire [VA_SZ-1:12]wr_va = r_tlb_vaddr[I];
@@ -213,41 +131,19 @@ module dtlb(input clk, input reset,
 //`include "mk11_16_3.inc"
 	//	end else
 		if (TLB_ENTRIES == 32) begin
-`ifdef NSTORE2
-`include "mk11_32_4.inc"
-`else
 `include "mk11_32_3.inc"
-`endif
 //		end else
 //		if (TLB_ENTRIES == 64) begin
 //`include "mk11_64_3.inc"
 		end 
-
-		assign rd_valid_0 = |rd_match_0;
-		assign rd_2mB_0 = |(rd_match_0&r_tlb_2mB);
-		assign rd_4mB_0 = |(rd_match_0&r_tlb_4mB);
-		assign rd_1gB_0 = |(rd_match_0&r_tlb_1gB);
-		assign rd_512gB_0 = |(rd_match_0&r_tlb_512gB);
-
-		assign rd_valid_1 = |rd_match_1;
-		assign rd_2mB_1 = |(rd_match_1&r_tlb_2mB);
-		assign rd_4mB_1 = |(rd_match_1&r_tlb_4mB);
-		assign rd_1gB_1 = |(rd_match_1&r_tlb_1gB);
-		assign rd_512gB_1 = |(rd_match_1&r_tlb_512gB);
-
-		assign rd_valid_2 = |rd_match_2;
-		assign rd_2mB_2 = |(rd_match_2&r_tlb_2mB);
-		assign rd_4mB_2 = |(rd_match_2&r_tlb_4mB);
-		assign rd_1gB_2 = |(rd_match_2&r_tlb_1gB);
-		assign rd_512gB_2 = |(rd_match_2&r_tlb_512gB);
-
-`ifdef NSTORE2
-		assign rd_valid_3 = |rd_match_3;
-		assign rd_2mB_3 = |(rd_match_3&r_tlb_2mB);
-		assign rd_4mB_3 = |(rd_match_3&r_tlb_4mB);
-		assign rd_1gB_3 = |(rd_match_3&r_tlb_1gB);
-		assign rd_512gB_3 = |(rd_match_3&r_tlb_512gB);
-`endif
+		
+		for (A = 0; A < NADDR; A=A+1) begin
+			assign tlb.ack[A].valid = |rd_match[A];
+			assign tlb.ack[A].is2mB = |(rd_match[A]&r_tlb_2mB);
+			assign tlb.ack[A].is4mB = |(rd_match[A]&r_tlb_4mB);
+			assign tlb.ack[A].is1gB = |(rd_match[A]&r_tlb_1gB);
+			assign tlb.ack[A].is512gB = |(rd_match[A]&r_tlb_512gB);
+		end
 
 	endgenerate
 

@@ -7,7 +7,7 @@ Paul Campbell - October 2021
 
 paul@taniwha.com @moonbaseotago
 
-(C) Copyright Moonbase Otago 2021
+(C) Copyright Moonbase Otago 2021-22
 
 ## Executive summary
 * Very high end RISC-V implementation – goal cloud server class
@@ -16,7 +16,7 @@ paul@taniwha.com @moonbaseotago
 * Up to 8 IPC (instructions per clock) peak, goal ~4 average on ALU heavy work
 * 2-way simultaneous multithreading capable
 * Multi-core
-* Early dhrystone numbers: ~4 DMips/MHz - still a work in progress. Goal 5+
+* Current dhrystone numbers: ~5.9 DMips/MHz - still a work in progress. 
 * Currently boots Linux on an AWS-FPGA instance
 * GPL3 – dual licensing possible
 

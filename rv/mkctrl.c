@@ -43,154 +43,6 @@ int popcount(int x)
 	return count;
 }
 
-//
-//	load/store scheduling
-//
-//	basic rules:
-//		1) schedule loads first then stores (because LS unit can't snoop stores in progress to virtual addresses)
-//		2) can't schedule a store out of order 
-//		3) can't schedule a load past a store
-//		4) can schedule a load out of order wrt another load
-//		5) can schedule HARTs past each other (might be worth having per-hart LS scheduler)
-//
-//
-
-void recurse_ls(int recurse_limit, int indent, int commit, int ncommit, int hart, int numhart, int load, int nload, int store, int nstore, int storing)
-{
-	int i, k, l, n;
-
-	char p[80];
-	for (i=0;i<indent;i++)
-		p[i] = '\t';
-	p[indent+1]=0;
-
-	if (commit >= ncommit)
-		return;
-	printf("%s			casez (lsm) // synthesis full_case parallel_case\n", p);
-	for (k = commit; k < ncommit; k++) {
-		for (l = hart; l < numhart; l++) {
-				int first = 1;
-				printf("%s			%d'b", p,  numhart*ncommit);
-				for (n = 0; n < (ncommit*numhart); n++)
-					printf(n < (commit*numhart+hart)?"?": n < (k*numhart+l)?"0":n == (k*numhart+l)?"1":"?");
-				printf(": begin\n");
-				printf("%s					if (!store_not_r%d[%d]) \n", p, l, k);
-				printf("%s					if (store_r%d[%d]) begin\n", p, l, k);
-				printf("%s						if (ge%d) begin\n", p, load+store+1);
-				printf("%s							store_ready%d = 1;\n", p, store);
-				printf("%s							store_out%d = %d+start_commit_%d;\n", p, store, k, l);
-				if (numhart > 1)
-						printf("%s						store_hart%d = %d;\n", p, store, l);
-				if ((store+1) < nstore) {
-					recurse_ls(recurse_limit, indent+1, (l+1) < numhart?k:k+1, ncommit, (l+1) < numhart?l+1:0, numhart, load, nload, store+1, nstore, 1);
-				}
-				printf("%s						end\n", p);
-				if (storing) {
-					printf("%s					end\n", p);
-				} else {
-					printf("%s					end else\n", p);
-					printf("%s					if (load_not_r%d[%d]) begin \n", p, l, k);
-					if (recurse_limit < 3) 
-						recurse_ls(recurse_limit+1, indent+1, (l+1) < numhart?k:k+1 , ncommit, (l+1) < numhart?l+1:0, numhart, load, nload, store, nstore, 0);
-					printf("%s					end else begin // must be load\n", p);
-					printf("%s						if (ge%d) begin\n", p, load+store+1);
-					printf("%s							load_ready%d = 1;\n", p, load);
-					printf("%s							load_out%d = %d+start_commit_%d;\n", p, load, k, l);
-					if (numhart > 1)
-							printf("%s						load_hart%d = %d;\n", p, load, l);
-					if ((load+1) < nload)
-						recurse_ls(recurse_limit, indent+1, (l+1) < numhart?k:k+1, ncommit, (l+1) < numhart?l+1:0, numhart, load+1, nload, store, nstore, 0);
-					printf("%s						end \n", p);
-					printf("%s					end \n", p);
-				}
-				printf("%s				end\n", p);
-		}
-	}
-	printf("%s			%d'b", p,  numhart*ncommit);
-	for (n = 0; n < (ncommit*numhart); n++)
-			printf(n < (commit*numhart+hart)?"?": n < (k*numhart+l)?"0":n == (k*numhart+l)?"0":"?");
-	printf(": ;\n");
-	printf("%s			endcase\n", p);
-}
-
-void
-generate_sched_ls(int nload, int nstore, int numhart, int ncommit) // special case for load/store
-{
-	int i, j, k, l, m, n, first;
-
-	j = 0;
-	for (i = 0; i < nload; i++) {
-		char *name="load";
-		printf("		reg [LNCOMMIT-1:0]%s_out%d;\n", name, i);
-		printf("		reg 		%s_ready%d;\n", name, i);
-		if (numhart > 1) {
-			printf("		reg [LNHART-1:0]%s_hart%d;\n", name, i);
-			printf("		assign %s_hart_%d = %s_hart%d;\n", name, i, name, i);
-		}
-		printf("		assign %s_addr_%d = %s_out%d;\n", name, i, name, i);
-		printf("		assign %s_enable_%d =  %s_ready%d;\n", name, i, name, i);
-		printf("		reg r_%s_enable_%d;\n", name, i);
-		printf("		always @(posedge clk)\n");
-		printf("			r_%s_enable_%d <= %s_enable_%d;\n", name, i, name, i);
-	}
-	for (i = 0; i < nstore; i++) {
-		char *name="store";
-		printf("		reg [LNCOMMIT-1:0]%s_out%d;\n", name, i);
-		printf("		reg 		%s_ready%d;\n", name, i);
-		if (numhart > 1) {
-			printf("		reg [LNHART-1:0]%s_hart%d;\n", name, i);
-			printf("		assign %s_hart_%d = %s_hart%d;\n", name, i, name, i);
-		}
-		printf("		assign %s_addr_%d = %s_out%d;\n", name, i, name, i);
-		printf("		assign %s_enable_%d =  %s_ready%d;\n", name, i, name, i);
-		printf("		reg r_%s_enable_%d;\n", name, i);
-		printf("		always @(posedge clk)\n");
-		printf("			r_%s_enable_%d <= %s_enable_%d;\n", name, i, name, i);
-	}
-	printf("		wire [$clog2(%d)-1:0]num_enabled=%d'b0", nload+nstore,nload+nstore);
-	for (i = 0; i < nload; i++)
-			printf("+r_load_enable_%d", i);
-	for (i = 0; i < nstore; i++)
-			printf("+r_store_enable_%d", i);
-	printf(";\n");
-		
-	
-	for (i = 0; i < (nload+nstore); i++)
-		printf("		wire ge%d = (num_ldstq_available >= (%d+num_enabled));\n", i+1, i+1);
-	for (i = 0; i < numhart; i++) 
-		printf("		wire [NCOMMIT-1:0]lsm_%d = store_r%d|store_not_r%d|load_r%d|load_not_r%d;\n", i, i, i, i, i);
-	printf("		wire [NCOMMIT*NHART-1:0]lsm = {");
-	first = 1;
-	for (k = 0; k < ncommit; k++) {
-		for (l = 0; l < numhart; l++) {
-			if (first) {
-				first=0;
-			} else {
-				printf(",");
-			}
-			printf("lsm_%d[%d]", l, k);
-		}
-	}
-	printf("};\n");
-	printf("		always @(*) begin\n");
-	for (i = 0; i < nload; i++) {
-		char *name="load";
-		printf("			%s_ready%d=0;\n",name,i);
-		printf("			%s_out%d='bx;\n",name,i);
-		if (numhart > 1)
-			printf("			%s_hart%d='bx;\n",name,i);
-	}
-	for (i = 0; i < nstore; i++) {
-		char *name="store";
-		printf("			%s_ready%d=0;\n",name,i);
-		printf("			%s_out%d='bx;\n",name,i);
-		if (numhart > 1)
-			printf("			%s_hart%d='bx;\n",name,i);
-	}
-	recurse_ls(9, 0, 0, ncommit, 0, numhart, 0, nload, 0, nstore, 0); 
-	printf("		end\n");
-}
-
 void generate_sched_recursive(const char *name, int instance, int nunit, int start, int numhart, int ncommit);
 
 void
@@ -390,11 +242,11 @@ xrecurse(int hart, int nresolve, int port, int nxferports, int s, int k)
 int main(int argc, char ** argv)
 {
 	int n, i,j,k,l,t;
-	int ind, inc, nxferports, ncommit, numhart, nalu, nshift, nbranch, nmul, nload, nstore, nfpu;
+	int ind, inc, nxferports, ncommit, numhart, nalu, nshift, nbranch, nmul, nfpu;
 
 	if (argc < 2) {
 err:
-		fprintf(stderr, "mkctrl [-hdr|-inst|-core] num-xfer-ports num-hart num-commit num-alu num-shift num-branch num-mul num-load num-store\n");
+		fprintf(stderr, "mkctrl [-hdr|-inst|-core] num-xfer-ports num-hart num-commit num-alu num-shift num-branch num-mul\n");
 		exit(0);
 	} 	
 	if (strcmp(argv[1], "-inst")==0) {
@@ -425,10 +277,6 @@ err:
 	nbranch = strtol((const char *)argv[ind++], 0, 0);
 	if (ind >= argc) goto err;
 	nmul = strtol((const char *)argv[ind++], 0, 0);
-	if (ind >= argc) goto err;
-	nload = strtol((const char *)argv[ind++], 0, 0);
-	if (ind >= argc) goto err;
-	nstore = strtol((const char *)argv[ind++], 0, 0);
 	if (ind >= argc) goto err;
 	nfpu = strtol((const char *)argv[ind++], 0, 0);
 	printf("//\n");
@@ -461,10 +309,6 @@ err:
 			printf("		input [NCOMMIT-1:0]branch_ready_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]mul_ready_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]div_ready_%d, \n", i);
-			printf("		input [NCOMMIT-1:0]load_ready_%d, \n", i);
-			printf("		input [NCOMMIT-1:0]load_not_ready_%d, \n", i);
-			printf("		input [NCOMMIT-1:0]store_ready_%d, \n", i);
-			printf("		input [NCOMMIT-1:0]store_not_ready_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]csr_ready_%d, \n", i);
 		}
 		for (i = 0; i < nalu; i++) {
@@ -488,21 +332,6 @@ err:
 			printf("		output            shift_enable_%d, \n", i);
 			printf("\n");
 		}
-		for (i = 0; i < nload; i++) {
-			printf("		output [LNCOMMIT-1:0]load_addr_%d, \n", i);
-			if (numhart > 1)
-				printf("		output [LNHART-1:0]load_hart_%d, \n", i);
-			printf("		output            load_enable_%d, \n", i);
-			printf("\n");
-		}
-		for (i = 0; i < nstore; i++) {
-			printf("		output [LNCOMMIT-1:0]store_addr_%d, \n", i);
-			if (numhart > 1)
-				printf("		output [LNHART-1:0]store_hart_%d, \n", i);
-			printf("		output            store_enable_%d, \n", i);
-			printf("\n");
-		}
-		printf("		input [$clog2(NLDSTQ):0]num_ldstq_available,\n");
 		for (i = 0; i < nmul; i++) {
 			printf("		output [LNCOMMIT-1:0]mul_addr_%d, \n", i);
 			if (numhart > 1)
@@ -527,7 +356,7 @@ err:
 		for (i = 0; i < numhart; i++) {
 			printf("		wire [LNCOMMIT-1:0]sh%d = start_commit_%d;\n", i, i);
 			printf("		wire [NCOMMIT-1:0]mul_r_%d = mul_ready_%d|(|divide_busy?0:div_ready_%d);\n",i,i,i); // FIXME - need better solution for multiple multipliers
-			printf("		wire [NCOMMIT-1:0]alu_r%d, shift_r%d, branch_r%d, mul_r%d, load_r%d, store_r%d, load_not_r%d, store_not_r%d;\n", i,i,i,i,i,i,i,i);
+			printf("		wire [NCOMMIT-1:0]alu_r%d, shift_r%d, branch_r%d, mul_r%d;\n", i,i,i,i);
 			if (nfpu)
 				printf("		wire [NCOMMIT-1:0]fpu_r%d;\n", i);
 			if (nfpu)
@@ -536,16 +365,11 @@ err:
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))sh_%d(.in(shift_ready_%d), .r(sh%d), .out(shift_r%d));\n", i, i, i, i);
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))br_%d(.in(branch_ready_%d), .r(sh%d), .out(branch_r%d));\n", i, i, i, i);
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))mul_%d(.in(mul_r_%d), .r(sh%d), .out(mul_r%d));\n", i, i, i, i);
-			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))ld_%d(.in(load_ready_%d), .r(sh%d), .out(load_r%d));\n", i, i, i, i);
-			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))ld_n%d(.in(load_not_ready_%d), .r(sh%d), .out(load_not_r%d));\n", i, i, i, i);
-			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))st_%d(.in(store_ready_%d), .r(sh%d), .out(store_r%d));\n", i, i, i, i);
-			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))st_n%d(.in(store_not_ready_%d), .r(sh%d), .out(store_not_r%d));\n", i, i, i, i);
 		}
 		generate_sched("alu", nalu, numhart, ncommit);
 		if (nfpu)
 			generate_sched("fpu", nfpu, numhart, ncommit);
 		generate_sched("shift", nshift, numhart, ncommit);
-		generate_sched_ls(nload, nstore, numhart, ncommit);
 		generate_sched("mul", nmul, numhart, ncommit);
 		for (j = 0; j < numhart; j++) {
 			local_generate_sched("branch", nbranch, j, ncommit);
@@ -565,10 +389,6 @@ err:
 			printf("		.branch_ready_%d(branch_ready_commit[%d]), \n", i, i);
 			printf("		.mul_ready_%d(mul_ready_commit[%d]), \n", i, i);
 			printf("		.div_ready_%d(div_ready_commit[%d]), \n", i, i);
-			printf("		.load_ready_%d(load_ready_commit[%d]&{NCOMMIT{~commit_vm_busy[%d]}}), \n", i, i, i);
-			printf("		.load_not_ready_%d(load_not_ready_commit[%d]|(load_ready_commit[%d]&{NCOMMIT{commit_vm_busy[%d]}})), \n", i, i, i, i);
-			printf("		.store_ready_%d(store_ready_commit[%d]&{NCOMMIT{~commit_vm_busy[%d]}}), \n", i, i, i);
-			printf("		.store_not_ready_%d(store_not_ready_commit[%d]|(store_ready_commit[%d]&{NCOMMIT{commit_vm_busy[%d]}})), \n", i, i, i, i);
 			printf("		.csr_ready_%d(csr_ready_commit[%d]), \n", i, i);
 		}
 		for (i = 0; i < nalu; i++) {
@@ -587,23 +407,6 @@ err:
 			printf("\n");
 			j++;
 		}
-		for (i = 0; i < nload; i++) {
-			printf("		.load_addr_%d(alu_sched[%d]), \n", i, j);
-			if (numhart > 1)
-				printf("		.load_hart_%d(hart_sched[%d]), \n", i, j);
-			printf("		.load_enable_%d(enable_sched[%d]), \n", i, j);
-			printf("\n");
-			j++;
-		}
-		for (i = 0; i < nstore; i++) {
-			printf("		.store_addr_%d(alu_sched[%d]), \n", i, j);
-			if (numhart > 1)
-				printf("		.store_hart_%d(hart_sched[%d]), \n", i, j);
-			printf("		.store_enable_%d(enable_sched[%d]), \n", i, j);
-			printf("\n");
-			j++;
-		}
-		printf("		.num_ldstq_available(num_ldstq_available),\n");
 		for (i = 0; i < nmul; i++) {
 			printf("		.mul_addr_%d(alu_sched[%d]), \n", i, j);
 			if (numhart > 1)
@@ -640,14 +443,6 @@ err:
 				j++;
 			}
 			for (i = 0; i < nshift; i++) {
-				printf("		assign hart_sched[%d] = 0;\n", j);
-				j++;
-			}
-			for (i = 0; i < nload; i++) {
-				printf("		assign hart_sched[%d] = 0;\n", j);
-				j++;
-			}
-			for (i = 0; i < nstore; i++) {
 				printf("		assign hart_sched[%d] = 0;\n", j);
 				j++;
 			}

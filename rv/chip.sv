@@ -105,7 +105,7 @@ module chip (input ireset,
 	parameter CACHE_LINE_SIZE=512;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
 	parameter NLDSTQ=16;
-	parameter TRANS_ID_SIZE=6;	// 6 for i/tcaches
+	parameter TRANS_ID_SIZE=6;	// 6 for i/tcaches must be >= $clog2(NLDSTQ)
 	parameter NI=NCPU*2;
 	parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
 	parameter RV=64;
@@ -522,6 +522,9 @@ module chip (input ireset,
 
 	ioi #(.NPHYS(NPHYS), .NHART(NHART), .RV(RV), .NCPU(NCPU), .NIOCLIENTS(NIOCLIENTS), .NINTERRUPTS(NINTERRUPTS))io_switch(.clk(clk), .reset(reset),
 
+`ifdef SIMD
+		.simd_enable(simd_enable),
+`endif
 `ifdef AWS_DEBUG
 		.xxtrig(xxtrig),
 `endif

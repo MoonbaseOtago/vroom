@@ -75,6 +75,21 @@ int main(int argc, char ** argv)
 	printf("// along with this program.  If not, see <http://www.gnu.org/licenses/>.\n");
 	printf("//\n");
 
+	if (num_read_ports==3) {  // dcache
+        	printf("	for (A=0; A < NADDR; A=A+1) begin\n");
+        	printf("		always @(*) begin\n");
+        	printf("			rd_paddr_res[A] = 45'bx;\n");
+        	printf("			rd_%su%s_res[A] = %d'bx;\n",num_read_ports==2?"a":"ad", num_read_ports==2?"x":"wrx",num_read_ports==2?3:5);
+        	printf("			casez (rd_match[A]) // synthesis full_case parallel_case \n");
+		for (i = 0; i < B; i++) {
+			printf("			%d'b", B);
+			for (j=0;j< B ; j++)printf(i==j?"1":"?");
+			printf(": begin rd_paddr_res[A] = r_tlb_paddr[%d]; rd_%su%s_res[A] = r_tlb_g%su%s[%d][%d:0]; end\n", B-i-1, num_read_ports==2?"a":"ad",num_read_ports==2?"x":"wrx", num_read_ports==2?"a":"ad", num_read_ports==2?"x":"wrx", B-i-1, num_read_ports==2?2:5);
+		}
+        	printf("			endcase\n");
+        	printf("		end\n");
+        	printf("	end\n");
+	} else
 	for (n = 0; n < num_read_ports; n++) {
         	printf("		always @(*) begin\n");
         	printf("			rd_paddr_res_%d = 45'bx;\n",n);

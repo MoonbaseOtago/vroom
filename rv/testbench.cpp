@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "Vchip__Syms.h"
 #include "Vchip.h"
 #include "verilated.h"
 #include <verilated_vcd_c.h>
@@ -48,18 +49,7 @@ public:
 	virtual void	tick(void) {
 		int t;
 		// Increment our own internal time reference
-		m_tickcount++;
-		//m_core->clkX4 = 0; m_core->clkX4_phase = 2;
-		//m_core->eval();
-		m_tickcount++;
-		//m_core->clkX4 = 1; 
-		//m_core->eval();
-
-		m_tickcount+=2;
-		//m_core->clkX4 = 0; m_core->clkX4_phase = 4;
-		//m_core->eval();
-		m_tickcount++;
-	//	m_core->clkX4 = 1;
+		m_tickcount+=5;
 		m_core->clk_in = 0;
 		m_core->eval();
 		if (m_trace) {
@@ -79,18 +69,7 @@ public:
 			m_trace->dump(m_tickcount);
 			m_trace->flush();
 		}
-		m_tickcount++;
-		//m_core->clkX4 = 0; m_core->clkX4_phase = 8;
-		//m_core->eval();
-		m_tickcount++;
-		//m_core->clkX4 = 1; 
-		//m_core->eval();
-
-		m_tickcount+=2;
-		//m_core->clkX4 = 0; m_core->clkX4_phase = 1;
-		//m_core->eval();
-		m_tickcount++;
-		//m_core->clkX4 = 1;
+		m_tickcount+=5;
 		m_core->clk_in = 1;
 		m_core->eval();
 		if(m_trace) m_trace->dump(m_tickcount);
@@ -121,7 +100,7 @@ public:
 					exit(2);
 				}
 				for (i = addr[k]/8; ; i++) {
-					if (fread(&m_core->chip__DOT__io_switch__DOT__sd__DOT__disk[i], 8, 1, f) <= 0)
+					if (fread(&m_core->rootp->chip__DOT__io_switch__DOT__sd__DOT__disk[i], 8, 1, f) <= 0)
 						break;
 				}
 				fclose(f);
@@ -145,7 +124,7 @@ public:
 				}
 				//printf("Loading %s @ 0x%lx\n", file[k], addr[k]);
 				for (i = addr[k]/64; ; i++) {
-					if (fread(&m_core->chip__DOT__mem__DOT__mem[i][0], 64, 1, f) <= 0)
+					if (fread(&m_core->rootp->chip__DOT__mem__DOT__mem[i][0], 64, 1, f) <= 0)
 						break;
 				}
 				fclose(f);

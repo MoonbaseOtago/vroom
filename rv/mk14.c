@@ -55,12 +55,14 @@ int ffs(int x)
 int main(int argc, char ** argv)
 {
 	int m,n, i,j,k,l,t;
-	int ind=1,nldstq, nload, nstore, lnldstq, nmul;
-    	if (argc < 3) {
+	int ind=1,nldstq, naddr, nload, nstore, lnldstq, nmul;
+    	if (argc < 2) {
 err:
-        	fprintf(stderr, "mk14 nload nstore nmul\n");
+        	fprintf(stderr, "mk14 naddr nmul\n");
         	exit(99);
     	}
+    	if (ind >= argc) goto err;
+    	naddr = strtol((const char *)argv[ind++], 0, 0);
     	if (ind >= argc) goto err;
     	nload = strtol((const char *)argv[ind++], 0, 0);
     	if (ind >= argc) goto err;
@@ -88,40 +90,40 @@ err:
 
 
 	printf("	always @(*) begin\n");	
+	printf("		this_addr_done = ");
+	for (i = 0; i < naddr; i++) 
+		printf("(ls.ack[%d].hart[H]&&(ls.ack[%d].rd==C))%s",i,i, i==naddr-1?";\n":"||");
+	printf("	end\n");	
+	printf("	always @(*) begin\n");	
 	printf("		this_load_done = ");
+	for (i = 0; i < naddr; i++) 
+		printf("(ls.ack[%d].hart[H]&&(ls.ack[%d].rd==C)&&(ls.ack[%d].trap_type!=0))||",i,i,i);
 	for (i = 0; i < nload; i++) 
-		printf("(load_done[%d]&&(load_done_hart[%d]==H)&&(load_done_commit[%d]==C))%s",i,i,i,i==nload-1?";\n":"||");
-	printf("		this_load_trap_type = 'bx;\n");
-	printf("		this_load_pending = ");
-	for (i = 0; i < nload; i++) 
-		printf("(load_pending[%d]&&load_done[%d]&&(load_done_hart[%d]==H)&&(load_done_commit[%d]==C))%s",i,i,i,i,i==nload-1?";\n":"||");
+		printf("(ld_wb.wb[%d].hart[H]&&(ld_wb.wb[%d].rd==C))%s",i,i,i==nload-1?";\n":"||");
+	printf("	end\n");	
+	printf("	always @(*) begin\n");	
+	printf("		this_trap_type = 'bx;\n");
+	printf("		this_vm_pause = 0;\n");
+	printf("		this_vm_stall = 0;\n");
 	printf("		casez({");
-	for (i = 0; i < (nload); i++) 
-		printf("(load_done[%d]&&(load_done_hart[%d]==H)&&(load_done_commit[%d]==C))%s",i,i,i,i == (nload-1)?"})// synthesis full_case parallel_case\n":",");
-	for (i = nload-1;i>=0; i--) {
-		printf("		%d'b",nload);
-		for (j = 0; j < nload; j++) printf(i==j?"1":"?");
-		printf(": this_load_trap_type = load_trap_type[%d];\n",i);
+	for (i = 0; i < (naddr); i++) 
+		printf("(ls.ack[%d].hart[H]&&(ls.ack[%d].rd==C))%s",i,i,i == (naddr-1)?"})// synthesis full_case parallel_case\n":",");
+	for (i = naddr-1;i>=0; i--) {
+		printf("		%d'b",naddr);
+		for (j = 0; j < naddr; j++) printf(i==j?"1":"?");
+		printf(": begin this_trap_type = ls.ack[%d].trap_type; this_vm_pause = ls.ack[%d].vm_pause; this_vm_stall = ls.ack[%d].vm_stall; end\n",i, i, i);
 	}
+	printf("		%d'b",naddr);
+	for (j = 0; j < naddr; j++) printf("0");
+	printf(": begin this_trap_type = 0; this_vm_pause = 0; this_vm_stall = 0; end\n");
 	printf("		endcase\n");
-	printf("		this_store_running = ");
-	for (i = 0; i < nstore; i++) 
-		printf("(store_running[%d]&&(store_running_hart[%d]==H)&&(store_running_commit[%d]==C))%s",i,i,i,i==nstore-1?";\n":"||");
-
-	if (nstore == 1) {
-		printf("		this_store_trap_type = store_running_trap_type[0];\n");
-	} else {
-		printf("		casez({");
-		for (i = 0; i < (nstore); i++) 
-			printf("(store_running[%d]&&(store_running_hart[%d]==H)&&(store_running_commit[%d]==C))%s",i,i,i,i == (nstore-1)?"})// synthesis full_case parallel_case\n":",");
-		for (i = nstore-1;i>=0; i--) {
-			printf("		%d'b",nstore);
-			for (j = 0; j < nstore; j++) printf(i==j?"1":"?");
-			printf(": this_store_trap_type = store_running_trap_type[%d];\n",i);
-		}
-		printf("		endcase\n");
-	}
-
+	printf("	end\n");	
+	//printf("	always @(*) begin\n");	
+	//printf("		this_store_done = ");
+	//for (i = 0; i < nstore; i++) 
+		//printf("(st_data.req[%d].enable&&st_data.req[%d].hart==H&&(st_data.req[%d].rd==C))%s",i, i,i,i==nstore-1?";\n":"||");
+	//printf("	end\n");	
+	printf("	always @(*) begin\n");	
 	printf("		this_divide_busy = ");
 	for (i = 0; i < nmul; i++) 
 		printf("(divide_busy[%d]&&(divide_hart[%d]==H)&&(divide_commit[%d]==C))%s",i,i,i,i==nmul-1?";\n":"||");

@@ -16,6 +16,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+`include "lstypes.si"
+
 module cpu(input clk, input reset, input [7:0]cpu_id,
 	output		reset_out,
 
@@ -155,11 +157,20 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter NALU = 2;	
 `endif
 	parameter NSHIFT = 1;
+`ifdef NADDR4
+	parameter NADDR = 4;
+`else
+	parameter NADDR = 6;
+`endif
+`ifdef NLOAD2
 	parameter NLOAD = 2;
+`else
+	parameter NLOAD = 4;
+`endif
 `ifdef NSTORE2
 	parameter NSTORE = 2;
 `else
-	parameter NSTORE = 1;
+	parameter NSTORE = 4;
 `endif
 	parameter	NLDSTQ = 8;
 	parameter NMUL = 1;
@@ -171,12 +182,12 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter NFPU = 0;
 `endif
 	
-	parameter N_GLOBAL_UNITS=(NALU+NLOAD+NSTORE+NSHIFT+NMUL+NFPU);
+	parameter N_GLOBAL_UNITS=(NALU+NADDR+NSTORE+NSHIFT+NMUL+NFPU);
 	parameter N_LOCAL_UNITS=(NBRANCH+NCSR);
 	
-    parameter NUM_GLOBAL_READ_PORTS=(2*NALU+3*NSHIFT+NLOAD+2*NSTORE+2*NMUL+NFPU);	// we start with 2*NALU+2*NBRANCH+2*NSHIFT+NLOAD+2*NSTORE+2*NMUL - but that's likely too big, we're going to experiment
-    parameter NUM_LOCAL_READ_PORTS=(2*NBRANCH+NCSR);	
-    parameter NUM_GLOBAL_WRITE_PORTS=(NALU+NLOAD+NSHIFT+NMUL+NFPU);// write ports are tied to individual units
+    parameter NUM_GLOBAL_READ_PORTS=(2*NALU+3*NSHIFT+NADDR+NSTORE+2*NMUL+NFPU);	// 4+3+6+4+2+0=19 4+3+4+2+2+0=15
+    parameter NUM_LOCAL_READ_PORTS=(2*NBRANCH+NCSR);							// 3
+    parameter NUM_GLOBAL_WRITE_PORTS=(NALU+NLOAD+NSHIFT+NMUL+NFPU);// 2+4+1+1=8 6 write ports are tied to individual units
     parameter NUM_LOCAL_WRITE_PORTS=(NBRANCH+NCSR);
     parameter NUM_TRANSFER_PORTS=8;	// probably should be equal to NUM_WRITE_PORTS but we want to exp[eriment
 `ifdef FP
@@ -216,12 +227,8 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	
 	wire	  [31:0]u_debug[0:NHART-1];
 
-	wire [NUM_PMP-1:0]pmp_valid[0:1];		// sadly arrays of buses aren't well supported 
-assign pmp_valid[1]=0;
-	wire [NUM_PMP-1:0]pmp_locked[0:1];		// so we need to get verbose - unused wires will be optimised
-	wire   [NPHYS-1:2]pmp_start[0:15][0:1];	// out during synthesis
-	wire   [NPHYS-1:2]pmp_end[0:15][0:1];
-	wire	     [2:0]pmp_prot[0:15][0:1];
+	PMP         #(.NUM_PMP(NUM_PMP), .NPHYS(NPHYS))pmp[0:1];	// PMP interface
+assign pmp[1].valid=0;
 
 	reg [RV-1:1]pc_pre_fetch[0:NHART-1];
 	wire [127:0]icache_out[0:NHART-1];
@@ -297,106 +304,8 @@ assign pmp_valid[1]=0;
 			.sup_asid_1(16'b0),
 			.sup_ppn_1(44'b0),
 
-			.pmp_valid_0(pmp_valid[0]),		// sadly arrays of buses aren't well supported 
-			.pmp_locked_0(pmp_locked[0]),	// so we need to get verbose - unused wires will be optimised
-			.pmp_start_0_0(pmp_start[0][0]),		// out during synthesis
-			.pmp_start_1_0(pmp_start[1][0]),
-			.pmp_start_2_0(pmp_start[2][0]),
-			.pmp_start_3_0(pmp_start[3][0]),
-			.pmp_start_4_0(pmp_start[4][0]),
-			.pmp_start_5_0(pmp_start[5][0]),
-			.pmp_start_6_0(pmp_start[6][0]),
-			.pmp_start_7_0(pmp_start[7][0]),
-			.pmp_start_8_0(pmp_start[8][0]),
-			.pmp_start_9_0(pmp_start[9][0]),
-			.pmp_start_10_0(pmp_start[10][0]),
-			.pmp_start_11_0(pmp_start[11][0]),
-			.pmp_start_12_0(pmp_start[12][0]),
-			.pmp_start_13_0(pmp_start[13][0]),
-			.pmp_start_14_0(pmp_start[14][0]),
-			.pmp_start_15_0(pmp_start[15][0]),
-			.pmp_end_0_0(pmp_end[0][0]),
-			.pmp_end_1_0(pmp_end[1][0]),
-			.pmp_end_2_0(pmp_end[2][0]),
-			.pmp_end_3_0(pmp_end[3][0]),
-			.pmp_end_4_0(pmp_end[4][0]),
-			.pmp_end_5_0(pmp_end[5][0]),
-			.pmp_end_6_0(pmp_end[6][0]),
-			.pmp_end_7_0(pmp_end[7][0]),
-			.pmp_end_8_0(pmp_end[8][0]),
-			.pmp_end_9_0(pmp_end[9][0]),
-			.pmp_end_10_0(pmp_end[10][0]),
-			.pmp_end_11_0(pmp_end[11][0]),
-			.pmp_end_12_0(pmp_end[12][0]),
-			.pmp_end_13_0(pmp_end[13][0]),
-			.pmp_end_14_0(pmp_end[14][0]),
-			.pmp_end_15_0(pmp_end[15][0]),
-			.pmp_prot_0_0(pmp_prot[0][0]),
-			.pmp_prot_1_0(pmp_prot[1][0]),
-			.pmp_prot_2_0(pmp_prot[2][0]),
-			.pmp_prot_3_0(pmp_prot[3][0]),
-			.pmp_prot_4_0(pmp_prot[4][0]),
-			.pmp_prot_5_0(pmp_prot[5][0]),
-			.pmp_prot_6_0(pmp_prot[6][0]),
-			.pmp_prot_7_0(pmp_prot[7][0]),
-			.pmp_prot_8_0(pmp_prot[8][0]),
-			.pmp_prot_9_0(pmp_prot[9][0]),
-			.pmp_prot_10_0(pmp_prot[10][0]),
-			.pmp_prot_11_0(pmp_prot[11][0]),
-			.pmp_prot_12_0(pmp_prot[12][0]),
-			.pmp_prot_13_0(pmp_prot[13][0]),
-			.pmp_prot_14_0(pmp_prot[14][0]),
-			.pmp_prot_15_0(pmp_prot[15][0]),
-			.pmp_valid_1(pmp_valid[1]),		
-			.pmp_locked_1(pmp_locked[1]),
-			.pmp_start_0_1(pmp_start[0][1]),	
-			.pmp_start_1_1(pmp_start[1][1]),
-			.pmp_start_2_1(pmp_start[2][1]),
-			.pmp_start_3_1(pmp_start[3][1]),
-			.pmp_start_4_1(pmp_start[4][1]),
-			.pmp_start_5_1(pmp_start[5][1]),
-			.pmp_start_6_1(pmp_start[6][1]),
-			.pmp_start_7_1(pmp_start[7][1]),
-			.pmp_start_8_1(pmp_start[8][1]),
-			.pmp_start_9_1(pmp_start[9][1]),
-			.pmp_start_10_1(pmp_start[10][1]),
-			.pmp_start_11_1(pmp_start[11][1]),
-			.pmp_start_12_1(pmp_start[12][1]),
-			.pmp_start_13_1(pmp_start[13][1]),
-			.pmp_start_14_1(pmp_start[14][1]),
-			.pmp_start_15_1(pmp_start[15][1]),
-			.pmp_end_0_1(pmp_end[0][1]),
-			.pmp_end_1_1(pmp_end[1][1]),
-			.pmp_end_2_1(pmp_end[2][1]),
-			.pmp_end_3_1(pmp_end[3][1]),
-			.pmp_end_4_1(pmp_end[4][1]),
-			.pmp_end_5_1(pmp_end[5][1]),
-			.pmp_end_6_1(pmp_end[6][1]),
-			.pmp_end_7_1(pmp_end[7][1]),
-			.pmp_end_8_1(pmp_end[8][1]),
-			.pmp_end_9_1(pmp_end[9][1]),
-			.pmp_end_10_1(pmp_end[10][1]),
-			.pmp_end_11_1(pmp_end[11][1]),
-			.pmp_end_12_1(pmp_end[12][1]),
-			.pmp_end_13_1(pmp_end[13][1]),
-			.pmp_end_14_1(pmp_end[14][1]),
-			.pmp_end_15_1(pmp_end[15][1]),
-			.pmp_prot_0_1(pmp_prot[0][1]),
-			.pmp_prot_1_1(pmp_prot[1][1]),
-			.pmp_prot_2_1(pmp_prot[2][1]),
-			.pmp_prot_3_1(pmp_prot[3][1]),
-			.pmp_prot_4_1(pmp_prot[4][1]),
-			.pmp_prot_5_1(pmp_prot[5][1]),
-			.pmp_prot_6_1(pmp_prot[6][1]),
-			.pmp_prot_7_1(pmp_prot[7][1]),
-			.pmp_prot_8_1(pmp_prot[8][1]),
-			.pmp_prot_9_1(pmp_prot[9][1]),
-			.pmp_prot_10_1(pmp_prot[10][1]),
-			.pmp_prot_11_1(pmp_prot[11][1]),
-			.pmp_prot_12_1(pmp_prot[12][1]),
-			.pmp_prot_13_1(pmp_prot[13][1]),
-			.pmp_prot_14_1(pmp_prot[14][1]),
-			.pmp_prot_15_1(pmp_prot[15][1]),
+			.pmp_0(pmp[0]),
+			.pmp_1(pmp[1]),
 
 			.tlb_d_asid(tlb_d_asid),              // d$ read port
 			.tlb_d_hart(tlb_d_hart),
@@ -492,6 +401,7 @@ assign pmp_valid[1]=0;
 	wire      [NCOMMIT-1:0]rs3_fp_commit[0:NHART-1];
 `endif
 	wire      [CNTRL_SIZE-1:0]control_commit[0:NCOMMIT-1][0:NHART-1];
+	wire	            [3: 0]unit_type_commit[0:NCOMMIT-1][0:NHART-1];
 	
 
 	wire	[LNCOMMIT-1:0]current_start[0: NHART-1]; // valid range of the commit buffer 
@@ -507,13 +417,15 @@ assign pmp_valid[1]=0;
     wire	[NCOMMIT-1:0]branch_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]mul_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]div_ready_commit[0: NHART-1];
-    wire	[NCOMMIT-1:0]load_ready_commit[0: NHART-1];
-    wire	[NCOMMIT-1:0]load_not_ready_commit[0: NHART-1];
-    wire	[NCOMMIT-1:0]store_ready_commit[0: NHART-1];
-    wire	[NCOMMIT-1:0]store_not_ready_commit[0: NHART-1];
+	LS_READY	 #(.LNCOMMIT(LNCOMMIT), .NHART(NHART), .NCOMMIT(NCOMMIT))ls_ready;
+wire [NCOMMIT-1:0]load_addr_ready0=ls_ready.load_addr_ready[0];
+wire [NCOMMIT-1:0]load_addr_not_ready0=ls_ready.load_addr_not_ready[0];
+wire [NCOMMIT-1:0]store_addr_ready0=ls_ready.store_addr_ready[0];
+wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
     wire    [NCOMMIT-1:0]csr_ready_commit[0: NHART-1];
     wire    [NCOMMIT-1:0]csr_wfi_pause[0: NHART-1];
     wire    [NHART-1:0]csr_wfi_wake;
+	
 `ifdef AWS_DEBUG
 `ifdef AWS_DEBUG_COMMIT
     wire [NCOMMIT:0]commit_trig[0:NHART-1];
@@ -526,30 +438,9 @@ assign pmp_valid[1]=0;
 	wire			csr_trig;
 `endif
 
-	wire	  [NLOAD-1:0]load_vm_stall;
-	wire	  [NLOAD-1:0]load_vm_pause;
-	wire	 [NSTORE-1:0]store_vm_stall;
-	wire	 [NSTORE-1:0]store_vm_pause;
-	wire				 commit_vm_done;
-	wire				 commit_vm_done_fail;
-	wire				 commit_vm_done_pmp;
-	wire   [LNCOMMIT-1:0]commit_vm_done_commit;
-	wire[(NHART==1?0:LNHART-1): 0]commit_vm_done_hart;
-	wire      [NHART-1:0]commit_vm_busy;
-
 	wire	[NCOMMIT-1:0]commit_store_ack[0:NHART-1];
 	wire	[NCOMMIT-1:0]commit_kill[0:NHART-1];
 	wire	[NCOMMIT-1:0]commit_commitable[0:NHART-1];
-	wire	 [NLOAD-1: 0]load_done;
-	wire	 [NLOAD-1: 0]load_pending;
-	wire           [1: 0]load_trap_type[0:NLOAD-1];
-	wire  [LNCOMMIT-1: 0]load_done_commit[0:NLOAD-1];
-	wire [(NHART==1?0:LNHART-1): 0]load_done_hart[0:NLOAD-1];
-
-	wire     [NSTORE-1:0]store_running;
-	wire     [1:0]store_running_trap_type[0:NSTORE-1];
-	wire [(NHART==1?0:LNHART-1):0]store_running_hart[0:NSTORE-1];
-	wire[   LNCOMMIT-1:0]store_running_commit[0:NSTORE-1];
 
 	wire     [NMUL-1:0]divide_busy;
 	wire [(NHART==1?0:LNHART-1):0]divide_hart[0:NMUL-1];
@@ -574,6 +465,7 @@ assign pmp_valid[1]=0;
 	wire  [NCOMMIT-1:0]commit_load[0:NHART-1];
 	wire  [NCOMMIT-1:0]commit_done[0:NHART-1];
 	wire	[NCOMMIT-1:0]xsched[0:NHART-1];
+	wire	[NCOMMIT-1:0]xsched_d[0:NHART-1];
 	wire    [NHART-1:0]rename_reloading;
 	wire   [2*NDEC-1:0]gl_valid_out_dec[0:NHART-1]; 	// for debug
 	wire   [2*NDEC-1:0]gl_valid_rename[0:NHART-1]; 	// for debug
@@ -583,6 +475,12 @@ assign pmp_valid[1]=0;
 	wire	[NHART-1:0]issue_fetch_trap;
 	wire       [RV-1:1]pc_fetch[0:NHART-1]; // pc at fetch output stage
 
+	LS_ADDR  #(.CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT), .NADDR(NADDR), .RV(RV))ls;
+	LS_VM_ACK #(.NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT))vm_ack;
+	LD_DATA_WB  #(.NHART(NHART), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .RV(RV))ld_wb;
+	ST_DATA #(.RV(RV), .NSTORE(NSTORE), .NHART(NHART), .LNCOMMIT(LNCOMMIT), .LNHART(LNHART))st_data;
+
+
 	genvar I, J, N, D, H, R, C, F, A, S, L, B, M, K;
 	generate 
 
@@ -591,6 +489,8 @@ assign pmp_valid[1]=0;
 			wire				br_default;		// if true decoder decides
 			wire				dec_stall;
 			wire				br_stall;
+
+			assign ls_ready.current_start[H] = current_start[H];
 
 			//wire valid_fetch = fetch_okr[H];
 			wire valid_fetch = (~dec_stall&fetch_okr[H]&!br_stall)|issue_interrupt[H]|issue_fetch_trap[H];
@@ -1269,16 +1169,16 @@ end
 `include "mk5_16.inc"
 				end 
 
-				reg      this_load_pending, this_load_done, this_store_running, this_divide_busy;
-				reg [1:0]this_load_trap_type, this_store_trap_type;
-				if (NLOAD == 2 && NSTORE == 1 && NMUL == 1) begin
-`include "mk14_2_1_1.inc"
+				reg      this_load_done, this_divide_busy;
+				reg		 this_addr_done;
+				reg		 this_vm_pause;
+				reg		 this_vm_stall;
+				reg [1:0]this_trap_type;
+				if (NADDR==6 && NLOAD == 4 && NSTORE == 4 && NMUL == 1) begin
+`include "mk14_6_4_4_1.inc"
 				end else
-				if (NLOAD == 3 && NSTORE == 2 && NMUL == 1) begin
-`include "mk14_3_2_1.inc"
-				end else
-				if (NLOAD == 2 && NSTORE == 2 && NMUL == 1) begin
-`include "mk14_2_2_1.inc"
+				if (NADDR == 4 && NLOAD == 2 && NSTORE == 2 && NMUL == 1) begin
+`include "mk14_4_2_2_1.inc"
 				end 
 
 				assign commit_load[H][C] = xload&~(commit_br_enable[0][H]|commit_trap_br_enable[H]|commit_int_br_enable[H]);
@@ -1333,10 +1233,11 @@ end
                 	.branch_ready(branch_ready_commit[H][C]),
                 	.mul_ready(mul_ready_commit[H][C]),
                 	.div_ready(div_ready_commit[H][C]),
-                	.load_ready(load_ready_commit[H][C]),
-                	.load_not_ready(load_not_ready_commit[H][C]),
-                	.store_ready(store_ready_commit[H][C]),
-                	.store_not_ready(store_not_ready_commit[H][C]),
+                	.load_addr_ready(ls_ready.load_addr_ready[H][C]),
+                	.load_addr_not_ready(ls_ready.load_addr_not_ready[H][C]),
+                	.store_addr_ready(ls_ready.store_addr_ready[H][C]),
+                	.store_addr_not_ready(ls_ready.store_addr_not_ready[H][C]),
+                	.store_data_ready(ls_ready.store_data_ready[H][C]),
                		.csr_ready(csr_ready_commit[H][C]),
 
 					.csr_wfi_pause(csr_wfi_pause[H][C]),
@@ -1355,37 +1256,23 @@ end
 					.commit_done_out(commit_done[H][C]),
 					.commit_ended(commit_ended[H][C]),
 					.schedule(xsched[H][C]),
+					.schedule_d(xsched_d[H][C]),
 					.commit_ack(commit_ack[H]),
 					.commit_req(commit_req[H][C]),
 					.commit_store_ack(commit_store_ack[H][C]),
 					.commit_store_req(commit_store_req[C]),
 					.commit_first(current_start[H]==C),
 					.commit_commitable(commit_commitable[H][C]),
-					.commit_vm_stall((load_vm_stall[0] && reg_write_addr[NSHIFT+NALU+0] == C && hart_sched[NSHIFT+NALU+0] == H) 
-							      || (load_vm_stall[1] && reg_write_addr[NSHIFT+NALU+1] == C && hart_sched[NSHIFT+NALU+1] == H) 
-							    //|| (load_vm_stall[2] && reg_write_addr[NSHIFT+NALU+2] == C && hart_sched[NSHIFT+NALU+2] == H) 
-							      || (store_vm_stall[0] && (store_running_commit[0]==C) && (store_running_hart[0]==H))
-`ifdef NSTORE2
-							      || (store_vm_stall[1] && (store_running_commit[1]==C) && (store_running_hart[1]==H))
-`endif
-									),
-					.commit_vm_pause((load_vm_pause[0] && reg_write_addr[NSHIFT+NALU+0] == C && hart_sched[NSHIFT+NALU+0] == H) 
-							      || (load_vm_pause[1] && reg_write_addr[NSHIFT+NALU+1] == C && hart_sched[NSHIFT+NALU+1] == H) 
-							    //|| (load_vm_pause[2] && reg_write_addr[NSHIFT+NALU+2] == C && hart_sched[NSHIFT+NALU+2] == H) 
-							      || (store_vm_pause[0] && (store_running_commit[0]==C) && (store_running_hart[0]==H))
-`ifdef NSTORE2
-							      || (store_vm_pause[1] && (store_running_commit[1]==C) && (store_running_hart[1]==H))
-`endif
-									),
-					.commit_vm_done(commit_vm_done && commit_vm_done_commit == C && commit_vm_done_hart == H),
-					.commit_vm_done_fail(commit_vm_done_fail),
-					.commit_vm_done_pmp(commit_vm_done_pmp),
+					.commit_vm_stall(this_vm_stall),
+					.commit_vm_pause(this_vm_pause),
 
-					.commit_load_pending(this_load_pending),
+					.commit_vm_done(vm_ack.hart[H] && vm_ack.rd == C),
+					.commit_vm_done_fail(vm_ack.fail),
+					.commit_vm_done_pmp(vm_ack.pmp),
+
 					.commit_load_done(this_load_done),
-					.commit_load_trap_type(this_load_trap_type),
-					.commit_store_running(this_store_running),
-					.commit_store_running_trap_type(this_store_trap_type),
+					.commit_addr_done(this_addr_done),
+					.commit_addr_trap_type(this_trap_type),
 					.commit_divide_busy(this_divide_busy),
 
 					.makes_rd_out(makes_rd_commit[H][C]),
@@ -1403,6 +1290,7 @@ end
 					.rs3_fp_out(rs3_fp_commit[H][C]),
 `endif
 					.control_out(control_commit[C][H]),
+					.unit_type_out(unit_type_commit[C][H]),
 					.pc_out(pc_commit[C][H]),
 					.branch_dest_out(branch_dest_commit[C][H]),
 					.branch_dec_out(branch_dec_commit[C][H]),
@@ -1447,55 +1335,32 @@ end
 		wire [(NHART==1?0:LNHART-1):0]hart_sched[0:N_GLOBAL_UNITS-1];// valid during read_cycls
 		wire [N_GLOBAL_UNITS-1:0]enable_sched;
 		wire             local_enable_sched[0:N_LOCAL_UNITS-1][0:NHART-1];
-		wire   [$clog2(NLDSTQ):0]num_ldstq_available;
 
-`ifdef NOTDEF
-		for (H = 0; H < NHART; H=H+1) begin :n
-			wire    [NCOMMIT-1:0]nsched[0:N_GLOBAL_UNITS-1];
-			wire    [NCOMMIT-1:0]lsched[0:N_LOCAL_UNITS-1];
-			for (N = 0; N < N_GLOBAL_UNITS; N=N+1) begin:nn
-				reg [NCOMMIT-1:0]asched;
-				always @(*) begin
-					asched = 0;
-					asched[alu_sched[N]] = (H==hart_sched[H])&enable_sched[N];
-				end
-				if (N==0) begin
-					assign nsched[N] = asched;
-				end else begin
-					assign nsched[N] = asched|nsched[N-1];
-				end
-			end
-			for (N = 0; N < N_LOCAL_UNITS; N=N+1) begin:nn2
-				reg [NCOMMIT-1:0]asched;
-
-				always @(*) begin
-					asched = 0;
-					asched[local_alu_sched[N][H]] = local_enable_sched[N][H];
-				end
-
-				if (N==0) begin
-					assign lsched[N] = asched|nsched[N_GLOBAL_UNITS-1];
-				end else begin
-					assign lsched[N] = asched|lsched[N-1];
-				end
-
-			end
-			assign xsched[H] = lsched[N_LOCAL_UNITS-1];
+		for (A = 0; A < NADDR; A=A+1) begin
+			assign enable_sched[N_GLOBAL_UNITS-NADDR-NSTORE+A] = ls.req[A].enable;
+			assign alu_sched[N_GLOBAL_UNITS-NADDR-NSTORE+A] = ls.req[A].rd;
+			assign hart_sched[N_GLOBAL_UNITS-NADDR-NSTORE+A] = ls.req[A].hart;
 		end
-`endif
-`ifdef NALU3
-		if (N_GLOBAL_UNITS == 10 && N_LOCAL_UNITS == 2) begin
+		for (S = 0; S < NSTORE; S=S+1) begin
+			assign enable_sched[N_GLOBAL_UNITS-NSTORE+S] = 0;	// not used here
+			assign alu_sched[N_GLOBAL_UNITS-NSTORE+S] ='bx;
+			assign hart_sched[N_GLOBAL_UNITS-NSTORE+S] ='bx;
+		end
+
+		if (N_GLOBAL_UNITS == (3+6+4+1+1+0) && N_LOCAL_UNITS == 2) begin
+`include "mk15_15_2.inc"
+		end
+		if (N_GLOBAL_UNITS == (2+6+4+1+1+0) && N_LOCAL_UNITS == 2) begin
+`include "mk15_14_2.inc"
+		end
+		if (N_GLOBAL_UNITS == (3+4+2+1+1+1) && N_LOCAL_UNITS == 2) begin
+`include "mk15_12_2.inc"
+		end
+		if (N_GLOBAL_UNITS == (3+4+2+1+1+0) && N_LOCAL_UNITS == 2) begin
+`include "mk15_11_2.inc"
+		end
+		if (N_GLOBAL_UNITS == (2+4+2+1+1+0) && N_LOCAL_UNITS == 2) begin
 `include "mk15_10_2.inc"
-		end
-`endif
-		if (N_GLOBAL_UNITS == 9 && N_LOCAL_UNITS == 2) begin
-`include "mk15_9_2.inc"
-		end
-		if (N_GLOBAL_UNITS == 8 && N_LOCAL_UNITS == 2) begin
-`include "mk15_8_2.inc"
-		end
-		if (N_GLOBAL_UNITS == 7 && N_LOCAL_UNITS == 2) begin
-`include "mk15_7_2.inc"
 		end
 
 		for (A = 0; A < NALU; A=A+1) begin: alu
@@ -1572,44 +1437,61 @@ end
 				.res_makes_rd(reg_write_enable[NALU+S])
 				);
 `ifdef FP
-				assign reg_write_fp[NALU+S] = 0;
+				assign reg_write_fp[NFPU+NALU+S] = 0;
 `endif
+		end
+		for (A = 0; A < NADDR; A=A+1) begin: addr
+			assign reg_read_addr[NFPU+2*NMUL+3*NSHIFT+2*NALU+A] = rs1_commit[ls.sched[A].rd][ls.sched[A].hart];
+			always @(*) begin
+				reg_read_enable[NFPU+2*NMUL+3*NSHIFT+2*NALU+A] = 0;
+				reg_read_enable[NFPU+2*NMUL+3*NSHIFT+2*NALU+A][ls.sched[A].hart] = ls.sched[A].enable;
+			end
+			assign ls.req[A].r1 = reg_read_data[NFPU+2*NMUL+3*NSHIFT+2*NALU+A][ls.sched[A].hart];
+			assign ls.req[A].immed = immed_commit[ls.sched[A].rd][ls.sched[A].hart];
+			assign ls.req[A].makes_rd = makes_rd_commit[ls.sched[A].hart][ls.sched[A].rd];
+			assign ls.req[A].enable = ls.sched[A].enable;
+			assign ls.req[A].rd = ls.sched[A].rd;
+			assign ls.req[A].hart = ls.sched[A].hart;
+			assign ls.req[A].control = control_commit[ls.sched[A].rd][ls.sched[A].hart];
+			assign ls.req[A].load = unit_type_commit[ls.sched[A].rd][ls.sched[A].hart] == 3;
 		end
 		for (L = 0; L < NLOAD; L=L+1) begin: load
-			assign reg_read_addr[3*NSHIFT+2*NALU+L] = rs1_commit[alu_sched[NSHIFT+NALU+L]][hart_sched[NSHIFT+NALU+L]];
-			always @(*) begin
-				reg_read_enable[3*NSHIFT+2*NALU+L] = 0;
-				reg_read_enable[3*NSHIFT+2*NALU+L][hart_sched[NSHIFT+NALU+L]] = enable_sched[NSHIFT+NALU+L];
-			end
+			assign reg_write_data[NMUL+NFPU+NSHIFT+NALU+L] = ld_wb.wb[L].result;
+			assign reg_write_addr[NMUL+NFPU+NSHIFT+NALU+L] = ld_wb.wb[L].rd;
+`ifdef FP
+			assign reg_write_enable[NMUL+NFPU+NSHIFT+NALU+L] = (ld_wb.wb[L].makes_rd && !ld_wb.wb[L].fp ? ld_wb.wb[L].hart:0);
+			assign reg_write_fp[NFPU+L] = (ld_wb.wb[L].makes_rd && ld_wb.wb[L].fp ? ld_wb.wb[L].hart:0);
+`else
+			assign reg_write_enable[NMUL+NFPU+NSHIFT+NALU+L] = (ld_wb.wb[L].makes_rd ? ld_wb.wb[L].hart:0);
+`endif
 		end
 		for (S = 0; S < NSTORE; S=S+1) begin: store
-			assign reg_read_addr[NLOAD+2*(NALU+S)+3*NSHIFT] = rs1_commit[alu_sched[NSHIFT+NALU+NLOAD+S]][hart_sched[NSHIFT+NALU+NLOAD+S]];
+			assign reg_read_addr[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S] = rs2_commit[st_data.req[S].rd][st_data.req[S].hart];
 			always @(*) begin
-				reg_read_enable[NLOAD+2*(NALU+S)+3*NSHIFT] = 0;
-				reg_read_enable[NLOAD+2*(NALU+S)+3*NSHIFT][hart_sched[NSHIFT+NALU+NLOAD+S]] = enable_sched[NSHIFT+NALU+NLOAD+S];
-			end
-			assign reg_read_addr[NLOAD+2*(NALU+S)+3*NSHIFT+1] = rs2_commit[alu_sched[NSHIFT+NALU+NLOAD+S]][hart_sched[NSHIFT+NALU+NLOAD+S]];
-			always @(*) begin
-				reg_read_enable[NLOAD+2*(NALU+S)+3*NSHIFT+1] = 0;
+				reg_read_enable[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S] = 0;
 `ifdef FP
-				reg_read_enable[NLOAD+2*(NALU+S)+3*NSHIFT+1][hart_sched[NSHIFT+NALU+NLOAD+S]] = enable_sched[NSHIFT+NALU+NLOAD+S] & ~rs1_fp_commit[hart_sched[NSHIFT+NALU+NLOAD+S]][alu_sched[NSHIFT+NALU+NLOAD+S]];
+				reg_read_enable[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S][st_data.req[S].hart] = st_data.req[S].enable & ~st_data.req[S].fp;
 `else
-				reg_read_enable[NLOAD+2*(NALU+S)+3*NSHIFT+1][hart_sched[NSHIFT+NALU+NLOAD+S]] = enable_sched[NSHIFT+NALU+NLOAD+S];
+				reg_read_enable[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S][st_data.req[S].hart] = st_data.req[S].enable;
 `endif
 			end
 `ifdef FP
-			assign fpu_reg_read_addr[S] = rs2_commit[alu_sched[NSHIFT+NALU+NLOAD+S]][hart_sched[NSHIFT+NALU+NLOAD+S]];
+			assign fpu_reg_read_addr[S] = rs2_commit[st_data.req[S].rd][st_data.req[S].hart];
 			always @(*) begin
 				fpu_reg_read_enable[S] = 0;
-				fpu_reg_read_enable[S][hart_sched[NSHIFT+NALU+NLOAD+S]] = enable_sched[NSHIFT+NALU+NLOAD+S] & rs1_fp_commit[hart_sched[NSHIFT+NALU+NLOAD+S]][alu_sched[NSHIFT+NALU+NLOAD+S]];
+				fpu_reg_read_enable[S][st_data.req[S].hart] = st_data.req[S].enable & st_data.req[S].fp;
 			end
 `endif
 `ifdef FP
-			assign reg_write_fp[NSHIFT+NALU+NLOAD+S] = 0;
+			assign reg_write_fp[NMUL+NFPU+NSHIFT+NALU+NLOAD+S] = 0;
+`endif
+			assign st_data.ack[S].data = reg_read_data[2*NMUL+NFPU+NADDR+3*NSHIFT+2*(NALU)+S][st_data.req[S].hart];
+`ifdef FP
+			assign st_data.ack[S].fp = fpu_reg_read_data[S][st_data.req[S].hart];
 `endif
 		end
 
-		load_store #(.RV(RV), .NPHYS(NPHYS), .NUM_PMP(NUM_PMP), .VA_SZ(VA_SZ), .CACHE_LINE_SIZE(CACHE_LINE_SIZE), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ),.TRANS_ID_SIZE(TRANS_ID_SIZE))ls(.reset(reset), .clk(clk),
+		load_store #(.RV(RV), .NPHYS(NPHYS), .NUM_PMP(NUM_PMP), .VA_SZ(VA_SZ), .CACHE_LINE_SIZE(CACHE_LINE_SIZE), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NADDR(NADDR), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ),.TRANS_ID_SIZE(TRANS_ID_SIZE))load_store(.reset(reset), .clk(clk),
 `ifdef SIMD
 			.simd_enable(simd_enable),
 `endif
@@ -1633,65 +1515,10 @@ end
 			//.mxr_1(mxr[1]),
 			//.mprv_1(mprv[1]),
 
-			.load_enable_0(enable_sched[NALU+NSHIFT+0]),
-			.load_control_0(control_commit[alu_sched[NSHIFT+NALU+0]][hart_sched[NSHIFT+NALU+0]]),
-			.load_rd_0(alu_sched[NSHIFT+NALU+0]),
-			.load_makes_rd_0(makes_rd_commit[hart_sched[NSHIFT+NALU+0]][alu_sched[NSHIFT+NALU+0]]),
-			.load_r1_0(reg_read_data[3*NSHIFT+2*NALU+0][hart_sched[NSHIFT+NALU+0]]),
-			.load_immed_0(immed_commit[alu_sched[NSHIFT+NALU+0]][hart_sched[NSHIFT+NALU+0]]),
-			.load_hart_0(hart_sched[NSHIFT+NALU+0]),
-			.load_result_0(reg_write_data[NSHIFT+NALU+0]),
-			.load_res_rd_0(reg_write_addr[NSHIFT+NALU+0]),
-`ifdef FP
-			.load_res_fp_0(reg_write_fp[NSHIFT+NALU+0]),
-`endif
-			.load_res_makes_rd_0(reg_write_enable[NSHIFT+NALU+0]),
-			.load_done_0(load_done[0]),
-			.load_pending_0(load_pending[0]),
-			.load_trap_type_0(load_trap_type[0]),
-			.load_done_commit_0(load_done_commit[0]),
-			.load_done_hart_0(load_done_hart[0]),
-			.load_vm_stall_0(load_vm_stall[0]),
-			.load_vm_pause_0(load_vm_pause[0]),
-
-			.load_enable_1(enable_sched[NALU+NSHIFT+1]),
-			.load_control_1(control_commit[alu_sched[NSHIFT+NALU+1]][hart_sched[NSHIFT+NALU+1]]),
-			.load_rd_1(alu_sched[NSHIFT+NALU+1]),
-`ifdef FP
-			.load_res_fp_1(reg_write_fp[NSHIFT+NALU+1]),
-`endif
-			.load_makes_rd_1(makes_rd_commit[hart_sched[NSHIFT+NALU+1]][alu_sched[NSHIFT+NALU+1]]),
-			.load_r1_1(reg_read_data[3*NSHIFT+2*NALU+1][hart_sched[NSHIFT+NALU+1]]),
-			.load_immed_1(immed_commit[alu_sched[NSHIFT+NALU+1]][hart_sched[NSHIFT+NALU+1]]),
-			.load_hart_1(hart_sched[NSHIFT+NALU+1]),
-			.load_result_1(reg_write_data[NSHIFT+NALU+1]),
-			.load_res_rd_1(reg_write_addr[NSHIFT+NALU+1]),
-			.load_res_makes_rd_1(reg_write_enable[NSHIFT+NALU+1]),
-			.load_done_1(load_done[1]),
-			.load_pending_1(load_pending[1]),
-			.load_trap_type_1(load_trap_type[1]),
-			.load_done_commit_1(load_done_commit[1]),
-			.load_done_hart_1(load_done_hart[1]),
-			.load_vm_stall_1(load_vm_stall[1]),
-			.load_vm_pause_1(load_vm_pause[1]),
-
-			//.load_enable_2(enable_sched[NALU+NSHIFT+2]),
-			//.load_control_2(control_commit[alu_sched[NSHIFT+NALU+2]][hart_sched[NSHIFT+NALU+2]]),
-			//.load_rd_2(alu_sched[NSHIFT+NALU+2]),
-			//.load_makes_rd_2(makes_rd_commit[hart_sched[NSHIFT+NALU+2]][alu_sched[NSHIFT+NALU+2]]),
-			//.load_r1_2(reg_read_data[3*NSHIFT+2*NALU+2][hart_sched[NSHIFT+NALU+2]]),
-			//.load_immed_2(immed_commit[alu_sched[NSHIFT+NALU+2]][hart_sched[NSHIFT+NALU+2]]),
-			//.load_hart_2(hart_sched[NSHIFT+NALU+2]),
-			//.load_result_2(reg_write_data[NSHIFT+NALU+2]),
-			//.load_res_rd_2(reg_write_addr[NSHIFT+NALU+2]),
-			//.load_res_makes_rd_2(reg_write_enable[NSHIFT+NALU+2]),
-			//.load_done_2(load_done[2]),
-			//.load_pending_2(load_pending[2]),
-			//.load_trap_type_2(load_trap_type[2]),
-			//.load_done_commit_2(load_done_commit[2]),
-			//.load_done_hart_2(load_done_hart[2]),
-			//.load_vm_stall_2(load_vm_stall[2]),
-			//.load_vm_pause_2(load_vm_pause[2]),
+			.ls(ls),
+			.vm_ack(vm_ack),
+			.ld_wb(ld_wb),
+			.st(st_data),
 
 			.store_commit_0(commit_store_ack[0]),
 			.commit_kill_0(commit_kill[0]),
@@ -1701,54 +1528,9 @@ end
 			//.commit_kill_1(commit_kill[1]),
 			//.commit_completed_1(commit_completed[1]),
 			//.commit_commitable_1(commit_commitable[1]),
-			.num_ldstq_available(num_ldstq_available),
 
-			.store_enable_0(enable_sched[NALU+NSHIFT+NLOAD+0]),
-			.store_rd_0(alu_sched[NSHIFT+NALU+NLOAD+0]),
-			.store_makes_rd_0(makes_rd_commit[hart_sched[NSHIFT+NALU+NLOAD+0]][alu_sched[NSHIFT+NALU+NLOAD+0]]),
-			.store_control_0(control_commit[alu_sched[NSHIFT+NALU+NLOAD+0]][hart_sched[NSHIFT+NALU+NLOAD+0]]),
-			.store_r1_0(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+0)][hart_sched[NSHIFT+NALU+NLOAD+0]]),
-			.store_r2_0(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+0)+1][hart_sched[NSHIFT+NALU+NLOAD+0]]),
-`ifdef FP
-			.store_r2_fp_0(fpu_reg_read_data[0][hart_sched[NSHIFT+NALU+NLOAD+0]]),
-`endif
-			.store_immed_0(immed_commit[alu_sched[NSHIFT+NALU+NLOAD+0]][hart_sched[NSHIFT+NALU+NLOAD+0]]),
-			.store_hart_0(hart_sched[NSHIFT+NALU+NLOAD+0]),
-			.store_vm_stall_0(store_vm_stall[0]),
-			.store_vm_pause_0(store_vm_pause[0]),
 
-			.store_running_0(store_running[0]),
-			.store_running_trap_type_0(store_running_trap_type[0]),
-			.store_running_hart_0(store_running_hart[0]),
-			.store_running_commit_0(store_running_commit[0]),
-
-`ifdef NSTORE2
-			.store_enable_1(enable_sched[NALU+NSHIFT+NLOAD+1]),
-			.store_rd_1(alu_sched[NSHIFT+NALU+NLOAD+1]),
-			.store_makes_rd_1(makes_rd_commit[hart_sched[NSHIFT+NALU+NLOAD+1]][alu_sched[NSHIFT+NALU+NLOAD+1]]),
-			.store_control_1(control_commit[alu_sched[NSHIFT+NALU+NLOAD+1]][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-			.store_r1_1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+1)][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-			.store_r2_1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+1)+1][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-`ifdef FP
-			.store_r2_fp_1(fpu_reg_read_data[1][hart_sched[NSHIFT+NALU+NLOAD+0]]),
-`endif
-			.store_immed_1(immed_commit[alu_sched[NSHIFT+NALU+NLOAD+1]][hart_sched[NSHIFT+NALU+NLOAD+1]]),
-			.store_hart_1(hart_sched[NSHIFT+NALU+NLOAD+1]),
-			.store_vm_stall_1(store_vm_stall[1]),
-			.store_vm_pause_1(store_vm_pause[1]),
-
-			.store_running_1(store_running[1]),
-			.store_running_trap_type_1(store_running_trap_type[1]),
-			.store_running_hart_1(store_running_hart[1]),
-			.store_running_commit_1(store_running_commit[1]),
-`endif
-
-			.vm_done(commit_vm_done),
-			.vm_done_fail(commit_vm_done_fail),
-			.vm_done_pmp(commit_vm_done_pmp),
-			.vm_done_commit(commit_vm_done_commit),
-			.vm_done_hart(commit_vm_done_hart),
-			.vm_busy(commit_vm_busy),
+			.ls_ready(ls_ready),
 
 			.dc_raddr(dc_raddr),
 			.dc_raddr_req(dc_raddr_req),
@@ -1798,106 +1580,8 @@ end
 			.irand(^irand),
 			.orand(frand),
 
-			.pmp_valid_0(pmp_valid[0]),		// sadly arrays of buses aren't well supported 
-			.pmp_locked_0(pmp_locked[0]),	// so we need to get verbose - unused wires will be optimised
-			.pmp_start_0_0(pmp_start[0][0]),		// out during synthesis
-			.pmp_start_1_0(pmp_start[1][0]),
-			.pmp_start_2_0(pmp_start[2][0]),
-			.pmp_start_3_0(pmp_start[3][0]),
-			.pmp_start_4_0(pmp_start[4][0]),
-			.pmp_start_5_0(pmp_start[5][0]),
-			.pmp_start_6_0(pmp_start[6][0]),
-			.pmp_start_7_0(pmp_start[7][0]),
-			.pmp_start_8_0(pmp_start[8][0]),
-			.pmp_start_9_0(pmp_start[9][0]),
-			.pmp_start_10_0(pmp_start[10][0]),
-			.pmp_start_11_0(pmp_start[11][0]),
-			.pmp_start_12_0(pmp_start[12][0]),
-			.pmp_start_13_0(pmp_start[13][0]),
-			.pmp_start_14_0(pmp_start[14][0]),
-			.pmp_start_15_0(pmp_start[15][0]),
-			.pmp_end_0_0(pmp_end[0][0]),
-			.pmp_end_1_0(pmp_end[1][0]),
-			.pmp_end_2_0(pmp_end[2][0]),
-			.pmp_end_3_0(pmp_end[3][0]),
-			.pmp_end_4_0(pmp_end[4][0]),
-			.pmp_end_5_0(pmp_end[5][0]),
-			.pmp_end_6_0(pmp_end[6][0]),
-			.pmp_end_7_0(pmp_end[7][0]),
-			.pmp_end_8_0(pmp_end[8][0]),
-			.pmp_end_9_0(pmp_end[9][0]),
-			.pmp_end_10_0(pmp_end[10][0]),
-			.pmp_end_11_0(pmp_end[11][0]),
-			.pmp_end_12_0(pmp_end[12][0]),
-			.pmp_end_13_0(pmp_end[13][0]),
-			.pmp_end_14_0(pmp_end[14][0]),
-			.pmp_end_15_0(pmp_end[15][0]),
-			.pmp_prot_0_0(pmp_prot[0][0]),
-			.pmp_prot_1_0(pmp_prot[1][0]),
-			.pmp_prot_2_0(pmp_prot[2][0]),
-			.pmp_prot_3_0(pmp_prot[3][0]),
-			.pmp_prot_4_0(pmp_prot[4][0]),
-			.pmp_prot_5_0(pmp_prot[5][0]),
-			.pmp_prot_6_0(pmp_prot[6][0]),
-			.pmp_prot_7_0(pmp_prot[7][0]),
-			.pmp_prot_8_0(pmp_prot[8][0]),
-			.pmp_prot_9_0(pmp_prot[9][0]),
-			.pmp_prot_10_0(pmp_prot[10][0]),
-			.pmp_prot_11_0(pmp_prot[11][0]),
-			.pmp_prot_12_0(pmp_prot[12][0]),
-			.pmp_prot_13_0(pmp_prot[13][0]),
-			.pmp_prot_14_0(pmp_prot[14][0]),
-			.pmp_prot_15_0(pmp_prot[15][0]),
-			.pmp_valid_1(pmp_valid[1]),		
-			.pmp_locked_1(pmp_locked[1]),
-			.pmp_start_0_1(pmp_start[0][1]),	
-			.pmp_start_1_1(pmp_start[1][1]),
-			.pmp_start_2_1(pmp_start[2][1]),
-			.pmp_start_3_1(pmp_start[3][1]),
-			.pmp_start_4_1(pmp_start[4][1]),
-			.pmp_start_5_1(pmp_start[5][1]),
-			.pmp_start_6_1(pmp_start[6][1]),
-			.pmp_start_7_1(pmp_start[7][1]),
-			.pmp_start_8_1(pmp_start[8][1]),
-			.pmp_start_9_1(pmp_start[9][1]),
-			.pmp_start_10_1(pmp_start[10][1]),
-			.pmp_start_11_1(pmp_start[11][1]),
-			.pmp_start_12_1(pmp_start[12][1]),
-			.pmp_start_13_1(pmp_start[13][1]),
-			.pmp_start_14_1(pmp_start[14][1]),
-			.pmp_start_15_1(pmp_start[15][1]),
-			.pmp_end_0_1(pmp_end[0][1]),
-			.pmp_end_1_1(pmp_end[1][1]),
-			.pmp_end_2_1(pmp_end[2][1]),
-			.pmp_end_3_1(pmp_end[3][1]),
-			.pmp_end_4_1(pmp_end[4][1]),
-			.pmp_end_5_1(pmp_end[5][1]),
-			.pmp_end_6_1(pmp_end[6][1]),
-			.pmp_end_7_1(pmp_end[7][1]),
-			.pmp_end_8_1(pmp_end[8][1]),
-			.pmp_end_9_1(pmp_end[9][1]),
-			.pmp_end_10_1(pmp_end[10][1]),
-			.pmp_end_11_1(pmp_end[11][1]),
-			.pmp_end_12_1(pmp_end[12][1]),
-			.pmp_end_13_1(pmp_end[13][1]),
-			.pmp_end_14_1(pmp_end[14][1]),
-			.pmp_end_15_1(pmp_end[15][1]),
-			.pmp_prot_0_1(pmp_prot[0][1]),
-			.pmp_prot_1_1(pmp_prot[1][1]),
-			.pmp_prot_2_1(pmp_prot[2][1]),
-			.pmp_prot_3_1(pmp_prot[3][1]),
-			.pmp_prot_4_1(pmp_prot[4][1]),
-			.pmp_prot_5_1(pmp_prot[5][1]),
-			.pmp_prot_6_1(pmp_prot[6][1]),
-			.pmp_prot_7_1(pmp_prot[7][1]),
-			.pmp_prot_8_1(pmp_prot[8][1]),
-			.pmp_prot_9_1(pmp_prot[9][1]),
-			.pmp_prot_10_1(pmp_prot[10][1]),
-			.pmp_prot_11_1(pmp_prot[11][1]),
-			.pmp_prot_12_1(pmp_prot[12][1]),
-			.pmp_prot_13_1(pmp_prot[13][1]),
-			.pmp_prot_14_1(pmp_prot[14][1]),
-			.pmp_prot_15_1(pmp_prot[15][1]),
+			.pmp_0(pmp[0]),
+			//.pmp_1(pmp[1]),
 
 			.tlb_d_asid(tlb_d_asid),              // d$ read port
 			.tlb_d_hart(tlb_d_hart),
@@ -1924,89 +1608,89 @@ end
 
 
 		for (M = 0; M < NMUL; M=M+1) begin: multiply
-			assign reg_read_addr[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)] = rs1_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+M]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]];
+			assign reg_read_addr[3*NSHIFT+2*(NALU+M)] = rs1_commit[alu_sched[NSHIFT+NALU+M]][hart_sched[NSHIFT+NALU+M]];
 			always @(*) begin
-				reg_read_enable[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)] = 0;
-				reg_read_enable[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]] = enable_sched[NSHIFT+NALU+NLOAD+NSTORE+M];
+				reg_read_enable[3*NSHIFT+2*(NALU+M)] = 0;
+				reg_read_enable[3*NSHIFT+2*(NALU+M)][hart_sched[NSHIFT+NALU+M]] = enable_sched[NSHIFT+NALU+M];
 			end
-			assign reg_read_addr[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)+1] = rs2_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+M]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]];
+			assign reg_read_addr[3*NSHIFT+2*(NALU+M)+1] = rs2_commit[alu_sched[NSHIFT+NALU+M]][hart_sched[NSHIFT+NALU+M]];
 			always @(*) begin
-				reg_read_enable[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)+1] = 0;
-				reg_read_enable[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)+1][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]] = enable_sched[NSHIFT+NALU+NLOAD+NSTORE+M];
+				reg_read_enable[3*NSHIFT+2*(NALU+M)+1] = 0;
+				reg_read_enable[3*NSHIFT+2*(NALU+M)+1][hart_sched[NSHIFT+NALU+M]] = enable_sched[NSHIFT+NALU+M];
 			end
 			mul #(.RV(RV), .RA(RA), .ADDR(M), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))m(.reset(reset), .clk(clk), 
-				.enable(enable_sched[NALU+NSHIFT+NLOAD+NSTORE+M]),
-				.r1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]]),
-				.r2(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+NSTORE+M)+1][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]]),
-				.control(control_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+M]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]]),
-				.rd(alu_sched[NSHIFT+NALU+NLOAD+NSTORE+M]),
-				.makes_rd(makes_rd_commit[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]][alu_sched[NSHIFT+NALU+NLOAD+NSTORE+M]]),
-				.hart(hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]),
-				.rv32(rv32[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+M]]),
+				.enable(enable_sched[NALU+NSHIFT+M]),
+				.r1(reg_read_data[3*NSHIFT+2*(NALU+M)][hart_sched[NSHIFT+NALU+M]]),
+				.r2(reg_read_data[3*NSHIFT+2*(NALU+M)+1][hart_sched[NSHIFT+NALU+M]]),
+				.control(control_commit[alu_sched[NSHIFT+NALU+M]][hart_sched[NSHIFT+NALU+M]]),
+				.rd(alu_sched[NSHIFT+NALU+M]),
+				.makes_rd(makes_rd_commit[hart_sched[NSHIFT+NALU+M]][alu_sched[NSHIFT+NALU+M]]),
+				.hart(hart_sched[NSHIFT+NALU+M]),
+				.rv32(rv32[hart_sched[NSHIFT+NALU+M]]),
 
 				.commit_kill_0(commit_kill[0]),
 				//.commit_kill_1(commit_kill[1]),
 				.divide_busy(divide_busy[M]),
 				.divide_rd(divide_commit[M]),
 				.divide_hart(divide_hart[M]),
-				.result(reg_write_data[NSHIFT+NALU+NLOAD+M]),
-				.res_rd(reg_write_addr[NSHIFT+NALU+NLOAD+M]),
-				.res_makes_rd(reg_write_enable[NSHIFT+NALU+NLOAD+M])
+				.result(reg_write_data[NSHIFT+NALU+M]),
+				.res_rd(reg_write_addr[NSHIFT+NALU+M]),
+				.res_makes_rd(reg_write_enable[NSHIFT+NALU+M])
 				);
 `ifdef FP
-				assign reg_write_fp[NSHIFT+NALU+NLOAD+M] = 0;
+				assign reg_write_fp[NSHIFT+NALU+M] = 0;
 `endif
 		end
 
 `ifdef FP
 		for (F = 0; F < NFPU; F=F+1) begin :fpu
 			// i port
-			assign reg_read_addr[NLOAD+3*NSHIFT+2*(NALU+NSTORE+NMUL)+F] = rs1_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+			assign reg_read_addr[3*NSHIFT+2*(NALU+NMUL)+F] = rs1_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				reg_read_enable[NLOAD+3*NSHIFT+2*(NALU+NSTORE+NMUL)+F] = 0;
-				reg_read_enable[NLOAD+3*NSHIFT+2*(NALU+NSTORE+NMUL)+F][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]] = enable_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]& ~rs1_fp_commit[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+				reg_read_enable[3*NSHIFT+2*(NALU+NMUL)+F] = 0;
+				reg_read_enable[3*NSHIFT+2*(NALU+NMUL)+F][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]& ~rs1_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f1 port
-			assign fpu_reg_read_addr[NSTORE+3*F+0] = rs1_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+			assign fpu_reg_read_addr[3*F+0] = rs1_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				fpu_reg_read_enable[NSTORE+3*F+0] = 0;
-				fpu_reg_read_enable[NSTORE+3*F+0][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]] = enable_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]& rs1_fp_commit[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+				fpu_reg_read_enable[3*F+0] = 0;
+				fpu_reg_read_enable[3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]& rs1_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f2 port
-			assign fpu_reg_read_addr[NSTORE+3*F+1] = rs2_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+			assign fpu_reg_read_addr[3*F+1] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				fpu_reg_read_enable[NSTORE+3*F+1] = 0;
-				fpu_reg_read_enable[NSTORE+3*F+1][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]] = enable_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]& rs2_fp_commit[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+				fpu_reg_read_enable[3*F+1] = 0;
+				fpu_reg_read_enable[3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]& rs2_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f3 port
-			assign fpu_reg_read_addr[NSTORE+3*F+1] = rs2_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+			assign fpu_reg_read_addr[3*F+2] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				fpu_reg_read_enable[NSTORE+3*F+2] = 0;
-				fpu_reg_read_enable[NSTORE+3*F+2][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]] = enable_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F] & rs3_fp_commit[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]];
+				fpu_reg_read_enable[3*F+2] = 0;
+				fpu_reg_read_enable[3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F] & rs3_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
 			end
 
 			fpu #(.RV(RV), .RA(RA), .ADDR(F), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))f(.reset(reset), .clk(clk), 
 `ifdef SIMD
 				.simd_enable(simd_enable),
 `endif
-				.enable(enable_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]),
-				.ir1(reg_read_data[NLOAD+3*NSHIFT+2*(NALU+NSTORE+NMUL)+F][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
-				.fr1(fpu_reg_read_data[NSTORE+3*F+0][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
-				.fr2(fpu_reg_read_data[NSTORE+3*F+1][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
-				.fr3(fpu_reg_read_data[NSTORE+3*F+2][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
-				.control(control_commit[alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
-				.rd(alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]),
-				.makes_rd(makes_rd_commit[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]][alu_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
-				.hart(hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]),
-				.rv32(rv32[hart_sched[NSHIFT+NALU+NLOAD+NSTORE+NMUL+F]]),
+				.enable(enable_sched[NSHIFT+NALU+NMUL+F]),
+				.ir1(reg_read_data[3*NSHIFT+2*(NALU+NMUL)+F][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fr1(fpu_reg_read_data[3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fr2(fpu_reg_read_data[3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fr3(fpu_reg_read_data[3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.control(control_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.rd(alu_sched[NSHIFT+NALU+NMUL+F]),
+				.makes_rd(makes_rd_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]]),
+				.hart(hart_sched[NSHIFT+NALU+NMUL+F]),
+				.rv32(rv32[hart_sched[NSHIFT+NALU+NMUL+F]]),
 
 				.commit_kill_0(commit_kill[0]),
 				//.commit_kill_0(commit_kill[1]),
 
-				.result(reg_write_data[NSHIFT+NALU+NLOAD+NMUL+F]),
-				.res_rd(reg_write_addr[NSHIFT+NALU+NLOAD+NMUL+F]),
-				.res_makes_rd(reg_write_enable[NSHIFT+NALU+NLOAD+NMUL+F]),
-				.res_makes_fp(reg_write_fp[NSHIFT+NALU+NLOAD+NMUL+F])
+				.result(reg_write_data[NSHIFT+NALU+NMUL+F]),
+				.res_rd(reg_write_addr[NSHIFT+NALU+NMUL+F]),
+				.res_makes_rd(reg_write_enable[NSHIFT+NALU+NMUL+F]),
+				.res_makes_fp(reg_write_fp[NSHIFT+NALU+NMUL+F])
 				);
 		end
 `endif
@@ -2100,56 +1784,7 @@ end
 				.csr_wfi_pause(|csr_wfi_pause[H]),
 				.csr_wfi_wake(csr_wfi_wake[H]),
 
-				.pmp_valid(pmp_valid[H]),		// sadly arrays of buses aren't well supported 
-				.pmp_locked(pmp_locked[H]),	// so we need to get verbose - unused wires will be optimised
-				.pmp_start_0(pmp_start[0][H]),		// out during synthesis
-				.pmp_start_1(pmp_start[1][H]),
-				.pmp_start_2(pmp_start[2][H]),
-				.pmp_start_3(pmp_start[3][H]),
-				.pmp_start_4(pmp_start[4][H]),
-				.pmp_start_5(pmp_start[5][H]),
-				.pmp_start_6(pmp_start[6][H]),
-				.pmp_start_7(pmp_start[7][H]),
-				.pmp_start_8(pmp_start[8][H]),
-				.pmp_start_9(pmp_start[9][H]),
-				.pmp_start_10(pmp_start[10][H]),
-				.pmp_start_11(pmp_start[11][H]),
-				.pmp_start_12(pmp_start[12][H]),
-				.pmp_start_13(pmp_start[13][H]),
-				.pmp_start_14(pmp_start[14][H]),
-				.pmp_start_15(pmp_start[15][H]),
-				.pmp_end_0(pmp_end[0][H]),
-				.pmp_end_1(pmp_end[1][H]),
-				.pmp_end_2(pmp_end[2][H]),
-				.pmp_end_3(pmp_end[3][H]),
-				.pmp_end_4(pmp_end[4][H]),
-				.pmp_end_5(pmp_end[5][H]),
-				.pmp_end_6(pmp_end[6][H]),
-				.pmp_end_7(pmp_end[7][H]),
-				.pmp_end_8(pmp_end[8][H]),
-				.pmp_end_9(pmp_end[9][H]),
-				.pmp_end_10(pmp_end[10][H]),
-				.pmp_end_11(pmp_end[11][H]),
-				.pmp_end_12(pmp_end[12][H]),
-				.pmp_end_13(pmp_end[13][H]),
-				.pmp_end_14(pmp_end[14][H]),
-				.pmp_end_15(pmp_end[15][H]),
-				.pmp_prot_0(pmp_prot[0][H]),
-				.pmp_prot_1(pmp_prot[1][H]),
-				.pmp_prot_2(pmp_prot[2][H]),
-				.pmp_prot_3(pmp_prot[3][H]),
-				.pmp_prot_4(pmp_prot[4][H]),
-				.pmp_prot_5(pmp_prot[5][H]),
-				.pmp_prot_6(pmp_prot[6][H]),
-				.pmp_prot_7(pmp_prot[7][H]),
-				.pmp_prot_8(pmp_prot[8][H]),
-				.pmp_prot_9(pmp_prot[9][H]),
-				.pmp_prot_10(pmp_prot[10][H]),
-				.pmp_prot_11(pmp_prot[11][H]),
-				.pmp_prot_12(pmp_prot[12][H]),
-				.pmp_prot_13(pmp_prot[13][H]),
-				.pmp_prot_14(pmp_prot[14][H]),
-				.pmp_prot_15(pmp_prot[15][H]),
+				.pmp(pmp[H]),
 
 				.clic_m_enable(io_clic_m_enable),
 				.clic_h_enable(io_clic_h_enable),
@@ -2183,19 +1818,13 @@ end
 
 		for (H = 0; H < NHART; H=H+1) begin : registers
 `ifndef FP
-			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==13 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r4
-				if (NUM_TRANSFER_PORTS == 4) begin :x
-`include "rfile_13_3_6_2_4_32_1.inc"
-				end 
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==19 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r4
 				if (NUM_TRANSFER_PORTS == 8) begin :y
-`include "rfile_13_3_6_2_8_32_1.inc"  
+`include "rfile_19_3_8_2_8_32_2.inc"  
 				end 
 `ifdef NSTORE2
 			end else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 2) begin :r22
-				if (NUM_TRANSFER_PORTS == 4) begin :x
-`include "rfile_15_3_6_2_4_32_2.inc"
-				end 
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_15_3_6_2_8_32_2.inc"  
 				end 
@@ -2234,8 +1863,8 @@ end
 		end
 
 
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl2
-				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl2
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
@@ -2244,23 +1873,11 @@ end
 			.xxtrig(xxtrig),
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
-`include "alu_ctrl_inst_4_1_32_2_1_1_1_2_1_0.inc"
-		end else
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl_22
-				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
-			.trig_in(reg_cpu_trig_out),
-			.trig_in_ack(reg_cpu_trig_out_ack),
-            .trig_out(rn_trig[0][0]),
-            .trig_out_ack(rn_trig_ack[0][0]),
-			.xxtrig(xxtrig),
-`endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
-`include "alu_ctrl_inst_4_1_32_2_1_1_1_2_2_0.inc"
+`include "alu_ctrl_inst_4_1_32_2_1_1_1_0.inc"
 `ifdef NALU3
 		end else
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin : alu_ctrl
-				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 1) begin : alu_ctrl
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
@@ -2269,12 +1886,12 @@ end
 			.xxtrig(xxtrig),
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
-`include "alu_ctrl_inst_4_1_32_3_1_1_1_2_1_0.inc"
+`include "alu_ctrl_inst_4_1_32_3_1_1_1_0.inc"
 `endif
 		end
 `ifdef FP
-		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrlf
-				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrlf
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
@@ -2283,24 +1900,14 @@ end
 			.xxtrig(xxtrig),
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
-`include "alu_ctrl_inst_4_1_32_2_1_1_1_2_1_1.inc"
-		end
-		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin : alu_ctrlf_22
-				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
-			.trig_in(reg_cpu_trig_out),
-			.trig_in_ack(reg_cpu_trig_out_ack),
-            .trig_out(rn_trig[0][0]),
-            .trig_out_ack(rn_trig_ack[0][0]),
-			.xxtrig(xxtrig),
-`endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
-`include "alu_ctrl_inst_4_1_32_2_1_1_1_2_2_1.inc"
+`include "alu_ctrl_inst_4_1_32_2_1_1_1_1.inc"
 		end
 `endif
 	endgenerate
 
 
+wire [31:0]pc_xxx = {pc_commit[current_start[0]][0][31:1], 1'b0}; // debug
+wire [4:0]commit_xxx = current_start[0];
 `ifdef AWS_DEBUG
 
 `ifdef AWS_DEBUG_COMMIT
@@ -2438,7 +2045,6 @@ end
             .ls_read_addr_1(reg_read_addr[3*NSHIFT+2*NALU+1]),
             .alu_sched1(alu_sched[NSHIFT+NALU+1]),
             .csr_read_addr(local_reg_read_addr[2*(NBRANCH)][0]),
-            .commit_vm_busy_0(commit_vm_busy[0]),
             .ticks(r_tick_count),
             .xxtrig(xxtrig),
             .issue_interrupt(issue_interrupt[0]),

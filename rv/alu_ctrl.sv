@@ -47,20 +47,12 @@ module alu_ctrl(
 	input xxtrig,
 `endif
 `ifdef FP
-`ifdef NSTORE2
-`include "alu_ctrl_hdr_4_1_32_2_1_1_1_2_2_1.inc"
-`else
-`include "alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_1.inc"
-`endif
+`include "alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc"
 `else
 `ifdef NALU3
-`include "alu_ctrl_hdr_4_1_32_3_1_1_1_2_1_0.inc"
+`include "alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc"
 `else
-`ifdef NSTORE2
-`include "alu_ctrl_hdr_4_1_32_2_1_1_1_2_2_0.inc"
-`else
-`include "alu_ctrl_hdr_4_1_32_2_1_1_1_2_1_0.inc"
-`endif
+`include "alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc"
 `endif
 `endif
 	input dummy);
@@ -74,8 +66,6 @@ module alu_ctrl(
  	parameter RV=64;
 	parameter NSHIFT = 1;
 	parameter NMUL = 1;
-	parameter NLOAD = 1;
-	parameter NSTORE=1;
 	parameter NLDSTQ=4;
 	parameter NALU = 2;
 	parameter NFPU = 0;
@@ -83,34 +73,22 @@ module alu_ctrl(
 
 	generate
 `ifdef FP
-		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_2_1_1.inc"
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin
+`include "alu_ctrl_core_4_1_32_2_1_1_1_1.inc"
 `ifdef NALU3
 		end else
-		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_2_1_1.inc"
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 1) begin
+`include "alu_ctrl_core_4_1_32_2_1_1_1_1.inc"
 `endif
-		end else
-		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 3 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_3_2_1.inc"
-		end else
-		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_2_2_1.inc"
 		end
 `endif
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 2 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_2_1_0.inc"
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin
+`include "alu_ctrl_core_4_1_32_2_1_1_1_0.inc"
 `ifdef NALU3
 		end else
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 1 && NALU == 3 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_3_1_1_1_2_1_0.inc"
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 1) begin
+`include "alu_ctrl_core_4_1_32_3_1_1_1_0.inc"
 `endif
-		end else
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 3 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_3_2_0.inc"
-		end else
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NLOAD == 2 && NSTORE == 2 && NALU == 2 && NBRANCH == 1) begin
-`include "alu_ctrl_core_4_1_32_2_1_1_1_2_2_0.inc"
 		end
 `ifdef AWS_DEBUG
 	ila_sched ila_sched(.clk(clk),

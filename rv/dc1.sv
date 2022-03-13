@@ -16,6 +16,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+`include "lstypes.si"
+
 module dcache_l1(
     input clk,
 //`ifdef VSYNTH
@@ -31,18 +33,11 @@ module dcache_l1(
 	output dc_trig,
 `endif
 
-    input [NPHYS-1:(RV==64?3:2)]raddr0,	// CPU read port
-    output rhit0,
-	output rhit_need_o0,
-    output [RV-1:0]rdata0,
 
-    input [NPHYS-1:(RV==64?3:2)]raddr1,	// CPU read port
-    output rhit1,
-	output rhit_need_o1,
-    output [RV-1:0]rdata1,
+	DCACHE_LOAD load,
 
 	input         wenable0,				// CPU write port
-	input [NPHYS-1:(RV==64?3:2)]waddr0,
+	input [NPHYS-1:$clog2(RV/8)]waddr0,
 	input [RV-1:0]wdata0,
 	input [(RV/8)-1:0]wmask0,
 	output		  whit_ok_write0,
@@ -98,26 +93,12 @@ module dcache_l1(
 	reg    [2:0]r_moesi[0:NSETS-1][0:NENTRIES-1];
 	wire   [NPHYS-1:12]fetch_wtags[0:NSETS-1];
 
-	wire [NPHYS-1:(RV==64?3:2)]raddr[0:READPORTS-1];
-	assign raddr[0]=raddr0;
-	assign raddr[1]=raddr1;
-
-	wire [READPORTS-1:0]rhit;
-	wire [READPORTS-1:0]rhit_need_o;
-	assign rhit0 = rhit[0];
-	assign rhit1 = rhit[1];
-	assign rhit_need_o0 = rhit_need_o[0];
-	assign rhit_need_o1 = rhit_need_o[1];
-
 	wire [CACHE_LINE_SIZE-1:0]rd[0:READPORTS-1][0:NSETS-1];
 	reg [CACHE_LINE_SIZE-1:0]rdd[0:READPORTS-1];
-	reg [RV-1:0]rdata[0:READPORTS-1];
-	assign rdata0 = rdata[0];
-	assign rdata1 = rdata[1];
 
 	wire		wenable[0:WRITEPORTS-1];
 	assign wenable[0]=wenable0;
-	wire [NPHYS-1:(RV==64?3:2)]waddr[0:WRITEPORTS-1];
+	wire [NPHYS-1:$clog2(RV/8)]waddr[0:WRITEPORTS-1];
 	assign waddr[0]=waddr0;
 	wire [RV-1:0]wdata[0:WRITEPORTS-1];
 	assign wdata[0]=wdata0;
@@ -166,7 +147,7 @@ module dcache_l1(
 	wire [NSETS-1:0]writing_set[0:WRITEPORTS-1];		// we WILL write to this set in this clock
 
 	genvar S, R, W, B, M;
-	generate
+	generate begin :g
 		wire [NSETS-1:0]match_snoop;
 		wire [NSETS-1:0]match_dirty;
 		wire [NSETS-1:0]match_exclusive;
@@ -566,9 +547,9 @@ wire [31:0]match_1=match[1];
                 .din0(dc_rdata),
                 .waddr1(waddr[0][11:ACACHE_LINE_SIZE]),
                 .din1(ww[0]),
-                .raddr_0(raddr[0][11:ACACHE_LINE_SIZE]),
+                .raddr_0(load.req[0].addr[11:ACACHE_LINE_SIZE]),
                 .dout_0(rd[0][S]),
-                .raddr_1(raddr[1][11:ACACHE_LINE_SIZE]),
+                .raddr_1(load.req[1].addr[11:ACACHE_LINE_SIZE]),
                 .dout_1(rd[1][S]),
                 .raddr_2(dc_snoop_addr[11:ACACHE_LINE_SIZE]),
                 .dout_2(fetch_snoop_data[S]),
@@ -581,7 +562,7 @@ wire [31:0]match_1=match[1];
 			assign fetch_snoop_data[S] = r_data[dc_snoop_addr[11:ACACHE_LINE_SIZE]];
 			assign fetch_wdata[S] = r_data[dc_raddr[11:ACACHE_LINE_SIZE]];
 			for (R = 0; R < READPORTS; R=R+1) begin 
-				assign rd[R][S]     = r_data[raddr[R][11:ACACHE_LINE_SIZE]];
+				assign rd[R][S]     = r_data[load.req[R].addr[11:ACACHE_LINE_SIZE]];
 			end
 			for (W = 0; W < WRITEPORTS; W=W+1) begin :w
 				for (B=0; B<(CACHE_LINE_SIZE/8); B=B+1) begin
@@ -606,9 +587,9 @@ if (mask[W][B] && match_ok_write[W][S]) $display("%d cache write error %d %d", $
                 .wen(wl[S]),
                 .waddr(dc_raddr[11:ACACHE_LINE_SIZE]),
                 .din(dc_raddr[NPHYS-1:12]),
-                .raddr_0(raddr[0][11:ACACHE_LINE_SIZE]),
+                .raddr_0(load.req[0].addr[11:ACACHE_LINE_SIZE]),
                 .dout_0(fetch_rd_tags[0]),
-                .raddr_1(raddr[1][11:ACACHE_LINE_SIZE]),
+                .raddr_1(load.req[1].addr[11:ACACHE_LINE_SIZE]),
                 .dout_1(fetch_rd_tags[1]),
                 .raddr_2(dc_snoop_addr[11:ACACHE_LINE_SIZE]),
                 .dout_2(fetch_snoop_tags),
@@ -630,13 +611,12 @@ if (mask[W][B] && match_ok_write[W][S]) $display("%d cache write error %d %d", $
 				assign fetch_wr_tags[W]                = r_tags[waddr[W][11:ACACHE_LINE_SIZE]];
 			end
 			for (R = 0; R < READPORTS; R=R+1) begin 
-				assign fetch_rd_tags[R] = r_tags[raddr[R][11:ACACHE_LINE_SIZE]];
+				assign fetch_rd_tags[R] = r_tags[load.req[R].addr[11:ACACHE_LINE_SIZE]];
 			end
 `endif
-
 			for (R = 0; R < READPORTS; R=R+1) begin 
-				assign mr[R][S] = r_moesi[S][raddr[R][11:ACACHE_LINE_SIZE]];
-				assign match[R][S] = (mr[R][S]!=C_I) && fetch_rd_tags[R] == raddr[R][NPHYS-1:12];
+				assign mr[R][S] = r_moesi[S][load.req[R].addr[11:ACACHE_LINE_SIZE]];
+				assign match[R][S] = (mr[R][S]!=C_I) && fetch_rd_tags[R] == load.req[R].addr[NPHYS-1:12];
 				assign match_need_o[R][S] = (mr[R][S]==C_O) || (mr[R][S]==C_S);
 			end
 			assign match_rdline[S] = fetch_wtags[S] == dc_raddr[NPHYS-1:12];
@@ -697,8 +677,8 @@ if (mask[W][B] && match_ok_write[W][S]) $display("%d cache write error %d %d", $
 		end
 
 		for (R = 0; R < READPORTS; R=R+1) begin :r
-			assign rhit[R] = |match[R];
-			assign rhit_need_o[R] = |(match[R]&match_need_o[R]);
+			assign load.ack[R].hit = |match[R];
+			assign load.ack[R].hit_need_o = |(match[R]&match_need_o[R]);
 
 			if (NSETS == 16) begin
 				always @(*) begin 
@@ -771,43 +751,45 @@ if (mask[W][B] && match_ok_write[W][S]) $display("%d cache write error %d %d", $
 					endcase
 				end
 			end
+			reg [RV-1:0]rxd;
+			assign load.ack[R].data = rxd;
 			if (RV==64) begin
 				always @(*) begin
-					case (raddr[R][5:3]) // synthesis full_case parallel_case
-					0: rdata[R] = rdd[R][63:0];
-					1: rdata[R] = rdd[R][127:64];
-					2: rdata[R] = rdd[R][191:128];
-					3: rdata[R] = rdd[R][255:192];
-					4: rdata[R] = rdd[R][319:256];
-					5: rdata[R] = rdd[R][383:320];
-					6: rdata[R] = rdd[R][447:384];
-					7: rdata[R] = rdd[R][511:448];
+					case (load.req[R].addr[5:3]) // synthesis full_case parallel_case
+					0: rxd = rdd[R][63:0];
+					1: rxd = rdd[R][127:64];
+					2: rxd = rdd[R][191:128];
+					3: rxd = rdd[R][255:192];
+					4: rxd = rdd[R][319:256];
+					5: rxd = rdd[R][383:320];
+					6: rxd = rdd[R][447:384];
+					7: rxd = rdd[R][511:448];
 					endcase
 				end
 			end else begin
 				always @(*) begin
-					case (raddr[R][5:2]) // synthesis full_case parallel_case
-					0: rdata[R] = rdd[R][31:0];
-					1: rdata[R] = rdd[R][63:32];
-					2: rdata[R] = rdd[R][95:64];
-					3: rdata[R] = rdd[R][127:96];
-					4: rdata[R] = rdd[R][159:128];
-					5: rdata[R] = rdd[R][191:160];
-					6: rdata[R] = rdd[R][223:192];
-					7: rdata[R] = rdd[R][255:224];
-					8: rdata[R] = rdd[R][287:256];
-					9: rdata[R] = rdd[R][319:288];
-					10: rdata[R] = rdd[R][351:320];
-					11: rdata[R] = rdd[R][383:352];
-					12: rdata[R] = rdd[R][415:384];
-					13: rdata[R] = rdd[R][447:416];
-					14: rdata[R] = rdd[R][479:448];
-					15: rdata[R] = rdd[R][511:480];
+					case (load.req[R].addr[5:2]) // synthesis full_case parallel_case
+					0: rxd = rdd[R][31:0];
+					1: rxd = rdd[R][63:32];
+					2: rxd = rdd[R][95:64];
+					3: rxd = rdd[R][127:96];
+					4: rxd = rdd[R][159:128];
+					5: rxd = rdd[R][191:160];
+					6: rxd = rdd[R][223:192];
+					7: rxd = rdd[R][255:224];
+					8: rxd = rdd[R][287:256];
+					9: rxd = rdd[R][319:288];
+					10: rxd = rdd[R][351:320];
+					11: rxd = rdd[R][383:352];
+					12: rxd = rdd[R][415:384];
+					13: rxd = rdd[R][447:416];
+					14: rxd = rdd[R][479:448];
+					15: rxd = rdd[R][511:480];
 					endcase
 				end
 			end
 		end
-	endgenerate
+	end endgenerate
 
 `ifdef AWS_DEBUG
     wire [3:0]xxtrig_sel;
@@ -844,14 +826,6 @@ ila_dc ila_dc(.clk(clk),
 	.whit_ok_write0(whit_ok_write0),
 	.whit_must_invalidate0(whit_must_invalidate0),
 	.wwait0(wwait0),
-	.raddr0({raddr0,3'b0}),	// 52
-	.rhit0(rhit0),
-	.rdata0(rdata0),	// 64
-	.match0(match[0]),	// 16
-	.raddr1({raddr1,3'b0}),	// 52
-	.rhit1(rhit1),
-	.rdata1(rdata1),	// 64
-	.match1(match[1]), // 16
 	.wm(wm),			// 16
 	.wl(wl),			// 16
 	.match_ok_write(match_ok_write[0]),	// 16

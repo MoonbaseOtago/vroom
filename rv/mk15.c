@@ -86,13 +86,19 @@ err:
 
 
 	printf("	for (H = 0; H < NHART; H=H+1) begin\n");	
-	printf("		for (C = 0; C < NCOMMIT; C=C+1) begin\n");	
+	printf("		for (C = 0; C < NCOMMIT; C=C+1) begin :xx\n");	
 	printf("			assign xsched[H][C] = \n");
 	for (i = 0; i < nglobal_units; i++) 
-	printf("				((alu_sched[%d]==C)&&(H==hart_sched[%d])&&enable_sched[%d])|\n",i,i,i);
+	printf("				(enable_sched[%d]&&(alu_sched[%d]==C)&&(H==hart_sched[%d]))|\n",i,i,i);
 	for (i = 0; i < nlocal_units; i++) 
-	printf("				((local_alu_sched[%d][H]==C)&&local_enable_sched[%d][H])|\n",i,i);
+	printf("				(local_enable_sched[%d][H]&&(local_alu_sched[%d][H]==C))|\n",i,i);
 	printf("				1'b0;\n");	
+	
+	printf("			wire [NSTORE-1:0]store_sched;\n");
+	printf("			for (S = 0; S < NSTORE; S=S+1) begin\n");
+	printf("				assign store_sched[S] = st_data.req[S].enable&&(st_data.req[S].rd==C)&&(st_data.req[S].hart==H);\n");
+	printf("			end\n");
+	printf("			assign xsched_d[H][C] = |store_sched;\n");
 	printf("		end\n");	
 	printf("	end\n");	
 }

@@ -21,6 +21,9 @@
 module ioi(
     input clk,
     input reset,
+`ifdef SIMD
+	input simd_enable,
+`endif
 `ifdef AWS_DEBUG
 	input xxtrig,
 `endif
@@ -463,7 +466,15 @@ module ioi(
 		r_fake_data_read <= c_fake_data_read;
 		r_io_reading <= c_io_reading;
 	end
-			
+
+
+`ifdef SIMD
+    always @(posedge clk) begin
+        if (simd_enable && io_addr_req && io_read && (|io_addr_ack || local_addr_ack|| force_addr_ack)) $display("IO-R %d a=%x m=%x",$time,io_addr, io_mask);
+        if (simd_enable && io_addr_req && !io_read && (|io_addr_ack || local_addr_ack|| force_addr_ack)) $display("IO-W %d a=%x m=%x d=%x",$time,io_addr, io_mask, io_wdata);
+        if (simd_enable && (io_data_req || local_data_req != 0 || r_force_data_req) && io_data_ack) $display("IO-RD %d d=%x",$time, io_cpu_rdata_0);
+    end
+`endif
 
 	//
 	//	local clients:

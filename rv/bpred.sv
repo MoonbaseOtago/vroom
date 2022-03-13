@@ -20,6 +20,8 @@
 
 `include "pred_context.si"
 
+//`define XDEBUG 1
+//`define SDEBUG 1
 `ifndef VSYNTH2
 //`define XDEBUG 1
 //`define SDEBUG 1
@@ -114,9 +116,13 @@ module bpred(input clk,  input reset,
 
 	reg [BDEC-1:1]shootdown_dec;
 	reg			  shootdown_taken;
+	reg [$clog2(NUM_PENDING)-1:0]shootdown_token;	// latest killed entry
+	
 	always @(*) begin
-		shootdown_taken = commit_shootdown_taken&(commit_shootdown_short||commit_shootdown_dec!=7);
+		//shootdown_taken = commit_shootdown_taken&(commit_shootdown_short||commit_shootdown_dec!=7);
+		shootdown_taken = commit_shootdown_taken;
 		shootdown_dec = commit_shootdown_short ? commit_shootdown_dec : commit_shootdown_dec+1;
+		shootdown_token = commit_shootdown_short || (commit_shootdown_dec!=7) ? commit_shootdown_token : commit_shootdown_token+1;
 	end
 
 	//
@@ -466,7 +472,7 @@ module bpred(input clk,  input reset,
 				end else	
 				if (r_mode[M]) begin
 					if (commit_shootdown) begin
-						r_global_history <= {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], (shootdown_taken?shootdown_dec:3'b0), shootdown_taken}; 
+						r_global_history <= {r_pend_global_history[shootdown_token][GLOBAL_HISTORY*4-4-1:0], (shootdown_taken?shootdown_dec:3'b0), shootdown_taken}; 
 					end else
 					case ({prediction_used, prediction_wrong}) // synthesis full_case parallel_case
 					2'b11: r_global_history <= {r_global_history[GLOBAL_HISTORY*4-4-1:4], prediction_wrong_dec, prediction_wrong_taken, (prediction_taken?predict_branch_decoder:3'b0), prediction_taken};
@@ -516,7 +522,7 @@ module bpred(input clk,  input reset,
 					end
 				end
 				if (commit_shootdown && r_mode[M])
-					$display("%d:@prediction_shootdown taken=%d token=%h dest=%h hist=%h gl=%h", $time, shootdown_taken, commit_shootdown_token, commit_shootdown_dest, r_pend_global_history[commit_shootdown_token], {r_pend_global_history[commit_shootdown_token][GLOBAL_HISTORY*4-4-1:0], shootdown_dec, shootdown_taken});
+					$display("%d:@prediction_shootdown taken=%d token=%h dest=%h hist=%h gl=%h", $time, shootdown_taken, shootdown_token, commit_shootdown_dest, r_pend_global_history[shootdown_token], {r_pend_global_history[shootdown_token][GLOBAL_HISTORY*4-4-1:0], shootdown_dec, shootdown_taken});
 			end
 `endif
 
@@ -820,8 +826,8 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 		if (trap_shootdown) begin
 			c_pend_in = trap_shootdown_index;
 		end else
-		if (commit_shootdown && r_pend_valid[commit_shootdown_token]) begin
-			c_pend_in = commit_shootdown_token+1;
+		if (commit_shootdown && r_pend_valid[shootdown_token]) begin
+			c_pend_in = shootdown_token+1;
 		end else 
 		if (push_enable && (!r_pend_valid[r_pend_out] || r_pend_out != r_pend_in)) begin
 			c_pend_in = r_pend_in+1;
@@ -877,7 +883,10 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 				if (trap_shootdown && r_pend_valid[P] && !(r_pend_committed[P]||commit_token_done[P])) begin	// flush unwanted
 					r_pend_valid[P] <= 0;
 				end else
-				if (commit_shootdown && r_pend_valid[P] && ((r_pend_in > P && P > commit_shootdown_token) || (r_pend_in < commit_shootdown_token && (P > commit_shootdown_token || r_pend_in >= P)))) begin	// flush unwanted
+				if (commit_shootdown && r_pend_valid[P] &&
+						((r_pend_in > P && P > shootdown_token) ||
+						 (r_pend_in < shootdown_token &&
+							(P > shootdown_token || r_pend_in >= P)))) begin	// flush unwanted
 					r_pend_valid[P] <= 0;
 				end else
 				if (push_enable && !commit_shootdown && r_pend_in == P && (r_pend_in != r_pend_out || !r_pend_valid[r_pend_out])) begin
@@ -894,7 +903,7 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 				end else begin
 					if (r_pend_valid[P] && commit_token_done[P]) 
 						r_pend_committed[P] <= 1;
-					if (commit_shootdown && commit_shootdown_token == P) begin   // this branch was mispredicted
+					if (commit_shootdown && shootdown_token == P) begin   // this branch was mispredicted
 						r_pend_taken[P] <= shootdown_taken;
 						if (shootdown_taken) begin
 							r_pend_dest[P] <= commit_shootdown_dest;
@@ -937,8 +946,10 @@ wire [NUM_COMBINED-1:0]pend_combined_index0=pend_combined_index[r_pend_out];
 					r_pend_global_pred[P] <= (push_taken? (push_context.global_prediction_prev[1]? 2'b11:push_context.global_prediction_prev+2'b1) : (!push_context.global_prediction_prev[1]? 2'b00:push_context.global_prediction_prev-2'b1));
 					r_pend_global_history[P] <= push_context.global_history;
 				end else 
-				if (commit_shootdown && commit_shootdown_token == P) begin   // this branch was mispredicted
-//$display("%d: SHOOT taken=%d dec=%d gl=%d bi=%d comb-prev=%b\n", $time, shootdown_taken, shootdown_dec, r_pend_global_dec[P], r_pend_bimodal_dec[P], r_pend_combined_prev[P]);
+				if (commit_shootdown && shootdown_token == P) begin   // this branch was mispredicted
+`ifdef SDEBUG 
+$display("%d: SHOOT %d taken=%d dec=%d gl=%d bi=%d comb-prev=%b %b/%b %b/%b", $time, P, shootdown_taken, shootdown_dec, r_pend_global_dec[P], r_pend_bimodal_dec[P], r_pend_combined_prev[P], r_pend_global_prev[P], r_pend_global_pred[P], r_pend_bimodal_prev[P], r_pend_bimodal_pred[P]);
+`endif
 					casez ({shootdown_taken, r_pend_global_prev[P][1], r_pend_bimodal_prev[P][1],
 							r_pend_global_dec[P]==shootdown_dec,
 							r_pend_bimodal_dec[P]==shootdown_dec}) // synthesis full_case parallel_case

@@ -213,8 +213,8 @@ hpmcounter5 = 79991
 IPC = 1.69
 BTC hit rate = %97
 
-5/3/22 - simulator m-mode - 644 address unit store instruction issue rate into storeQ 
-
+==================================
+5/3/22 - simulator m-mode - 644 ld/st unit store instruction issue rate into storeQ 
 Microseconds for one run through Dhrystone: 3.84
 Dhrystones per Second:                      258295
 DMips:                                      147.0
@@ -226,3 +226,17 @@ hpmcounter5 = 79991
 
 IPC = 2.33
 BTC hit rate = %97
+==================================
+5/3/22 - simulator m-mode - 644 ld/st unit - fix bug in BTC - Instruction issue/bundle = 3.58
+Microseconds for one run through Dhrystone: 3.56
+Dhrystones per Second:                      278399
+DMips:                                      158.4
+DMips/(25)MHZ:                              6.33
+mcycle = 179715
+minstret = 452037
+hpmcounter4 = 82008
+hpmcounter5 = 81988
+
+IPC = 2.51
+BTC hit rate = %99
+

@@ -349,7 +349,7 @@ module load_store(
     reg  [$clog2(NLDSTQ)-1:0]r_load_ack_entry[0:NLOAD-1];
 
 	wire	[NLDSTQ-1:0]depends[0:NLDSTQ-1];
-	LOAD_SNOOP #(.NLDSTQ(NLDSTQ), .NPHYS(NPHYS), .LNHART(LNHART), .NHART(NHART), .NLOAD(NLOAD), .RV(RV))load_snoop;
+	LOAD_SNOOP #(.NLDSTQ(NLDSTQ), .NPHYS(NPHYS), .LNHART(LNHART), .NHART(NHART), .NLOAD(NLOAD), .RV(RV))load_snoop();
 
 	reg [RV-1:0]r_load_res_data[0:NLOAD-1];
 	reg [(NHART==1?0:LNHART-1):0]r_load_res_hart[0:NLOAD-1];
@@ -362,7 +362,7 @@ module load_store(
 	reg [RV-1:0]load_snoop_result[0:NLOAD-1];
 	wire [NLDSTQ-1:0]load_snoop_hit_mask[0:NLOAD-1];
 
-	DCACHE_LOAD		#(.RV(RV), .NPHYS(NPHYS), .NLOAD(NLOAD))dc_load;
+	DCACHE_LOAD		#(.RV(RV), .NPHYS(NPHYS), .NLOAD(NLOAD))dc_load();
 
 	//
 	//	store controller
@@ -395,7 +395,7 @@ module load_store(
 	reg [RV-1:0]store_data[0:NSTORE-1];
 	reg [RV/8-1:0]store_mask[0:NSTORE-1];
 
-	STORE_SNOOP #(.NLDSTQ(NLDSTQ), .NPHYS(NPHYS), .RV(RV), .NSTORE(NSTORE))store_snoop;
+	STORE_SNOOP #(.NLDSTQ(NLDSTQ), .NPHYS(NPHYS), .RV(RV), .NSTORE(NSTORE))store_snoop();
 
 	wire [NLDSTQ-1:0]store_hazard[0:NSTORE-1];
 	wire [NSTORE-1:0]store_allocate;
@@ -494,7 +494,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 	reg  [$clog2(NLDSTQ)-1:0]mem_req;
 
 
-	TLB	#(.VA_SZ(VA_SZ), .NPHYS(NPHYS), .NADDR(NADDR))dtlb;		// DTLB interface
+	TLB	#(.VA_SZ(VA_SZ), .NPHYS(NPHYS), .NADDR(NADDR))dtlb();		// DTLB interface
 
 	reg [$clog2(NLDSTQ)-1:0]num_ldstq_avail;
 

@@ -1,5 +1,4 @@
-SRC = \
-	chip.sv mi.sv \
+CPU = \
 	cpu.sv \
 	decode.sv \
 	rename.sv \
@@ -21,16 +20,21 @@ SRC = \
 	tlbf.sv \
 	tc2.sv \
 	pmap.sv \
+	boot0.sv \
+	boot1.sv 
+
+IO = mi.sv \
 	ioi.sv \
 	rvtimer.sv \
 	clic.sv \
 	plic.sv \
-	boot0.sv \
-	boot1.sv \
 	dtbrom.sv \
 	rviodtb.sv \
 	rvsd.sv \
 	rvgpio.sv
+
+
+SRC = $(CPU) chip.sv $(IO)
 
 INCLUDES = cache_protocol.si  pred_context.si lstypes.si
 
@@ -644,4 +648,8 @@ t:	t.S link.ld
 	@riscv64-linux-gnu-ld -N -e start -Ttext-segment=0 -N -static $@.o -o $@.elf -Tlink.ld
 	@riscv64-linux-gnu-objcopy -O binary $@.elf $@.bin 
 	@riscv64-linux-gnu-objdump -d $@.elf >$@.dump
+
+VLIST =  $(CPU) $(MXREG) 
+v2v:	$(CPU) $(MXA) $(INCLUDES) 
+	~/sky/sv2v/bin/sv2v $(VLIST) -I . -w ~/sky/OpenLane/designs/rv/src/cpu.v  
 

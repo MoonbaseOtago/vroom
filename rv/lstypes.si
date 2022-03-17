@@ -19,7 +19,7 @@
 `ifndef LS_TYPES_H
 `define LS_TYPES_H
 
-interface DCACHE_LOAD #(int  RV=64, NPHYS=56, NLOAD=2);
+interface DCACHE_LOAD #(parameter  RV=64, NPHYS=56, NLOAD=2);
     typedef struct packed {
 		bit [NPHYS-1:$clog2(RV/8)]addr;	// CPU read port
 	} DCACHE_REQ;
@@ -32,7 +32,7 @@ interface DCACHE_LOAD #(int  RV=64, NPHYS=56, NLOAD=2);
 	DCACHE_ACK ack[0:NLOAD-1];
 endinterface
 
-interface LS_READY #(int LNCOMMIT=5, NHART=1, NCOMMIT=32);
+interface LS_READY #(parameter LNCOMMIT=5, NHART=1, NCOMMIT=32);
 	bit [NCOMMIT-1:0]load_addr_ready[0:NHART-1];
 	bit [NCOMMIT-1:0]load_addr_not_ready[0:NHART-1];
 	bit [NCOMMIT-1:0]store_addr_ready[0:NHART-1];
@@ -41,7 +41,7 @@ interface LS_READY #(int LNCOMMIT=5, NHART=1, NCOMMIT=32);
 	bit [LNCOMMIT-1:0]current_start[0:NHART-1];
 endinterface
 
-interface LS_ADDR #(int  CNTRL_SIZE=6, NHART=1, LNHART=0, LNCOMMIT=5, NADDR=4, RV=64);
+interface LS_ADDR #(parameter  CNTRL_SIZE=6, NHART=1, LNHART=0, LNCOMMIT=5, NADDR=4, RV=64);
     // inputs
     typedef struct packed {
     	bit               enable;
@@ -75,14 +75,14 @@ interface LS_ADDR #(int  CNTRL_SIZE=6, NHART=1, LNHART=0, LNCOMMIT=5, NADDR=4, R
 endinterface
 
 
-interface LS_VM_ACK #(int  NHART=1, LNHART=0, LNCOMMIT=5);
+interface LS_VM_ACK #(parameter  NHART=1, LNHART=0, LNCOMMIT=5);
 	bit [(NHART==1?0:LNHART-1):0]hart;
 	bit [LNCOMMIT-1:0]rd;
 	bit               pmp;
 	bit               fail;
 endinterface
 
-interface LD_DATA_WB #(int NHART=1, LNCOMMIT=5, NLOAD, RV=64);
+interface LD_DATA_WB #(parameter NHART=1, LNCOMMIT=5, NLOAD, RV=64);
 	typedef struct packed {
 		bit [NHART-1:0]hart;
 		bit    [RV-1:0]result;
@@ -96,7 +96,7 @@ interface LD_DATA_WB #(int NHART=1, LNCOMMIT=5, NLOAD, RV=64);
 	LD_DATA wb[0:NLOAD-1];
 endinterface
 
-interface ST_DATA #(int RV=64, NSTORE=2, LNCOMMIT=5, NHART=1, LNHART=0);
+interface ST_DATA #(parameter RV=64, NSTORE=2, LNCOMMIT=5, NHART=1, LNHART=0);
 	typedef struct packed { // store data
     	bit [(NHART==1?0:LNHART-1):0]hart;
 		bit  [LNCOMMIT-1:0]rd;
@@ -115,7 +115,7 @@ interface ST_DATA #(int RV=64, NSTORE=2, LNCOMMIT=5, NHART=1, LNHART=0);
 	ST_ACK ack[0:NSTORE-1];
 endinterface
 
-interface PMP #(int NUM_PMP=16, NPHYS=56);
+interface PMP #(parameter NUM_PMP=16, NPHYS=56);
 	bit [NUM_PMP-1:0]valid;     // sadly arrays of buses aren't well supported 
 	bit [NUM_PMP-1:0]locked;    // so we need to get verbose - unused wires will be optimised
 	bit [NPHYS-1:2]start[0:NUM_PMP-1];     // out during synthesis
@@ -123,7 +123,7 @@ interface PMP #(int NUM_PMP=16, NPHYS=56);
 	bit [2:0]prot[0:NUM_PMP-1];
 endinterface
 
-interface LOAD_SNOOP #(int NLDSTQ, NPHYS=56, LNHART=0, NHART=1, NLOAD=2, RV=64);
+interface LOAD_SNOOP #(parameter NLDSTQ, NPHYS=56, LNHART=0, NHART=1, NLOAD=2, RV=64);
 	typedef struct packed { // load snoop interface
 		bit [NPHYS-1:$clog2(RV/8)]addr;     // input address
 		bit                       io;       // input io
@@ -141,7 +141,7 @@ interface LOAD_SNOOP #(int NLDSTQ, NPHYS=56, LNHART=0, NHART=1, NLOAD=2, RV=64);
 	LOAD_SNOOP_ACK ack[0:NLOAD-1];
 endinterface
 
-interface STORE_SNOOP #(int NLDSTQ, int NPHYS=56, RV=64, NSTORE=2);
+interface STORE_SNOOP #(parameter NLDSTQ, parameter NPHYS=56, RV=64, NSTORE=2);
 	typedef struct packed { // store snoop interface
 		bit      [NPHYS-1:$clog2(RV/8)]addr;    // input address
 		bit                            io;      // input io
@@ -157,7 +157,7 @@ interface STORE_SNOOP #(int NLDSTQ, int NPHYS=56, RV=64, NSTORE=2);
 	STORE_SNOOP_ACK ack[0:NSTORE-1];
 endinterface
 
-interface TLB #(int  VA_SZ=43, NPHYS=56, NADDR=4);
+interface TLB #(parameter  VA_SZ=43, NPHYS=56, NADDR=4);
 	typedef struct packed {
     	bit               enable;
     	bit   [VA_SZ-1:12]vaddr;

@@ -16,6 +16,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+`include "lstypes.si"
+
 module pmp_checker(
 	input		m,
 	input		su,

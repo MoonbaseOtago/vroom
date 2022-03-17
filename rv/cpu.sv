@@ -227,7 +227,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	
 	wire	  [31:0]u_debug[0:NHART-1];
 
-	PMP         #(.NUM_PMP(NUM_PMP), .NPHYS(NPHYS))pmp[0:1];	// PMP interface
+	PMP         #(.NUM_PMP(NUM_PMP), .NPHYS(NPHYS))pmp[0:1]();	// PMP interface
 assign pmp[1].valid=0;
 
 	reg [RV-1:1]pc_pre_fetch[0:NHART-1];
@@ -417,7 +417,7 @@ assign pmp[1].valid=0;
     wire	[NCOMMIT-1:0]branch_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]mul_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]div_ready_commit[0: NHART-1];
-	LS_READY	 #(.LNCOMMIT(LNCOMMIT), .NHART(NHART), .NCOMMIT(NCOMMIT))ls_ready;
+	LS_READY	 #(.LNCOMMIT(LNCOMMIT), .NHART(NHART), .NCOMMIT(NCOMMIT))ls_ready();
 wire [NCOMMIT-1:0]load_addr_ready0=ls_ready.load_addr_ready[0];
 wire [NCOMMIT-1:0]load_addr_not_ready0=ls_ready.load_addr_not_ready[0];
 wire [NCOMMIT-1:0]store_addr_ready0=ls_ready.store_addr_ready[0];
@@ -475,10 +475,10 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 	wire	[NHART-1:0]issue_fetch_trap;
 	wire       [RV-1:1]pc_fetch[0:NHART-1]; // pc at fetch output stage
 
-	LS_ADDR  #(.CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT), .NADDR(NADDR), .RV(RV))ls;
-	LS_VM_ACK #(.NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT))vm_ack;
-	LD_DATA_WB  #(.NHART(NHART), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .RV(RV))ld_wb;
-	ST_DATA #(.RV(RV), .NSTORE(NSTORE), .NHART(NHART), .LNCOMMIT(LNCOMMIT), .LNHART(LNHART))st_data;
+	LS_ADDR  #(.CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT), .NADDR(NADDR), .RV(RV))ls();
+	LS_VM_ACK #(.NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT))vm_ack();
+	LD_DATA_WB  #(.NHART(NHART), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .RV(RV))ld_wb();
+	ST_DATA #(.RV(RV), .NSTORE(NSTORE), .NHART(NHART), .LNCOMMIT(LNCOMMIT), .LNHART(LNHART))st_data();
 
 
 	genvar I, J, N, D, H, R, C, F, A, S, L, B, M, K;

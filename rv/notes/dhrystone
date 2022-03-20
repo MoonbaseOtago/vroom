@@ -212,7 +212,6 @@ hpmcounter5 = 79991
 
 IPC = 1.69
 BTC hit rate = %97
-
 ==================================
 5/3/22 - simulator m-mode - 644 ld/st unit store instruction issue rate into storeQ 
 Microseconds for one run through Dhrystone: 3.84
@@ -239,4 +238,30 @@ hpmcounter5 = 81988
 
 IPC = 2.51
 BTC hit rate = %99
+==================================
+5/3/22 - simulator m-mode - 644 ld/st unit - convert from branch unit/2 ALUs - to 2 combined ALUs
+starting 2000 runs
+Microseconds for one run through Dhrystone: 3.68
+Dhrystones per Second:                      269939
+DMips:                                      153.6
+DMips/(25)MHZ:                              6.14
+mcycle = 185344
+minstret = 452037
+hpmcounter4 = 82008
+hpmcounter5 = 81988
 
+IPC = 2.43
+BTC hit rate = %99
+==================================
+5/3/22 - simulator m-mode - 644 ld/st unit - convert from branch unit/2 ALUs - to 3 combined ALUs
+Microseconds for one run through Dhrystone: 3.48
+Dhrystones per Second:                      285350
+DMips:                                      162.4
+DMips/(25)MHZ:                              6.49
+mcycle = 175340
+minstret = 452037
+hpmcounter4 = 82008
+hpmcounter5 = 81988
+
+IPC = 2.57
+BTC hit rate = %99

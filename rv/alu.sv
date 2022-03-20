@@ -126,6 +126,21 @@ module alu(
 	output [RV-1:0]result,
 	output [LNCOMMIT-1:0]res_rd, 
 	output [NHART-1:0]res_makes_rd 
+
+`ifdef COMBINED_BRANCH
+// branch stuff
+	,
+    input is_branch, 
+	input [RV-1:1]branch_dest,
+    input [NCOMMIT-1:0]commit_kill_0,
+    //input [NCOMMIT-1:0]commit_kill_1,
+
+	output       commit_alu_br_enable, // not true if predicted correctly
+    output [RV-1:1]commit_alu_br,
+    output [LNCOMMIT-1:0]commit_alu_br_addr,
+    output       commit_alu_br_short,
+    output [BDEC-1:1]commit_alu_br_dec
+`endif
 	);
 
     parameter CNTRL_SIZE=7;
@@ -136,6 +151,79 @@ module alu(
     parameter NCOMMIT = 32; // number of commit registers
     parameter LNCOMMIT = 5; // number of bits to encode that
  	parameter RA=5;
+	parameter BDEC=4;
+
+	wire	[NHART-1:0]this_hart;	
+	
+	genvar H;
+	generate 
+		if (NHART == 1) begin
+			assign this_hart = 1;
+		end else begin
+			reg [NHART-1:0]r_hart;
+			assign this_hart = r_hart;
+			for (H = 0; H < NHART; H=H+1) begin
+				always @(posedge clk)
+					r_hart[H] <= hart == H;
+			end
+			
+		end
+	endgenerate
+	
+
+`ifdef COMBINED_BRANCH
+	//
+	//  branch encodings:
+	//
+    //  ctrl:
+    //  5   predicted
+    //  4   short_pc (1= add 2 to get nextaddress othewise 4
+    //  3   invert test (cjmp only)
+    //  2:1 branch type (cjmp only) 0=eq, 1=lt, 2=ltu
+    //  1       1=pc_rel 0 = r1_rel (jmp only)  
+    //  0   0=jmp, 1=cjmp
+    //
+    //  for cjmp predicted means "was predicted and taken"
+    //  for !cjmp predicted means "we continued on, please check that our actual destination matches",
+    //                                  not predicted means "we stalled waiting to be woken by the branch unit")
+    //
+
+	reg killed;
+	always @(*) begin
+		case (hart) // synthesis full_case parallel_case
+		0: killed = commit_kill_0[rd];
+		//1: killed = commit_kill_1[rd];
+		default: killed = 1'bx;
+		endcase
+	end
+		
+	reg r_is_branch;
+
+    reg [RV-1:1]new_address, r_branch_dest;
+    reg			need_jmp;
+    reg			short_pc, predicted;
+    reg			make_jmp;
+
+    wire		b_inv, cjmp;
+    wire    [1:0]tp;
+    reg			r_cjmp;
+    reg    [1:0]r_tp;
+	reg			r_short_pc;
+	reg			r_predicted;
+	reg			match;
+
+    assign short_pc = control[4];
+    assign predicted = control[5];
+    assign b_inv = control[3];
+    assign tp = control[2:1];
+    assign cjmp = control[0];
+
+	assign commit_alu_br_addr = r_rd;
+    assign commit_alu_br_dec = r_pc[BDEC-1:1];
+    assign commit_alu_br = new_address;
+    assign commit_alu_br_enable = (make_jmp?this_hart:0);
+	assign commit_alu_br_short = r_short_pc;
+`endif
 
 	//
 	//	ctrl:
@@ -186,16 +274,35 @@ module alu(
 		r_pc <= pc;
 		r_needs_rs2 <= needs_rs2;
 		r_immed <= {{32{immed[31]}},immed};
-		r_makes_rd <= makes_rd&enable;
 		r_op <= op;
+`ifdef COMBINED_BRANCH
+		r_makes_rd <= makes_rd&enable&!killed;
+		r_inv <= is_branch ? b_inv : inv;
+`else
+		r_makes_rd <= makes_rd&enable;
 		r_inv <= inv;
+`endif
 		r_addw <= addw;
 		r_rd <= rd;
 		r_rv32 <= rv32;
 		r_res_rd <= r_rd;
 		r_res <= c_res;
+`ifdef COMBINED_BRANCH
+		r_branch_dest <= branch_dest;
+		r_cjmp <= cjmp;
+		r_tp <= tp;
+		r_short_pc <= short_pc;
+        r_predicted <= predicted;
+		r_is_branch <= !reset&enable&is_branch&!killed;
+`endif
 `ifdef SIMD
+`ifdef COMBINED_BRANCH
+		if (r_makes_rd && !r_is_branch && simd_enable) $display("A %d %x @ %x <- %x",$time,{r_pc, 1'b0},r_rd,c_res);
+		if (commit_alu_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{r_pc,1'b0},{commit_alu_br,1'b0});
+`else
 		if (r_makes_rd && simd_enable) $display("A %d %x @ %x <- %x",$time,{r_pc, 1'b0},r_rd,c_res);
+`endif
+
 `endif
 	end
 
@@ -205,7 +312,7 @@ module alu(
 				r_res_makes_rd <= r_makes_rd;
 		end else begin
 			always @(posedge clk) 
-				r_res_makes_rd <= (r_makes_rd?1<<hart:0);
+				r_res_makes_rd <= (r_makes_rd?this_hart:0);
 		end
 	endgenerate
 
@@ -240,6 +347,11 @@ module alu(
 
 	always @(*) begin
 		c_res = 'bx;
+`ifdef COMBINED_BRANCH
+		if (r_is_branch) begin
+			c_res = {(r_pc+(r_short_pc?63'd1:63'd2)), 1'b0};
+		end else
+`endif
 		case (r_op) // synthesis full_case parallel_case
 		0,8,9,10,11,12: c_res = c_add[RV-1:0];						// add
 		1: c_res = c_r1^c_r2;										// xor
@@ -263,6 +375,39 @@ module alu(
 `endif
 		endcase
 	end
+
+`ifdef COMBINED_BRANCH
+
+	wire signed [RV-1:0]s1 = r1;
+	wire signed [RV-1:0]s2 = r2;
+
+   always @(*) begin
+        need_jmp = 1'bx;
+        // note: check that only 1 adder is used here
+        case (r_tp) // synthesis full_case parallel_case
+        0: need_jmp = r1==r2;   // eq
+        2: need_jmp = s1 < s2;      // signed lt
+        3: need_jmp = r1 < r2;  // unsigned lt
+        default: need_jmp = 1'bx;
+        endcase
+        make_jmp = r_is_branch && (r_cjmp?r_predicted^r_inv^need_jmp:!r_tp[0]&(!r_predicted|!match));
+    end
+
+    if (RV==64) begin
+
+        always @(*) begin
+            if (r_cjmp) begin
+                new_address = r_pc+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed[31]}}, r_immed[31:0]});
+                match = 1'bx;
+            end else begin :xt
+                reg [63:0]t;
+                t = r1[63:0]+{{32{r_immed[31]}},r_immed[31:0]};
+                match = t[RV-1:1] == r_branch_dest;
+                new_address = t[63:1];
+            end
+        end
+	end
+`endif
 
 `ifdef B
 	alu_pop_count32 p0(.in(r1[31:0]), .out(pc0));	// pop counts

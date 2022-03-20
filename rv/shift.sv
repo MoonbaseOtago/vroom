@@ -141,13 +141,19 @@ module shift(
 		if (r_makes_rd && simd_enable) $display("s %d @%x<=%x",$time,r_rd,c_res);
 `endif
     end
+	genvar H;
 	generate
 		if (NHART == 1) begin
         		always @(posedge clk) 
                 		r_res_makes_rd <= r_makes_rd;
 		end else begin
+			reg [NHART-1:0]r_hart;
+			for (H = 0; H < NHART; H=H+1) begin
+				always @(posedge clk)
+					r_hart[H] <= hart == H;
+			end
 			always @(posedge clk)
-				r_res_makes_rd <= (r_makes_rd?1<<hart:0);
+				r_res_makes_rd <= (r_makes_rd?r_hart:0);
 		end
 	endgenerate
 

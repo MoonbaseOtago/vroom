@@ -46,6 +46,17 @@ module alu_ctrl(
 	input trig_out_ack,
 	input xxtrig,
 `endif
+`ifdef COMBINED_BRANCH
+`ifdef FP
+`include "alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc"
+`else
+`ifdef NALU3
+`include "alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc"
+`else
+`include "alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc"
+`endif
+`endif
+`else
 `ifdef FP
 `include "alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc"
 `else
@@ -53,6 +64,7 @@ module alu_ctrl(
 `include "alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc"
 `else
 `include "alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc"
+`endif
 `endif
 `endif
 	input dummy);
@@ -72,6 +84,26 @@ module alu_ctrl(
 	parameter NBRANCH = 1;
 
 	generate
+`ifdef COMBINED_BRANCH
+`ifdef FP
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
+`include "alu_ctrl_core_4_1_32_2_1_0_1_1.inc"
+`ifdef NALU3
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
+`include "alu_ctrl_core_4_1_32_2_1_0_1_1.inc"
+`endif
+		end
+`endif
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
+`include "alu_ctrl_core_4_1_32_2_1_0_1_0.inc"
+`ifdef NALU3
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
+`include "alu_ctrl_core_4_1_32_3_1_0_1_0.inc"
+`endif
+		end
+`else
 `ifdef FP
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin
 `include "alu_ctrl_core_4_1_32_2_1_1_1_1.inc"
@@ -90,6 +122,8 @@ module alu_ctrl(
 `include "alu_ctrl_core_4_1_32_3_1_1_1_0.inc"
 `endif
 		end
+`endif
+
 `ifdef AWS_DEBUG
 	ila_sched ila_sched(.clk(clk),
 		.xxtrig(xxtrig),

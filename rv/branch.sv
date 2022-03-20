@@ -49,7 +49,7 @@ module branch(
     parameter ADDR=0;
  	parameter RV=64;
     parameter NHART=1;
-    parameter HART=9;
+    parameter HART=0;
     parameter LNHART=0;
     parameter BDEC=4;
     parameter NCOMMIT = 32; // number of commit registers

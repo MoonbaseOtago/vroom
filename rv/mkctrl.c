@@ -69,7 +69,7 @@ generate_sched(const char *name, int nunit, int numhart, int ncommit)
 			printf("			%s_hart%d='bx;\n",name,j);
 	}
 	generate_sched_recursive(name, 0, nunit, 0, numhart, ncommit);
-	printf("		end");
+	printf("		end\n");
 }
 
 void
@@ -306,7 +306,9 @@ err:
 			if (nfpu)
 				printf("		input [NCOMMIT-1:0]fpu_ready_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]shift_ready_%d, \n", i);
+			printf("`ifndef COMBINED_BRANCH\n");
 			printf("		input [NCOMMIT-1:0]branch_ready_%d, \n", i);
+			printf("`endif\n");
 			printf("		input [NCOMMIT-1:0]mul_ready_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]div_ready_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]csr_ready_%d, \n", i);
@@ -340,11 +342,13 @@ err:
 			printf("\n");
 		}
 		for (i = 0; i < numhart; i++) {
+			printf("`ifndef COMBINED_BRANCH\n");
 			for (j = 0; j < nbranch; j++) {
 				printf("		output [LNCOMMIT-1:0]branch_addr_%d_%d, \n", j, i);
 				printf("		output            branch_enable_%d_%d, \n", j, i);
 				printf("\n");
 			}
+			printf("`endif\n");
 			printf("		output [LNCOMMIT-1:0]csr_addr_%d, \n", i);
 			printf("		output            csr_enable_%d, \n", i);
 			printf("\n");
@@ -356,14 +360,17 @@ err:
 		for (i = 0; i < numhart; i++) {
 			printf("		wire [LNCOMMIT-1:0]sh%d = start_commit_%d;\n", i, i);
 			printf("		wire [NCOMMIT-1:0]mul_r_%d = mul_ready_%d|(|divide_busy?0:div_ready_%d);\n",i,i,i); // FIXME - need better solution for multiple multipliers
-			printf("		wire [NCOMMIT-1:0]alu_r%d, shift_r%d, branch_r%d, mul_r%d;\n", i,i,i,i);
+			printf("		wire [NCOMMIT-1:0]alu_r%d, shift_r%d, mul_r%d;\n", i,i,i);
 			if (nfpu)
 				printf("		wire [NCOMMIT-1:0]fpu_r%d;\n", i);
 			if (nfpu)
 				printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))fpu_%d(.in(fpu_ready_%d), .r(sh%d), .out(fpu_r%d));\n", i, i, i, i);
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))alu_%d(.in(alu_ready_%d), .r(sh%d), .out(alu_r%d));\n", i, i, i, i);
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))sh_%d(.in(shift_ready_%d), .r(sh%d), .out(shift_r%d));\n", i, i, i, i);
+			printf("`ifndef COMBINED_BRANCH\n");
+			printf("		wire [NCOMMIT-1:0]branch_r%d;\n", i);
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))br_%d(.in(branch_ready_%d), .r(sh%d), .out(branch_r%d));\n", i, i, i, i);
+			printf("`endif\n");
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))mul_%d(.in(mul_r_%d), .r(sh%d), .out(mul_r%d));\n", i, i, i, i);
 		}
 		generate_sched("alu", nalu, numhart, ncommit);
@@ -372,7 +379,9 @@ err:
 		generate_sched("shift", nshift, numhart, ncommit);
 		generate_sched("mul", nmul, numhart, ncommit);
 		for (j = 0; j < numhart; j++) {
+			printf("`ifndef COMBINED_BRANCH\n");
 			local_generate_sched("branch", nbranch, j, ncommit);
+			printf("`endif\n");
 			printf("		assign csr_addr_%d = start_commit_%d;\n", j, j);
 			printf("		assign csr_enable_%d =  csr_ready_%d[start_commit_%d];\n", j, j, j);
 		}
@@ -386,7 +395,9 @@ err:
 				printf("		.fpu_ready_%d(fpu_ready_commit[%d]), \n", i, i);
 			printf("		.alu_ready_%d(alu_ready_commit[%d]), \n", i, i);
 			printf("		.shift_ready_%d(shift_ready_commit[%d]), \n", i, i);
+			printf("`ifndef COMBINED_BRANCH\n");
 			printf("		.branch_ready_%d(branch_ready_commit[%d]), \n", i, i);
+			printf("`endif\n");
 			printf("		.mul_ready_%d(mul_ready_commit[%d]), \n", i, i);
 			printf("		.div_ready_%d(div_ready_commit[%d]), \n", i, i);
 			printf("		.csr_ready_%d(csr_ready_commit[%d]), \n", i, i);
@@ -425,12 +436,14 @@ err:
 		}
 		for (i = 0; i < numhart; i++) {
 			j = 0;
+			printf("`ifndef COMBINED_BRANCH\n");
 			for (k = 0; k < nbranch; k++) {
 				printf("		.branch_addr_%d_%d(local_alu_sched[%d][%d]),\n", k, i, j, i);
 				printf("		.branch_enable_%d_%d(local_enable_sched[%d][%d]),\n", k, i, j, i);
 				printf("\n");
 				j++;
 			}
+			printf("`endif\n");
 			printf("		.csr_addr_%d(local_alu_sched[%d][%d]), \n", i, j, i);
 			printf("		.csr_enable_%d(local_enable_sched[%d][%d]), \n", i, j, i);
 			j++;

@@ -251,7 +251,9 @@ module commit(input clk,
 
     output	alu_ready,
     output	shift_ready,
+`ifndef COMBINED_BRANCH
     output	branch_ready,
+`endif
     output	mul_ready,
     output	div_ready,
     output	load_addr_ready,
@@ -499,9 +501,13 @@ module commit(input clk,
 `ifdef FP
 	assign fpu_ready = ready&(r_unit_type==5)&r_valid&!r_read;
 `endif
+`ifdef COMBINED_BRANCH
+	assign alu_ready = ready&(r_unit_type==0 || r_unit_type==6)&r_valid&!r_read;
+`else
 	assign alu_ready = ready&(r_unit_type==0)&r_valid&!r_read;
-	assign shift_ready = ready&(r_unit_type==1)&r_valid&!r_read;
 	assign branch_ready = ready&(r_unit_type==6)&r_valid&!r_read;
+`endif
+	assign shift_ready = ready&(r_unit_type==1)&r_valid&!r_read;
 	assign load_addr_ready = !r_vm_stall&lres_ready&addr_ready&(r_unit_type==3)&r_valid&!r_read&!r_load_trap;
 	assign load_addr_not_ready = ((r_vm_stall|!lres_ready|!addr_ready)&(r_unit_type==3)&r_valid&!r_read&!r_load_trap) || 
 						  (commit_vm_stall&&commit_load_done&&(r_unit_type==3)&&r_valid);

@@ -174,7 +174,11 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 `endif
 	parameter	NLDSTQ = 8;
 	parameter NMUL = 1;
+`ifdef COMBINED_BRANCH
+	parameter NBRANCH = 0;	// number of branch units per-hart
+`else
 	parameter NBRANCH = 1;	// number of branch units per-hart
+`endif
 	parameter NCSR = 1;	// must only be 1/hart
 `ifdef FP
 	parameter NFPU = 1;
@@ -361,11 +365,17 @@ assign pmp[1].valid=0;
 	wire   [19:0]dec_br[0:NHART-1];
 	wire   [BDEC-1:1]dev_offset[0:NHART-1];
 
-	wire   [NHART-1:0]commit_br_enable[0:NBRANCH-1];
-	wire   [NHART-1:0]commit_br_short[0:NBRANCH-1];
-	wire   [BDEC-1:1]commit_br_dec[0:NBRANCH-1][0:NHART-1];
-	wire   [RV-1:1]commit_br[0:NBRANCH-1][0:NHART-1];
-	wire [LNCOMMIT-1:0]commit_br_addr[0:NBRANCH-1][0:NHART-1];
+	wire   [NHART-1:0]commit_br_enable[0:(NBRANCH==0?0:NBRANCH-1)];
+	wire   [NHART-1:0]commit_br_short[0:(NBRANCH==0?0:NBRANCH-1)];
+	wire   [BDEC-1:1]commit_br_dec[0:(NBRANCH==0?0:NBRANCH-1)][0:NHART-1];
+	wire   [RV-1:1]commit_br[0:(NBRANCH==0?0:NBRANCH-1)][0:NHART-1];
+	wire [LNCOMMIT-1:0]commit_br_addr[0:(NBRANCH==0?0:NBRANCH-1)][0:NHART-1];
+
+	wire [NHART-1:0]commit_alu_br_enable[0:NALU-1];
+	wire [NALU-1:0]commit_alu_br_short;
+	wire [BDEC-1:0]commit_alu_br_dec[0:NALU-1];
+	wire [RV-1:0]commit_alu_br[0:NALU-1];
+	wire [LNCOMMIT-1:0]commit_alu_br_addr[0:NALU-1];
 
 	parameter NCOMMIT_BRANCH=2;	// max branches/commit
     wire  [NCOMMIT_BRANCH-1:0]update_br[0:NHART-1];
@@ -376,6 +386,13 @@ assign pmp[1].valid=0;
 	wire[NHART-1:0]commit_trap_br_enable[0:NHART-1];
 	wire   [RV-1:1]commit_trap_br[0:NHART-1];
 	wire [LNCOMMIT-1:0]commit_trap_br_addr[0:NHART-1];
+
+	wire [NCOMMIT-1:0]commit_branch[0:NHART-1];
+	wire [NCOMMIT-1:0]commit_branch_ok[0:NHART-1];
+	wire  [RV-1:1]commit_update_pc[0:NCOMMIT-1];
+	wire  [RV-1:1]commit_update_dest[0:NCOMMIT-1];
+	wire  [NCOMMIT-1:0]commit_update_taken;
+	wire             commit_update_short_pc[0:NCOMMIT-1];
 
 	wire [4:0]rd_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [NCOMMIT-1:0]makes_rd_commit[0:NHART-1];
@@ -414,7 +431,9 @@ assign pmp[1].valid=0;
 `endif
     wire    [NCOMMIT-1:0]alu_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]shift_ready_commit[0: NHART-1];
+`ifndef COMBINED_BRANCH
     wire	[NCOMMIT-1:0]branch_ready_commit[0: NHART-1];
+`endif
     wire	[NCOMMIT-1:0]mul_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]div_ready_commit[0: NHART-1];
 	LS_READY	 #(.LNCOMMIT(LNCOMMIT), .NHART(NHART), .NCOMMIT(NCOMMIT))ls_ready();
@@ -1068,8 +1087,8 @@ end
 `endif
 			end
 
-			wire [NCOMMIT-1:0]commit_branch;
-			wire [NCOMMIT-1:0]commit_branch_ok;
+			//`wire [NCOMMIT-1:0]commit_branch[0:NHART-1];
+			//`wire [NCOMMIT-1:0]commit_branch_ok[0:NHART-1];
 			wire  [RV-1:1]commit_update_pc[0:NCOMMIT-1];
 			wire  [RV-1:1]commit_update_dest[0:NCOMMIT-1];
 			wire  [NCOMMIT-1:0]commit_update_taken;
@@ -1115,8 +1134,8 @@ end
 				.commit_br_addr(commit_br_addr[0][H]),
 				.commit_kill(commit_kill[H]),
 
-				.commit_branch(commit_branch),
-				.commit_branch_ok(commit_branch_ok),
+				.commit_branch(commit_branch[H]),
+				.commit_branch_ok(commit_branch_ok[H]),
 				.current_commit_mask(current_commit_mask),
 
 				.commit_write_enable(reg_transfer_enable[H]),
@@ -1230,7 +1249,9 @@ end
 `endif
                		.alu_ready(alu_ready_commit[H][C]),
                 	.shift_ready(shift_ready_commit[H][C]),
+`ifndef COMBINED_BRANCH
                 	.branch_ready(branch_ready_commit[H][C]),
+`endif
                 	.mul_ready(mul_ready_commit[H][C]),
                 	.div_ready(div_ready_commit[H][C]),
                 	.load_addr_ready(ls_ready.load_addr_ready[H][C]),
@@ -1243,8 +1264,8 @@ end
 					.csr_wfi_pause(csr_wfi_pause[H][C]),
 					.csr_wfi_wake(csr_wfi_wake[H]),
 
-					.commit_branch(commit_branch[C]),
-					.commit_branch_ok(commit_branch_ok[C]),
+					.commit_branch(commit_branch[H][C]),
+					.commit_branch_ok(commit_branch_ok[H][C]),
 					.commit_update_pc(commit_update_pc[C]),
 					.commit_update_dest(commit_update_dest[C]),
 					.commit_update_taken(commit_update_taken[C]),
@@ -1347,21 +1368,40 @@ end
 			assign hart_sched[N_GLOBAL_UNITS-NSTORE+S] ='bx;
 		end
 
-		if (N_GLOBAL_UNITS == (3+6+4+1+1+0) && N_LOCAL_UNITS == 2) begin
+		if (N_LOCAL_UNITS == 1) begin
+			if (N_GLOBAL_UNITS == (3+6+4+1+1+0)) begin
+`include "mk15_15_1.inc"
+			end
+			if (N_GLOBAL_UNITS == (2+6+4+1+1+0)) begin
+`include "mk15_14_1.inc"
+			end
+			if (N_GLOBAL_UNITS == (3+4+2+1+1+1)) begin
+`include "mk15_12_1.inc"
+			end
+			if (N_GLOBAL_UNITS == (3+4+2+1+1+0)) begin
+`include "mk15_11_1.inc"
+			end
+			if (N_GLOBAL_UNITS == (2+4+2+1+1+0)) begin
+`include "mk15_10_1.inc"
+			end
+		end else
+		if (N_LOCAL_UNITS == 2) begin
+			if (N_GLOBAL_UNITS == (3+6+4+1+1+0)) begin
 `include "mk15_15_2.inc"
-		end
-		if (N_GLOBAL_UNITS == (2+6+4+1+1+0) && N_LOCAL_UNITS == 2) begin
+			end
+			if (N_GLOBAL_UNITS == (2+6+4+1+1+0)) begin
 `include "mk15_14_2.inc"
-		end
-		if (N_GLOBAL_UNITS == (3+4+2+1+1+1) && N_LOCAL_UNITS == 2) begin
+			end
+			if (N_GLOBAL_UNITS == (3+4+2+1+1+1)) begin
 `include "mk15_12_2.inc"
-		end
-		if (N_GLOBAL_UNITS == (3+4+2+1+1+0) && N_LOCAL_UNITS == 2) begin
+			end
+			if (N_GLOBAL_UNITS == (3+4+2+1+1+0)) begin
 `include "mk15_11_2.inc"
-		end
-		if (N_GLOBAL_UNITS == (2+4+2+1+1+0) && N_LOCAL_UNITS == 2) begin
+			end
+			if (N_GLOBAL_UNITS == (2+4+2+1+1+0)) begin
 `include "mk15_10_2.inc"
-		end
+			end
+		end 
 
 		for (A = 0; A < NALU; A=A+1) begin: alu
 			assign reg_read_addr[2*A] = rs1_commit[alu_sched[A]][hart_sched[A]];
@@ -1394,6 +1434,19 @@ end
 				.result(reg_write_data[A]),
 				.res_rd(reg_write_addr[A]),
 				.res_makes_rd(reg_write_enable[A])
+`ifdef COMBINED_BRANCH
+				,
+				.is_branch(commit_branch[hart_sched[A]][alu_sched[A]]),
+		 		.branch_dest(branch_dest_commit[alu_sched[A]][hart_sched[A]]),
+				.commit_kill_0(commit_kill[0]),
+				//.commit_kill_1(commit_kill[1]),
+
+				.commit_alu_br_enable(commit_alu_br_enable[A]),
+				.commit_alu_br_short(commit_alu_br_short[A]),
+				.commit_alu_br_dec(commit_alu_br_dec[A]),
+				.commit_alu_br_addr(commit_alu_br_addr[A]),
+				.commit_alu_br(commit_alu_br[A])
+`endif
 				);
 `ifdef FP
 				assign reg_write_fp[A] = 0;
@@ -1699,6 +1752,85 @@ end
 		// units from here on are per-hart 
 		for (H = 0; H < NHART; H=H+1) begin : loc
 
+`ifdef COMBINED_BRANCH	// if true branches are combined with ALUs
+				wire [NALU-1:0]hart_br_enable;
+				for (A=0; A < NALU;A=A+1) begin
+					assign hart_br_enable[A] = commit_alu_br_enable[A][H];
+				end
+
+				assign commit_br_enable[0][H] = |hart_br_enable;
+
+				if (NALU == 2) begin			// TODO make a code frag to make this
+					assign commit_br_short[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_short[0] :
+							hart_br_enable[1] ? commit_alu_br_short[1] : 'bx;
+			
+					assign commit_br_dec[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_dec[0] :
+							hart_br_enable[1] ? commit_alu_br_dec[1] : 'bx;
+			
+					assign commit_br_addr[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_addr[0] :
+							hart_br_enable[1] ? commit_alu_br_addr[1] : 'bx;
+
+					assign commit_br[0][H] = 
+							hart_br_enable[0] ? commit_alu_br[0] :
+							hart_br_enable[1] ? commit_alu_br[1] : 'bx;
+				end else 
+				if (NALU == 3) begin
+					assign commit_br_short[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_short[0] :
+							hart_br_enable[1] ? commit_alu_br_short[1] :
+							hart_br_enable[2] ? commit_alu_br_short[2] : 'bx;
+			
+					assign commit_br_dec[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_dec[0] :
+							hart_br_enable[1] ? commit_alu_br_dec[1] :
+							hart_br_enable[2] ? commit_alu_br_dec[2] : 'bx;
+			
+					assign commit_br_addr[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_addr[0] :
+							hart_br_enable[1] ? commit_alu_br_addr[1] : 
+							hart_br_enable[2] ? commit_alu_br_addr[2] : 'bx;
+
+					assign commit_br[0][H] = 
+							hart_br_enable[0] ? commit_alu_br[0] :
+							hart_br_enable[1] ? commit_alu_br[1] : 
+							hart_br_enable[2] ? commit_alu_br[2] : 'bx;
+				end else
+				if (NALU == 4) begin
+					assign commit_br_short[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_short[0] :
+							hart_br_enable[1] ? commit_alu_br_short[1] :
+							hart_br_enable[2] ? commit_alu_br_short[2] : 
+							hart_br_enable[3] ? commit_alu_br_short[3] : 'bx;
+			
+					assign commit_br_dec[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_dec[0] :
+							hart_br_enable[1] ? commit_alu_br_dec[1] :
+							hart_br_enable[2] ? commit_alu_br_dec[2] : 
+							hart_br_enable[3] ? commit_alu_br_dec[3] : 'bx;
+			
+					assign commit_br_addr[0][H] = 
+							hart_br_enable[0] ? commit_alu_br_addr[0] :
+							hart_br_enable[1] ? commit_alu_br_addr[1] : 
+							hart_br_enable[2] ? commit_alu_br_addr[2] : 
+							hart_br_enable[3] ? commit_alu_br_addr[3] : 'bx;
+
+					assign commit_br[0][H] = 
+							hart_br_enable[0] ? commit_alu_br[0] :
+							hart_br_enable[1] ? commit_alu_br[1] : 
+							hart_br_enable[2] ? commit_alu_br[2] : 
+							hart_br_enable[3] ? commit_alu_br[3] : 'bx;
+				end else begin
+					assign commit_br_short[0][H] = 'bx;
+					assign commit_br_dec[0][H] = 'bx;
+					assign commit_br_addr[0][H] = 'bx;
+					assign commit_br[0][H] = 'bx;
+				end
+
+
+`else
 			for (B = 0; B < NBRANCH; B=B+1) begin: branch
 				assign local_reg_read_addr[2*B][H] = rs1_commit[local_alu_sched[B][H]][H];
 				always @(*) 
@@ -1731,6 +1863,7 @@ end
 					.commit_br_addr(commit_br_addr[B][H])
 					);
 			end
+`endif
 	
 			assign local_reg_read_addr[2*(NBRANCH)][H] = rs1_commit[local_alu_sched[NBRANCH][H]][H];
 			always @(*) 
@@ -1818,29 +1951,53 @@ end
 
 		for (H = 0; H < NHART; H=H+1) begin : registers
 `ifndef FP
+`ifdef COMBINED_BRANCH
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==19 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r44
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_19_1_8_1_8_32_2.inc"  
+				end 
+			end else
+`ifdef NSTORE2
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 2) begin :r22
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_15_1_6_1_8_32_2.inc"  
+				end 
+			end else
+`endif
+`ifdef NALU3
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==21 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 9 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_21_1_9_1_8_32_4.inc"  
+				end 
+			end else
+`endif
+		    begin
+			end
+`else	// combined
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==19 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r4
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_19_3_8_2_8_32_2.inc"  
 				end 
-`ifdef NSTORE2
 			end else
+`ifdef NSTORE2
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 2) begin :r22
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_15_3_6_2_8_32_2.inc"  
 				end 
+			end else
 `endif
 `ifdef NALU3
-			end else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r
-				if (NUM_TRANSFER_PORTS == 4) begin :x
-`include "rfile_15_3_7_2_4_32_1.inc"
-				end 
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_15_3_7_2_8_32_1.inc"  
 				end 
+			end else
 `endif
+		    begin
 			end
-`else
+`endif
+
+`else	// fp
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==14 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r4
 				if (NUM_TRANSFER_PORTS == 4) begin :x4
 `include "rfile_14_3_7_2_4_32_4.inc"
@@ -1851,9 +2008,6 @@ end
 `ifdef NALU3
 			end else
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==16 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r3
-				if (NUM_TRANSFER_PORTS == 4) begin :x4
-`include "rfile_16_3_8_2_4_32_4.inc"
-				end 
 				if (NUM_TRANSFER_PORTS == 8) begin :y4
 `include "rfile_16_3_8_2_8_32_4.inc"
 				end 
@@ -1863,7 +2017,53 @@ end
 		end
 
 
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrl2
+`ifdef COMBINED_BRANCH
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH==0) begin : alu_ctrl2
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_2_1_0_1_0.inc"
+`ifdef NALU3
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH==0) begin : alu_ctrl
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_3_1_0_1_0.inc"
+`endif
+		end
+`ifdef FP
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin : alu_ctrlf
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_2_1_0_1_1.inc"
+		end
+`endif
+
+
+`else
+
+
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH==1)) begin : alu_ctrl2
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
@@ -1876,7 +2076,7 @@ end
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_0.inc"
 `ifdef NALU3
 		end else
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 1) begin : alu_ctrl
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH==1) begin : alu_ctrl
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
@@ -1902,6 +2102,7 @@ end
 			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_1.inc"
 		end
+`endif
 `endif
 	endgenerate
 

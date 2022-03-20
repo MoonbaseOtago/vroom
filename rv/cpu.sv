@@ -2101,7 +2101,7 @@ end
 `else
 
 
-		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH==1)) begin : alu_ctrl2
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH==1) begin : alu_ctrl2
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),

@@ -43,10 +43,15 @@ DRAM = mmem.sv
 SYNTH = \
 	synth/vsram.v
 
-NALU3_1 = +define+NALU3
-NALU3_2 = -DNALU3
-#NALU3_1 = 
-#NALU3_2 = 
+#NALU_1 = +define+NALU4
+#NALU_2 = -DNALU4
+#MXREG = rfile_23_1_10_1_8_32_4.sv    # for NALU4 COMBINED
+NALU_1 = +define+NALU3
+NALU_2 = -DNALU3
+MXREG = rfile_21_1_9_1_8_32_4.sv   # for NALU3 COMBINED
+#NALU_1 = 
+#NALU_2 = 
+#MXREG = rfile_19_1_8_1_8_32_2.sv   # for NALU2 COMBINED
 
 
 NSTORE2_1 = 
@@ -64,8 +69,8 @@ CB_2 = -DCOMBINED_BRANCH
 # ------
 
 
-OPT_FLAG_1 = $(NALU3_1) $(NSTORE2_1) $(CB_1)
-OPT_FLAG_2 = $(NALU3_2) $(NSTORE2_2) $(CB_2)
+OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1)
+OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2)
 XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
 XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(OPT_FLAG_1)
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
@@ -98,7 +103,8 @@ MX12 = mk12_16.inc mk12_32.inc mk12_64.inc
 MX13 = mk13_8_2_1.inc mk13_16_2_1.inc mk13_32_2_1.inc mk13_8_2_2.inc mk13_16_2_2.inc mk13_32_2_2.inc mk13_16_4_4.inc mk13_32_4_4.inc 
 MX14 = mk14_6_4_4_1.inc mk14_4_2_2_1.inc
 MX15 = mk15_10_2.inc mk15_11_2.inc mk15_12_2.inc mk15_15_2.inc mk15_14_2.inc \
-	mk15_10_1.inc mk15_11_1.inc mk15_12_1.inc mk15_15_1.inc mk15_14_1.inc
+	mk15_10_1.inc mk15_11_1.inc mk15_12_1.inc mk15_15_1.inc mk15_14_1.inc \
+	mk15_16_1.inc mk15_16_2.inc
 MX16 = mk16_8.inc mk16_16.inc mk16_32.inc
 MX17 = mk17_1_6.inc mk17_1_5.inc  mk17_1_4.inc
 MX19 = mk19_64.inc 
@@ -107,8 +113,6 @@ MX21 = mk21_32_6_4_4_16.inc mk21_32_4_2_2_16.inc mk21_32_6_4_4_32.inc mk21_32_4_
 #MXREG = rfile_13_3_6_2_8_32_1.sv 
 #MXREG = rfile_15_3_7_2_8_32_1.sv
 #MXREG = rfile_19_3_8_2_8_32_2.sv
-#MXREG = rfile_19_1_8_1_8_32_2.sv
-MXREG = rfile_21_1_9_1_8_32_4.sv
 MXREGX= rfile_15_3_6_2_8_32_2.sv
 FMXREG = rfile_14_3_7_2_8_32_4.sv # rfile_16_3_8_2_8_32_4.sv
 #MXREG = rfile_16_3_7_2_8_32.sv
@@ -116,13 +120,14 @@ MXREGINC =  rfile_16_3_7_2_4_32_1.inc rfile_16_3_7_2_8_32_1.inc rfile_13_3_6_2_4
 	    rfile_16_3_7_2_4_32_4.inc rfile_16_3_7_2_8_32_4.inc rfile_13_3_6_2_4_32_4.inc rfile_13_3_6_2_8_32_4.inc \
 	   rfile_14_3_7_2_4_32_4.inc rfile_14_3_7_2_4_32_1.inc rfile_14_3_7_2_8_32_4.inc \
 	  rfile_15_3_7_2_4_32_1.inc rfile_15_3_7_2_8_32_1.inc rfile_15_3_6_2_8_32_2.inc rfile_15_3_6_2_4_32_2.inc \
-		rfile_19_3_8_2_8_32_2.inc  rfile_19_1_8_1_8_32_2.inc rfile_21_1_9_1_8_32_4.inc
+		rfile_19_3_8_2_8_32_2.inc  rfile_19_1_8_1_8_32_2.inc rfile_21_1_9_1_8_32_4.inc rfile_23_1_10_1_8_32_4.inc
 		
 MXCTRL = alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc  alu_ctrl_core_4_1_32_2_1_1_1_0.inc  alu_ctrl_inst_4_1_32_2_1_1_1_0.inc   alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc \
 	alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc alu_ctrl_core_4_1_32_2_1_1_1_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_1.inc alu_ctrl_inst_4_1_32_3_1_1_1_0.inc alu_ctrl_core_4_1_32_3_1_1_1_0.inc \
 	alu_ctrl_inst_4_1_32_2_1_0_1_1.inc alu_ctrl_inst_4_1_32_3_1_0_1_0.inc alu_ctrl_inst_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_core_4_1_32_2_1_0_1_1.inc alu_ctrl_core_4_1_32_3_1_0_1_0.inc alu_ctrl_core_4_1_32_2_1_0_1_0.inc \
-	alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc
+	alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc \
+	alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc alu_ctrl_core_4_1_32_4_1_0_1_0.inc alu_ctrl_inst_4_1_32_4_1_0_1_0.inc
 MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX11) $(MX12) $(MX13) $(MX14) $(MX15) $(MX16) $(MX17) $(MX19) $(MX20) $(MX21) $(MXREG) $(MXREGINC) $(MXCTRL) $(MXREGX)
 
 all:	svv
@@ -176,6 +181,13 @@ alu_ctrl_core_4_1_32_2_1_0_1_0.inc:	mkctrl
 	./mkctrl -core 4 1 32 2 1 0 1 0 >$@
 alu_ctrl_inst_4_1_32_2_1_0_1_0.inc:	mkctrl
 	./mkctrl -inst 4 1 32 2 1 0 1 0 >$@
+
+alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc:	mkctrl 
+	./mkctrl -hdr 4 1 32 4 1 0 1 0 >$@
+alu_ctrl_core_4_1_32_4_1_0_1_0.inc:	mkctrl
+	./mkctrl -core 4 1 32 4 1 0 1 0 >$@
+alu_ctrl_inst_4_1_32_4_1_0_1_0.inc:	mkctrl
+	./mkctrl -inst 4 1 32 4 1 0 1 0 >$@
 
 alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 3 1 0 1 0 >$@
@@ -293,6 +305,11 @@ rfile_21_1_9_1_8_32_4.sv:	rfile
 	./rfile      21 1 9 1 8 32 4 >$@
 rfile_21_1_9_1_8_32_4.inc:	rfile
 	./rfile -inc 21 1 9 1 8 32 4 >$@
+
+rfile_23_1_10_1_8_32_4.sv:	rfile
+	./rfile      23 1 10 1 8 32 4 >$@
+rfile_23_1_10_1_8_32_4.inc:	rfile
+	./rfile -inc 23 1 10 1 8 32 4 >$@
 
 rfile_12_3_5_2_4_32_1.sv:	rfile
 	./rfile 12 3 5 2 4 32 1 >$@
@@ -499,6 +516,8 @@ mk15_14_2.inc: mk15
 	./mk15 14 1 >$@
 mk15_15_2.inc: mk15
 	./mk15 15 1 >$@
+mk15_16_2.inc: mk15
+	./mk15 16 1 >$@
 mk15_10_1.inc: mk15
 	./mk15 10 1 >$@
 mk15_11_1.inc: mk15
@@ -509,6 +528,8 @@ mk15_14_1.inc: mk15
 	./mk15 14 1 >$@
 mk15_15_1.inc: mk15
 	./mk15 15 1 >$@
+mk15_16_1.inc: mk15
+	./mk15 16 1 >$@
 
 mk16:	mk16.c
 	gcc -o mk16 mk16.c

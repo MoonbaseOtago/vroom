@@ -151,10 +151,14 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	//
 	//	 how many of each type of datapath unit
 	//
+`ifdef NALU4
+	parameter NALU = 4;	
+`else
 `ifdef NALU3
 	parameter NALU = 3;	
 `else
 	parameter NALU = 2;	
+`endif
 `endif
 	parameter NSHIFT = 1;
 `ifdef NADDR4
@@ -1369,6 +1373,9 @@ end
 		end
 
 		if (N_LOCAL_UNITS == 1) begin
+			if (N_GLOBAL_UNITS == (4+6+4+1+1+0)) begin
+`include "mk15_16_1.inc"
+			end
 			if (N_GLOBAL_UNITS == (3+6+4+1+1+0)) begin
 `include "mk15_15_1.inc"
 			end
@@ -1386,6 +1393,9 @@ end
 			end
 		end else
 		if (N_LOCAL_UNITS == 2) begin
+			if (N_GLOBAL_UNITS == (4+6+4+1+1+0)) begin
+`include "mk15_16_2.inc"
+			end
 			if (N_GLOBAL_UNITS == (3+6+4+1+1+0)) begin
 `include "mk15_15_2.inc"
 			end
@@ -1971,6 +1981,13 @@ end
 				end 
 			end else
 `endif
+`ifdef NALU4
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==23 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 10 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_23_1_10_1_8_32_4.inc"  
+				end 
+			end else
+`endif
 		    begin
 			end
 `else	// combined
@@ -1983,6 +2000,13 @@ end
 			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==15 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 6 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 2) begin :r22
 				if (NUM_TRANSFER_PORTS == 8) begin :y
 `include "rfile_15_3_6_2_8_32_2.inc"  
+				end 
+			end else
+`endif
+`ifdef NALU4
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==17 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 1) begin :r
+				if (NUM_TRANSFER_PORTS == 8) begin :y
+`include "rfile_17_3_8_2_8_32_1.inc"  
 				end 
 			end else
 `endif
@@ -2029,6 +2053,20 @@ end
 `endif
 			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_0_1_0.inc"
+`ifdef NALU4
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH==0) begin : alu_ctrl
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+			// note missing close ");" is missing (comes from the include file) on purpose here 
+`include "alu_ctrl_inst_4_1_32_4_1_0_1_0.inc"
+`endif
 `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH==0) begin : alu_ctrl

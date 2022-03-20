@@ -50,10 +50,14 @@ module alu_ctrl(
 `ifdef FP
 `include "alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc"
 `else
+`ifdef NALU4
+`include "alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc"
+`else
 `ifdef NALU3
 `include "alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc"
 `else
 `include "alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc"
+`endif
 `endif
 `endif
 `else
@@ -97,6 +101,11 @@ module alu_ctrl(
 `endif
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
 `include "alu_ctrl_core_4_1_32_2_1_0_1_0.inc"
+`ifdef NALU4
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin
+`include "alu_ctrl_core_4_1_32_4_1_0_1_0.inc"
+`endif
 `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin

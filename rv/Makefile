@@ -734,5 +734,5 @@ t:	t.S link.ld
 
 VLIST =  $(CPU) $(MXREG) 
 v2v:	$(CPU) $(MXA) $(INCLUDES) 
-	~/sky/sv2v/bin/sv2v $(VLIST) -I . -w ~/sky/OpenLane/designs/rv/src/cpu.v  
+	~/sky/sv2v/bin/sv2v --define=VSYNTH2 --define=COMBINED_BRANCH $(VLIST) -I . -w ~/sky/OpenLane/designs/rv/src/cpu.v  
 

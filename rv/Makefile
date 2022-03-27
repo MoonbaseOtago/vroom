@@ -8,6 +8,7 @@ CPU = \
 	mul.sv \
 	alu_ctrl.sv \
 	csr.sv \
+	$(TRACE_V) \
 	pc.sv \
 	bpred.sv \
 	dtlb.sv \
@@ -53,6 +54,12 @@ MXREG = rfile_21_1_9_1_8_32_4.sv   # for NALU3 COMBINED
 #NALU_2 = 
 #MXREG = rfile_19_1_8_1_8_32_2.sv   # for NALU2 COMBINED
 
+TRACE_1 = +define+TRACE_CACHE
+TRACE_2 = -DTRACE_CACHE
+TRACE_V = trc.sv
+#TRACE_1 = 
+#TRACE_2 = 
+#TRACE_V = 
 
 NSTORE2_1 = 
 NSTORE2_2 = 
@@ -69,8 +76,8 @@ CB_2 = -DCOMBINED_BRANCH
 # ------
 
 
-OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1)
-OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2)
+OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1)
+OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2)
 XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
 XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(OPT_FLAG_1)
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
@@ -110,6 +117,8 @@ MX17 = mk17_1_6.inc mk17_1_5.inc  mk17_1_4.inc
 MX19 = mk19_64.inc 
 MX20 = mk20_32_8.inc mk20_32_16.inc
 MX21 = mk21_32_6_4_4_16.inc mk21_32_4_2_2_16.inc mk21_32_6_4_4_32.inc mk21_32_4_2_2_32.inc
+MX22 = mk22_16_8.inc mk22_32_8.inc mk22_64_8.inc
+MX23 = mk23_8.inc 
 #MXREG = rfile_13_3_6_2_8_32_1.sv 
 #MXREG = rfile_15_3_7_2_8_32_1.sv
 #MXREG = rfile_19_3_8_2_8_32_2.sv
@@ -128,7 +137,7 @@ MXCTRL = alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc  alu_ctrl_core_4_1_32_2_1_1_1_0.inc  
 	alu_ctrl_core_4_1_32_2_1_0_1_1.inc alu_ctrl_core_4_1_32_3_1_0_1_0.inc alu_ctrl_core_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc alu_ctrl_core_4_1_32_4_1_0_1_0.inc alu_ctrl_inst_4_1_32_4_1_0_1_0.inc
-MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX11) $(MX12) $(MX13) $(MX14) $(MX15) $(MX16) $(MX17) $(MX19) $(MX20) $(MX21) $(MXREG) $(MXREGINC) $(MXCTRL) $(MXREGX)
+MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX11) $(MX12) $(MX13) $(MX14) $(MX15) $(MX16) $(MX17) $(MX19) $(MX20) $(MX21) $(MX22) $(MX23) $(MXREG) $(MXREGINC) $(MXCTRL) $(MXREGX)
 
 all:	svv
 
@@ -585,6 +594,21 @@ mk21_32_6_4_4_32.inc:	mk21
 mk21_32_4_2_2_32.inc:	mk21
 	./mk21 32 4 2 2 32  >$@
 
+mk22:	mk22.c
+	gcc -o mk22 mk22.c
+
+mk22_16_8.inc: mk22
+	./mk22 16 8 >$@
+mk22_32_8.inc: mk22
+	./mk22 32 8 >$@
+mk22_64_8.inc: mk22
+	./mk22 64 8 >$@
+
+mk23:	mk23.c
+	gcc -o mk23 mk23.c
+
+mk23_8.inc: mk23
+	./mk23 8 >$@
 
 mkf1:	mkf1.c
 	gcc -o mkf1 mkf1.c

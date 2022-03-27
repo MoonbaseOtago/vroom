@@ -1,0 +1,62 @@
+//
+// RVOOM! Risc-V superscalar O-O
+// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+
+`ifndef TRC_SI
+`define TRC_SI
+
+// what we store in the trace cache
+interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5);
+	typedef struct packed {
+		bit     [VA_SZ-1:1]pc;			// 63
+		bit      [ 4: 0]rd;			// 5
+		bit      [ 4: 0]rs1;		// 5
+		bit      [ 4: 0]rs2;		// 5
+		bit      [ 4: 0]rs3;		// 5
+		bit             makes_rd;	// 1
+		bit				needs_r2;	// 1
+		bit				needs_r3;	// 1
+		bit      [ 3: 0]unit_type;	// 4
+		bit[CNTRL_SIZE-1:0]control;	// 7
+		bit       [31:0]immed;		// 32
+		bit				rd_fp;		// 1
+		bit				rs1_fp;		// 1
+		bit				rs2_fp;		// 1
+		bit				rs3_fp;		// 1
+		bit     [VA_SZ-1:1]pc_dest;	// 63
+		bit			    start;		// 1
+		bit				short_ins;	// 1
+	} bundle;				// 198 bits worth of state
+	bundle b[0:NRETIRE-1];
+	// (not part of stored bundle)
+	bit	[NRETIRE-1:0]valid;		// Nth entry is valid
+	bit	[NRETIRE-1:0]branched;	// next ins is pc_dest otherwise
+endinterface
+
+`endif
+/* For Emacs:
+ * Local Variables:
+ * mode:c
+ * indent-tabs-mode:t
+ * tab-width:4
+ * c-basic-offset:4
+ * End:
+ * For VIM:
+ * vim:set softtabstop=4 shiftwidth=4 tabstop=4:
+ */
+
+

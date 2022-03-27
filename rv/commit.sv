@@ -61,6 +61,7 @@ module commit_ctrl(input clk,
     parameter NHART=1;      
     parameter BDEC= 4;
 	parameter RV=64;
+	parameter VA_SZ=48;
     parameter NA=6;
     parameter RA=6;
     parameter HART=0;
@@ -191,7 +192,6 @@ module commit(input clk,
 `ifdef SIMD
 	input simd_enable,
 `endif
-
 	input [RA-1:0]rs1,
 	input [4:0]real_rs1,
 	input [RA-1:0]rs2,
@@ -201,6 +201,8 @@ module commit(input clk,
 	input [4:0]rd,
 	input [31:0]immed,
 	input       makes_rd,
+	input       short,
+	input       start,
 	input       needs_rs2,
 	input       needs_rs3,
 `ifdef FP
@@ -210,8 +212,8 @@ module commit(input clk,
 	input		rs3_fp,
 `endif
 	input [CNTRL_SIZE-1:0]control,
-	input [RV-1:1]pc,
-	input [RV-1:1]pc_dest,
+	input [VA_SZ-1:1]pc,
+	input [VA_SZ-1:1]pc_dest,
 	input [$clog2(NUM_PENDING)-1:0]branch_token,
 	input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret,
 	input  [3:0]unit_type,       // 0 ALU, 1 shift, 2 mul/dev, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
@@ -229,6 +231,8 @@ module commit(input clk,
 	output [ 4:0]rd_out,
 	output [31:0]immed_out,
 	output       makes_rd_out,
+	output       short_out,
+	output       start_out,
 `ifdef FP
 	output		 fpu_ready,
 `endif
@@ -242,8 +246,8 @@ module commit(input clk,
 `endif
 	output [CNTRL_SIZE-1:0]control_out,
 	output     [3:0]unit_type_out,
-	output  [RV-1:1]pc_out,
-	output  [RV-1:1]branch_dest_out,
+	output  [VA_SZ-1:1]pc_out,
+	output  [VA_SZ-1:1]branch_dest_out,
 	output  [BDEC-1:1]branch_dec_out,
 	output		 branch_taken_out,
 	output [$clog2(NUM_PENDING)-1:0]branch_token_out,
@@ -276,8 +280,8 @@ module commit(input clk,
 
     output commit_branch,
     output commit_branch_ok,
-    output  [RV-1:1]commit_update_pc,
-    output  [RV-1:1]commit_update_dest,
+    output  [VA_SZ-1:1]commit_update_pc,
+    output  [VA_SZ-1:1]commit_update_dest,
     output      commit_update_taken,
     output      commit_update_short_pc,
 	
@@ -315,6 +319,7 @@ module commit(input clk,
     parameter RA=6;
     parameter HART=0;
 	parameter RV=64;
+	parameter VA_SZ=48;
     parameter NCOMMIT = 32; // number of commit register
     parameter LNCOMMIT = 5; // number of bits to encode that
 	parameter CALL_STACK_SIZE = 32;
@@ -333,6 +338,8 @@ module commit(input clk,
 	reg [ 4:0]r_real_rs3;
 	reg [31:0]r_immed;
 	reg       r_makes_rd;
+	reg       r_start, c_start;
+	reg       r_short, c_short;
 	reg       r_needs_rs2;
 	reg       r_needs_rs3;
 `ifdef FP
@@ -342,7 +349,7 @@ module commit(input clk,
 	reg		  r_rs3_fp;
 `endif
 	reg [CNTRL_SIZE-1:0]r_control, c_control;
-	reg [RV-1:1]r_pc;
+	reg [VA_SZ-1:1]r_pc;
 	reg  [3:0]r_unit_type, c_unit_type;
 	reg		  ready;
 	assign rs1_out = r_rs1;
@@ -351,6 +358,8 @@ module commit(input clk,
 	assign rd_out = r_rd;
 	assign immed_out = r_immed;
 	assign makes_rd_out = r_makes_rd;
+	assign short_out = r_short;
+	assign start_out = r_start;
 	assign needs_rs2_out = r_needs_rs2;
 	assign needs_rs3_out = r_needs_rs3;
 `ifdef FP
@@ -372,7 +381,7 @@ module commit(input clk,
     assign commit_update_pc = r_pc;
 	assign	branch_dec_out = r_pc[BDEC-1:1];
 	assign	branch_taken_out = ~r_control[5];
-	reg [RV-1:1]r_pc_dest;
+	reg [VA_SZ-1:1]r_pc_dest;
 	assign branch_dest_out = r_pc_dest;
 	reg [$clog2(NUM_PENDING)-1:0]r_branch_token;
 	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret;
@@ -549,6 +558,8 @@ module commit(input clk,
 		c_unit_type = r_unit_type;
 		c_vm_stall = r_vm_stall;
 		c_br_ok = r_br_ok;
+		c_short = r_short;
+		c_start = r_start;
 		if (reset) begin
 `ifdef FP
 			c_rd_fp = 0;
@@ -572,6 +583,8 @@ module commit(input clk,
 `ifdef FP
 			c_rd_fp = rd_fp&makes_rd;
 `endif
+			c_short = short;
+			c_start = start;
 			c_done = 0;
 			c_addr_done = 0;
 			c_busy = 0;
@@ -1003,6 +1016,8 @@ module commit(input clk,
 			r_rd <= rd;
 			r_immed <= immed;
 			r_makes_rd <= makes_rd;
+			r_short <= c_short;
+			r_start <= c_start;
 			r_needs_rs2 <= needs_rs2;
 			r_needs_rs3 <= needs_rs3;
 `ifdef FP

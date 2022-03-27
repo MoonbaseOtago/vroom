@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,8 +16,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
-//module bpred_state(input clk,  input reset,
-
 `include "pred_context.si"
 
 //`define XDEBUG 1
@@ -32,10 +30,10 @@ module bpred(input clk,  input reset,
 		input				 clear_user,				// clear user history
 		input				 clear_sup,					// clear sup history
 
-		input        [RV-1:1]pc,						// pc we're predicting
+		input     [VA_SZ-1:1]pc,						// pc we're predicting
 		output				 predict_branch_valid,		// we have a valid prediction
 		output				 predict_branch_taken,		// predict we're taking this branch
-		output		 [RV-1:1]predict_branch_pc,			// predicted destination
+		output	  [VA_SZ-1:1]predict_branch_pc,			// predicted destination
 	    output [$clog2(2*NDEC)-1:0]predict_branch_decoder,	// predict decoder
 
 		input				 prediction_used,			// we used a prediction
@@ -47,18 +45,18 @@ module bpred(input clk,  input reset,
 		output PRED_STATE	 prediction_context,
 
 		input				 push_enable,				// true if there's one or more branches here
-		input		 [RV-1:1]push_pc,					// pc we fetched with
+		input	  [VA_SZ-1:1]push_pc,				// pc we fetched with
 		input				 push_noissue,				// it is an unconditional branch - it wont show up in the 
 														// completion stage
 	    input [$clog2(2*NDEC)-1:0]push_branch_decoder,	// predict decoder (taken branch offst)
-		input		 [RV-1:1]push_dest,					// branch dest (if taken)
+		input	  [VA_SZ-1:1]push_dest,				// branch dest (if taken)
 		input				 push_taken,				// true if branch was taken
 		output [$clog2(NUM_PENDING)-1:0]push_token,		// token for when we fail
 		output [$clog2(NUM_PENDING_RET)-1:0]push_token_ret,
 		input PRED_STATE	 push_context,
 
         input				 fixup_dest,				// fix up prediction
-        input	     [RV-1:1]fixup_dest_pc,
+        input	  [VA_SZ-1:1]fixup_dest_pc,
         input	   [BDEC-1:1]fixup_dest_dec,
 
 
@@ -68,7 +66,7 @@ module bpred(input clk,  input reset,
 		input				 commit_shootdown_taken,	// commitq break shootdown (branch miss)
 		input [$clog2(NUM_PENDING)-1:0]commit_shootdown_token,	// latest killed entry
 		input [$clog2(NUM_PENDING_RET)-1:0]commit_shootdown_token_ret,
-		input        [RV-1:1]commit_shootdown_dest,			// 
+		input     [VA_SZ-1:1]commit_shootdown_dest,			// 
 		input      [BDEC-1:1]commit_shootdown_dec,
 		input				 commit_shootdown_short,
 
@@ -76,15 +74,15 @@ module bpred(input clk,  input reset,
 		input [NUM_PENDING_RET-1:0]commit_token_ret,
 
 		input				 push_cs_stack, 
-		input		 [RV-1:1]ret_addr,
+		input	  [VA_SZ-1:1]ret_addr,
 		input				 pop_cs_stack,
 		output				 pop_available,
 		output				 return_branch_valid,
-		output		 [RV-1:1]return_branch_pc
+		output	  [VA_SZ-1:1]return_branch_pc
 		
 	);
 
-	parameter RV=64;
+	parameter VA_SZ=48;
 	parameter NDEC=4;
 	parameter BDEC=4;
 	parameter CALL_STACK_SIZE=32;
@@ -131,7 +129,7 @@ module bpred(input clk,  input reset,
 
 	wire [2:0]pop_available_x;
 	wire [2:0]return_branch_valid_x;
-	wire [RV-1:1]return_branch_pc_x[0:2];
+	wire [VA_SZ-1:1]return_branch_pc_x[0:2];
 	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_x[0:2];
 	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_x_p[0:2];
 	wire [$clog2(CALL_STACK_SIZE)-1:0]cs_top_x_n[0:2];
@@ -139,7 +137,7 @@ module bpred(input clk,  input reset,
 	reg			pop_available_m;
 	assign pop_available = pop_available_m;
 	assign return_branch_valid = pop_available_m;
-	reg [RV-1:1]return_branch_pc_m;
+	reg [VA_SZ-1:1]return_branch_pc_m;
 	assign return_branch_pc = return_branch_pc_m;
 	reg [$clog2(CALL_STACK_SIZE)-1:0]cs_top_m;
 	reg [$clog2(CALL_STACK_SIZE)-1:0]cs_top_m_p;
@@ -169,7 +167,7 @@ module bpred(input clk,  input reset,
 
 	generate
 		for (M = 0; M < 3; M=M+1) begin: callstack
-			reg [RV-1:1]r_call_stack[0:(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1];
+			reg [VA_SZ-1:1]r_call_stack[0:(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1];
 			reg [(M==2?MCALL_STACK_SIZE:CALL_STACK_SIZE)-1:0]r_call_stack_valid;
 			assign pop_available_x[M] = r_call_stack_valid[r_cs_top];
 			assign return_branch_pc_x[M] = r_call_stack[r_cs_top];
@@ -255,7 +253,7 @@ module bpred(input clk,  input reset,
 	reg	        [NUM_PENDING_RET-1:0]r_ps_valid;	
 	reg	        [NUM_PENDING_RET-1:0]r_ps_committed;	
 	reg	        [NUM_PENDING_RET-1:0]r_ps_push;	
-	reg                      [RV-1:1]r_ps_return[0:NUM_PENDING_RET-1];
+	reg                      [VA_SZ-1:1]r_ps_return[0:NUM_PENDING_RET-1];
 	reg [$clog2(CALL_STACK_SIZE)-1:0]r_ps_sp[0:NUM_PENDING_RET-1];
 
 	reg [$clog2(NUM_PENDING_RET)-1:0]r_ps_in;
@@ -419,7 +417,7 @@ module bpred(input clk,  input reset,
 	wire	[1:0]global_xprediction[0:2];
 	wire [2:0]global_tag_hit;
 	wire	[BDEC-1-1:0]global_xdec[0:2];
-	wire	[RV-1:1]global_xdest[0:2];
+	wire	[VA_SZ-1:1]global_xdest[0:2];
 	reg	[$clog2(NUM_PENDING)-1:0]global_pred_index;
 	wire [GLOBAL_HISTORY*4-1:0]global_xhistory[0:2];
 
@@ -455,7 +453,7 @@ module bpred(input clk,  input reset,
 			end
 			assign global_xhistory[M] = r_global_history;
 			reg		[2*(1<<NUM_GLOBAL)-1:0]r_global_tables;					// global history tables (counter 0-3 >=2 means taken)
-			reg		[RV-1:1]r_global_dest[0:(1<<NUM_GLOBAL)-1];				// dest target
+			reg		[VA_SZ-1:1]r_global_dest[0:(1<<NUM_GLOBAL)-1];				// dest target
 			reg		[VTAG_SIZE-1:0]r_global_tag[0:(1<<NUM_GLOBAL)-1];
 			reg		[(1<<NUM_GLOBAL)-1:0]r_global_tag_valid;
 			reg		[BDEC-1-1:0]r_global_dec[0:(1<<NUM_GLOBAL)-1];			// global history tables decoder offset
@@ -532,7 +530,7 @@ module bpred(input clk,  input reset,
 
 
 	reg	               [1:0]global_prediction;
-	reg	            [RV-1:1]global_dest;
+	reg	            [VA_SZ-1:1]global_dest;
 	reg	        [BDEC-1-1:0]global_dec;
 	reg	[GLOBAL_HISTORY*4-1:0]global_history;
 	reg     [NUM_GLOBAL-1:0]global_index;
@@ -585,7 +583,7 @@ module bpred(input clk,  input reset,
 	wire [1:0]bimodal_xprediction[0:2];
 	wire [2:0]bimodal_tag_hit;
 	wire [BDEC-1-1:0]bimodal_xdec[0:2];
-	wire  [RV-1:1]bimodal_xdest[0:2];
+	wire  [VA_SZ-1:1]bimodal_xdest[0:2];
 
 	reg	[$clog2(NUM_PENDING)-1:0]bimodal_pred_index;
 
@@ -593,7 +591,7 @@ module bpred(input clk,  input reset,
 		for (M = 0; M < 3; M=M+1) begin : bi
 			reg		[2*(1<<NUM_BIMODAL)-1:0]r_bimodal_tables;	// bimodal history tables (counter 0-3 >=2 means taken)
 			reg		[BDEC-1-1:0]r_bimodal_dec[0:(1<<NUM_BIMODAL)-1];	// bimodal history tables decoder offset
-			reg		[RV-1:1]r_bimodal_dest[0:(1<<NUM_BIMODAL)-1];	
+			reg		[VA_SZ-1:1]r_bimodal_dest[0:(1<<NUM_BIMODAL)-1];	
 			reg		[VTAG_SIZE-1:0]r_bimodal_tag[0:(1<<NUM_BIMODAL)-1];
 			reg		[(1<<NUM_BIMODAL)-1:0]r_bimodal_tag_valid;
 			assign bimodal_xprediction[M] = {r_bimodal_tables[{bimodal_index,1'b1}], r_bimodal_tables[{bimodal_index,1'b0}]};
@@ -628,7 +626,7 @@ module bpred(input clk,  input reset,
 
 	reg	[1:0]bimodal_prediction;
 	reg	[BDEC-1-1:0]bimodal_dec;
-	reg	[RV-1:1]bimodal_dest;
+	reg	[VA_SZ-1:1]bimodal_dest;
 	always @(*) begin
 		if (|bimodal_pend_prediction_valid) begin		
 			bimodal_prediction = r_pend_bimodal_pred[bimodal_pred_index];
@@ -695,7 +693,7 @@ module bpred(input clk,  input reset,
 
 
 	reg [BDEC-1-1:0]predict_dec;
-	reg     [RV-1:1]predict_dest;
+	reg     [VA_SZ-1:1]predict_dest;
 	reg				predict_valid;
 
 	always @(*) 
@@ -760,8 +758,8 @@ module bpred(input clk,  input reset,
 	reg		[NUM_PENDING-1:0]r_pend_valid;
 	reg		[NUM_PENDING-1:0]r_pend_committed;
 	reg		[NUM_PENDING-1:0]r_pend_taken;
-	reg		[RV-1:1]r_pend_dest[0:NUM_PENDING-1];
-	reg		[RV-1:1]r_pend_pc[0:NUM_PENDING-1];
+	reg		[VA_SZ-1:1]r_pend_dest[0:NUM_PENDING-1];
+	reg		[VA_SZ-1:1]r_pend_pc[0:NUM_PENDING-1];
 	reg		[GLOBAL_HISTORY*4-1:0]r_pend_global_history[0:NUM_PENDING-1];
 wire	[GLOBAL_HISTORY*4-1:0]r_pend_global_history0=r_pend_global_history[r_pend_out];
 	reg		[1:0]r_pend_global_pred[0:NUM_PENDING-1];
@@ -778,8 +776,8 @@ wire	[GLOBAL_HISTORY*4-1:0]r_pend_global_history0=r_pend_global_history[r_pend_o
 	reg		[NUM_PENDING-1:0]bimodal_pend_prediction_valid;
 	reg		[NUM_PENDING-1:0]combined_pend_prediction_valid;
 
-wire [RV-1:1]r_pend_pc0 = r_pend_pc[r_pend_out];		// this is just debug stuff
-wire [RV-1:1]r_pend_dest0 = r_pend_dest[r_pend_out];
+wire [VA_SZ-1:1]r_pend_pc0 = r_pend_pc[r_pend_out];		// this is just debug stuff
+wire [VA_SZ-1:1]r_pend_dest0 = r_pend_dest[r_pend_out];
 wire [BDEC-1:1]r_pend_dec0 = r_pend_dec[r_pend_out];
 wire         r_pend_taken0 = r_pend_taken[r_pend_out];
 wire pend_writeback = r_pend_valid[r_pend_out] && r_pend_committed[r_pend_out];

@@ -27,14 +27,15 @@ module rename_ctrl(
 
 		output				force_fetch_rename,
 
-		input   [RV-1:1]pc_dest,
-		output   [RV-1:1]pc_dest_out,
+		input   [VA_SZ-1:1]pc_dest,
+		output   [VA_SZ-1:1]pc_dest_out,
 
 		output  [LNCOMMIT-1:0]count_out,
 		output  [3:0]rename_count_out,
 		output 	    proceed,
 		output		rename_reloading,
 		output	    rename_stall);
+        parameter VA_SZ=48;
         parameter CNTRL_SIZE=7;
         parameter NDEC = 4; // number of decode stages
         parameter NHART=1;      
@@ -82,7 +83,7 @@ module rename_ctrl(
     always @(posedge clk)
 		r_stall <= (reset||commit_int_force_fetch?0:{r_stall[0], stall_in});
 
-	reg   [RV-1:1]r_pc_dest_out;
+	reg   [VA_SZ-1:1]r_pc_dest_out;
 	assign  pc_dest_out = r_pc_dest_out;
 
 	always @(posedge clk)
@@ -234,9 +235,11 @@ module rename(
 		input			rs2_fp,
 		input			rs3_fp,
 		input           makes_rd,
+		input			start,
+		input			short,
 		input [CNTRL_SIZE-1:0]control,
 		input  [3:0]unit_type,
-		input   [RV-1:1]pc,
+		input   [VA_SZ-1:1]pc,
 		input    [LNCOMMIT-1: 0]next_start,
 		input	[RA-1: 0]renamed_rs1,
 		input	[RA-1: 0]renamed_rs2,
@@ -279,9 +282,11 @@ module rename(
 		output			 rs1_fp_out,
 		output			 rs2_fp_out,
 		output			 rs3_fp_out,
+		output			 start_out,
+		output			 short_out,
 		output [CNTRL_SIZE-1:0]control_out,
 		output  [3:0]unit_type_out,
-		output   [RV-1:1]pc_out,
+		output   [VA_SZ-1:1]pc_out,
 		output 		will_be_valid,
 		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
@@ -297,6 +302,7 @@ module rename(
 	parameter BDEC = 4;
 	parameter RA=5;
 	parameter RV=64;
+	parameter VA_SZ=48;
 	parameter NCOMMIT=5;
 	parameter LNCOMMIT=5;
 	parameter NUM_PENDING=32;
@@ -320,13 +326,15 @@ module rename(
 	reg           r_needs_rs2_out;
 	reg           r_needs_rs3_out;
 	reg           r_makes_rd_out;
+	reg           r_start_out;
+	reg           r_short_out;
 	reg			  r_rd_fp_out;
 	reg			  r_rs1_fp_out;
 	reg			  r_rs2_fp_out;
 	reg			  r_rs3_fp_out;
 	reg [CNTRL_SIZE-1:0]r_control_out;
 	reg  [3:0]r_unit_type_out;
-	reg   [RV-1:1]r_pc_out;
+	reg   [VA_SZ-1:1]r_pc_out;
 	reg		r_valid_out;
 	assign  rs1_out = r_rs1_out;
 	assign  rs2_out = r_rs2_out;
@@ -340,6 +348,8 @@ module rename(
 	assign	rs2_fp_out = r_rs2_fp_out;
 	assign	rs3_fp_out = r_rs3_fp_out;
 	assign  makes_rd_out = r_makes_rd_out;
+	assign  start_out = r_start_out;
+	assign  short_out = r_short_out;
 	assign  control_out = r_control_out;
 	assign  unit_type_out = r_unit_type_out;
 	assign  pc_out = r_pc_out;
@@ -419,13 +429,15 @@ module rename(
 			r_needs_rs2_out <= 0;
 			r_needs_rs3_out <= 0;
 			r_makes_rd_out <= 1;
+			r_short_out <= 0;
+			r_start_out <= 0;
 			r_rd_fp_out <= 0;
 			r_rs1_fp_out <= 0;
 			r_rs2_fp_out <= 0;
 			r_rs3_fp_out <= 0;
 			r_control_out <= (rv32?{1'bx, 1'b0, 1'b0, 1'b0, 2'b10} :{1'bx, 1'b0, 1'b0, 1'b0, 2'b11});
 			r_unit_type_out <= 3;
-			r_pc_out <= commit_trap_br;
+			r_pc_out <= commit_trap_br[VA_SZ-1:1];
 			r_valid_out <= 1;
 			r_branch_token_out <= 0;
 			r_branch_token_ret_out <= 0;
@@ -449,9 +461,11 @@ module rename(
 			r_needs_rs2_out <= 0;
 			r_needs_rs3_out <= 0;
 			r_makes_rd_out <= 0;
+			r_short_out <= 0;
+			r_start_out <= 0;
 			r_control_out <= {2'b01, 4'd1};
 			r_unit_type_out <= 7;
-			r_pc_out <= commit_trap_br;
+			r_pc_out <= commit_trap_br[VA_SZ-1:1];
 			r_valid_out <= 1;
 			r_branch_token_out <= 0;
 			r_branch_token_ret_out <= 0;
@@ -473,6 +487,8 @@ module rename(
 		r_needs_rs2_out <= needs_rs2;
 		r_needs_rs3_out <= needs_rs3;
 		r_makes_rd_out <= makes_rd;
+		r_short_out <= short;
+		r_start_out <= start;
 		r_rd_fp_out <= rd_fp;
 		r_rs1_fp_out <= rs1_fp;
 		r_rs2_fp_out <= rs2_fp;

@@ -27,34 +27,39 @@ module decode_partial(input clk,
 
 		input		save_partial,
 		input [15:0]partial_ins,
-		input [RV-1:BDEC]decode_pc,
+		input [VA_SZ-1:BDEC]decode_pc,
+		input		partial_start,
 
 		output [15:0]last_partial,
 		output		 partial_valid_out,
 		output		 partial_valid_out_int,
-		output [RV-1:1] partial_pc);
+		output		 partial_start_out,
+		output [VA_SZ-1:1] partial_pc);
 
     parameter NDEC = 4; // number of decode stages
     parameter NHART=1;
     parameter LNHART=0;
     parameter BDEC=4;
     parameter RV=64;
+    parameter VA_SZ=48;
 
 	reg [15:0]r_ins;
 	assign last_partial = r_ins;
 
-	reg [RV-1:BDEC]r_pc;
+	reg [VA_SZ-1:BDEC]r_pc;
 	wire [BDEC-1:1]nd = (NDEC-1+NDEC);
 	assign partial_pc = {r_pc, nd};
 
-	reg r_valid, r_valid_int;
+	reg r_valid, r_valid_int, r_start;
 	assign partial_valid_out=r_valid&!partial_nuke_now;
 	assign partial_valid_out_int = r_valid;
+	assign partial_start_out = r_start;
 
 	always @(posedge clk)
 	if (!rename_stall && valid_fetch) begin
 		r_ins <= partial_ins;
 		r_pc <= decode_pc;
+		r_start <= partial_start;
 	end
 
 	always @(posedge clk)
@@ -108,12 +113,12 @@ module decode(input clk,
 		input [3:0]cpu_mode,  // 0 user, 1 sup, 3 machine
 		input [5:0]timer_prot,
 		input [31:0]ins,
-		input [RV-1:1]pc,
+		input [VA_SZ-1:1]pc,
 
 		input	[15:0]partial_ins_in,
 		output	[15:0]partial_ins_out,
-		input [RV-1:1]partial_pc_in,
-		output[RV-1:1]partial_pc_out,
+		input [VA_SZ-1:1]partial_pc_in,
+		output[VA_SZ-1:1]partial_pc_out,
 		input		  partial_valid_in,
 		input		  partial_valid_int_in,
 		output		  partial_valid_out,
@@ -156,11 +161,13 @@ module decode(input clk,
 		output		 rs3_fp_1,
 		output		 rd_fp_1,
 		output [31:0]immed_1,
+		output		start_1,
+		output		short_1,
 		output		makes_rd_1,
 		output		needs_rs2_1,
 		output		needs_rs3_1,
 		output [CNTRL_SIZE-1:0]control_1,
-		output [RV-1:1]pc_1,
+		output [VA_SZ-1:1]pc_1,
 		output  [3:0]unit_type_1,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 		output	     jumping_rel_jmp_1,
 		output	     jumping_rel_jmp_end_1,
@@ -184,11 +191,13 @@ module decode(input clk,
 		output		 rs3_fp_2,
 		output		 rd_fp_2,
 		output [31:0]immed_2,
+		output		start_2,
+		output		short_2,
 		output		makes_rd_2,
 		output		needs_rs2_2,
 		output		needs_rs3_2,
 		output [CNTRL_SIZE-1:0]control_2,
-		output [RV-1:1]pc_2,
+		output [VA_SZ-1:1]pc_2,
 		output  [3:0]unit_type_2,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 		output	     jumping_rel_jmp_2,
 		output	     jumping_rel_jmp_end_2,
@@ -205,6 +214,7 @@ module decode(input clk,
 		output [31:0]trap_ins
 		);
 
+    parameter VA_SZ=48;
 	parameter RV=64;
 	parameter RN=7;
 	parameter CNTRL_SIZE=7;
@@ -220,17 +230,17 @@ module decode(input clk,
 	wire b = 0;
 `endif
 
-	reg [RV-1:1]r_pc_1;
-	wire [RV-1:1]c_pc_1;
-	reg [RV-1:BDEC]r_pc_2;
+	reg [VA_SZ-1:1]r_pc_1;
+	wire [VA_SZ-1:1]c_pc_1;
+	reg [VA_SZ-1:BDEC]r_pc_2;
 
 	wire [BDEC-1:1]pc_1_lo = {ADDR[BDEC-2:0], 1'b0};
 	wire [BDEC-1:1]pc_2_lo = {ADDR[BDEC-2:0], 1'b1};
-	assign c_pc_1 = (issue_fetch_trap|(issue_interrupt&fetch_branched)?pc:partial_valid_in||issue_interrupt&partial_valid_int_in?partial_pc_in:{pc[RV-1:BDEC],pc_1_lo});
+	assign c_pc_1 = (issue_fetch_trap|(issue_interrupt&fetch_branched)?pc:partial_valid_in||issue_interrupt&partial_valid_int_in?partial_pc_in:{pc[VA_SZ-1:BDEC],pc_1_lo});
 	assign pc_1 = r_pc_1;
 	assign pc_2 = {r_pc_2,pc_2_lo};
 	assign partial_ins_out = ins[31:16];
-	assign partial_pc_out = {pc[RV-1:BDEC],pc_2_lo};
+	assign partial_pc_out = {pc[VA_SZ-1:BDEC],pc_2_lo};
 	reg	partial_out;
 	assign partial_valid_out = partial_out;
 
@@ -238,6 +248,12 @@ module decode(input clk,
 	wire first = pc[BDEC-1:2] == ADDR;
 	wire after = pc[BDEC-1:2] < ADDR;
 
+	reg r_start_out_1, r_start_out_2;
+	assign start_out_1 = r_start_out_1;
+	assign start_out_2 = r_start_out_2;
+	reg r_short_out_1, r_short_out_2;
+	assign short_out_1 = r_short_out_1;
+	assign short_out_2 = r_short_out_2;
 	reg r_valid_out_1, r_valid_out_2;
 	reg c_valid_out_1, c_valid_out_2;
 	assign valid_out_1 = r_valid_out_1;
@@ -661,13 +677,17 @@ module decode(input clk,
 	assign rs3_fp_2 = r_rs3_fp_2;
 	assign rd_fp_2 = r_rd_fp_2;
 
-	assign pc_br_fetch_1 = c_pc_1+{{RV-1-20{c_br_imm_1[19]}}, c_br_imm_1};
-	assign pc_br_fetch_2 = {pc[RV-1:BDEC], pc_2_lo}+{{RV-1-20{c_br_imm_2[19]}}, c_br_imm_2};
+	assign pc_br_fetch_1 = {{RV-VA_SZ{c_pc_1[VA_SZ-1]}}, c_pc_1}+{{RV-1-20{c_br_imm_1[19]}}, c_br_imm_1};
+	assign pc_br_fetch_2 = {{RV-VA_SZ{pc[VA_SZ-1]}}, pc[VA_SZ-1:BDEC], pc_2_lo}+{{RV-1-20{c_br_imm_2[19]}}, c_br_imm_2};
 
 	always @(posedge clk)
 	if (!rename_stall) begin
+		r_start_out_1 <= (fetch_branched && first && !pc[1])||(partial_valid_in && ADDR==0);
+		r_start_out_2 <= first && pc[1];
+		r_short_out_1 <= !partial_valid_in && ins[1:0] != 3;
+		r_short_out_2 <= ins[17:16] != 3;
 		r_pc_1 <= c_pc_1;
-		r_pc_2 <= pc[RV-1:BDEC];
+		r_pc_2 <= pc[VA_SZ-1:BDEC];
 		r_unit_type_1 <= c_unit_type_1;
 		r_unit_type_2 <= c_unit_type_2;
 		r_control_1 <= c_control_1;

@@ -118,7 +118,7 @@ module alu(
 	input	          makes_rd,
 	input 		  needs_rs2,
 	input [RV-1:0]r1, r2,
-	input [RV-1:1]pc,
+	input [VA_SZ-1:1]pc,
 	input [31:0]immed,
 	input	[(NHART==1?0:LNHART-1):0]hart,
 	input	rv32,
@@ -131,7 +131,7 @@ module alu(
 // branch stuff
 	,
     input is_branch, 
-	input [RV-1:1]branch_dest,
+	input [VA_SZ-1:1]branch_dest,
     input [NCOMMIT-1:0]commit_kill_0,
     //input [NCOMMIT-1:0]commit_kill_1,
 
@@ -147,6 +147,7 @@ module alu(
     parameter ADDR=0;
     parameter NHART=1;
  	parameter RV=64;
+ 	parameter VA_SZ=48;
     parameter LNHART=0;
     parameter NCOMMIT = 32; // number of commit registers
     parameter LNCOMMIT = 5; // number of bits to encode that
@@ -199,7 +200,8 @@ module alu(
 		
 	reg r_is_branch;
 
-    reg [RV-1:1]new_address, r_branch_dest;
+    reg [RV-1:1]new_address;
+    reg [VA_SZ-1:1]r_branch_dest;
     reg			need_jmp;
     reg			short_pc, predicted;
     reg			make_jmp;
@@ -268,7 +270,7 @@ module alu(
 	assign unsign = control[3];
 
 	reg	[RV-1:0]r_immed;
-	reg	[RV-1:1]r_pc;
+	reg	[VA_SZ-1:1]r_pc;
 	always @(posedge clk) begin
 		r_unsigned <= unsign;
 		r_pc <= pc;
@@ -297,10 +299,10 @@ module alu(
 `endif
 `ifdef SIMD
 `ifdef COMBINED_BRANCH
-		if (r_makes_rd && !r_is_branch && simd_enable) $display("A %d %x @ %x <- %x",$time,{r_pc, 1'b0},r_rd,c_res);
-		if (commit_alu_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{r_pc,1'b0},{commit_alu_br,1'b0});
+		if (r_makes_rd && !r_is_branch && simd_enable) $display("A %d %x @ %x <- %x",$time,{{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0},r_rd,c_res);
+		if (commit_alu_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc,1'b0},{commit_alu_br,1'b0});
 `else
-		if (r_makes_rd && simd_enable) $display("A %d %x @ %x <- %x",$time,{r_pc, 1'b0},r_rd,c_res);
+		if (r_makes_rd && simd_enable) $display("A %d %x @ %x <- %x",$time,{{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0},r_rd,c_res);
 `endif
 
 `endif
@@ -320,7 +322,7 @@ module alu(
 	reg [RV-1:0]c_r1;
 	always @(*) begin
 		casez ({r_addw, r_op}) // synthesis full_case parallel_case
-		5'b?_1000: c_r1 = {r_pc,1'b0};
+		5'b?_1000: c_r1 = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 		5'b0_1001: c_r1 = {r1[62:0], 1'b0};
 		5'b0_1010: c_r1 = {r1[61:0], 2'b0};
 		5'b0_1011: c_r1 = {r1[60:0], 3'b0};
@@ -349,7 +351,7 @@ module alu(
 		c_res = 'bx;
 `ifdef COMBINED_BRANCH
 		if (r_is_branch) begin
-			c_res = {(r_pc+(r_short_pc?63'd1:63'd2)), 1'b0};
+			c_res = {({{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_short_pc?63'd1:63'd2)), 1'b0};
 		end else
 `endif
 		case (r_op) // synthesis full_case parallel_case
@@ -397,13 +399,13 @@ module alu(
 
         always @(*) begin
             if (r_cjmp) begin
-                new_address = r_pc+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed[31]}}, r_immed[31:0]});
+                new_address = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed[31]}}, r_immed[31:0]});
                 match = 1'bx;
             end else begin :xt
                 reg [63:0]t;
                 t = r1[63:0]+{{32{r_immed[31]}},r_immed[31:0]};
-                match = t[RV-1:1] == r_branch_dest;
-                new_address = t[63:1];
+                match = t[RV-1:1] == {{RV-VA_SZ{r_branch_dest[VA_SZ-1]}}, r_branch_dest};
+                new_address = t[RV-1:1];
             end
         end
 	end

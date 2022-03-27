@@ -31,7 +31,7 @@ module csr(input clk, input reset,
 		input		enable,
         input [LNCOMMIT-1:0]rd,
         input       makes_rd,
-        input [RV-1:1]pc,
+        input [VA_SZ-1:1]pc,
         input [RV-1:0]r1,
         input [31:0]immed,
 		input [LNCOMMIT-1:0]num_retired,
@@ -150,6 +150,7 @@ module csr(input clk, input reset,
 		input	  [63:0]io_timer,
 		input [NINTERRUPTS-1:0]io_interrupts
         );      
+	parameter VA_SZ=48;
 	parameter RV=64;
     parameter CNTRL_SIZE=7;
     parameter HART=0;
@@ -250,7 +251,7 @@ module csr(input clk, input reset,
 	assign res_rd = r_rd;
 	assign res_makes_rd = r_res_makes_rd;
 	reg	 [RV-1:1]r_next_pc, c_next_pc;
-	reg	 [RV-1:1]r_pc;
+	reg	 [VA_SZ-1:1]r_pc;
 	reg	 [RV-1:1]r_r1;
 	always @(posedge clk)
 		r_r1 <= r1;
@@ -269,7 +270,7 @@ module csr(input clk, input reset,
 			r_immed <= immed;
 			r_rd <= rd;
 			r_makes_rd <= makes_rd;
-			r_pc = pc;
+			r_pc <= pc;
 		end
 		r_enable <= enable;
 		r_res_rd <= r_rd;
@@ -356,7 +357,7 @@ module csr(input clk, input reset,
 								int_clic_ack_save = 1;
 								int_clic_ack_int = clic_u_int;
 								if (clic_u_vec) begin
-									c_next_pc = r_pc;
+									c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 									c_int_force_fetch = 1;
 								end else begin
 									c_next_pc = {r_u_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -387,7 +388,7 @@ module csr(input clk, input reset,
 									int_clic_ack_save = 1;
 									int_clic_ack_int = clic_s_int;
 									if (clic_s_vec) begin
-										c_next_pc = r_pc;
+										c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 										c_int_force_fetch = 1;
 									end else begin
 										c_next_pc = {r_s_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -412,7 +413,7 @@ module csr(input clk, input reset,
 									int_clic_ack_save = 1;
 									int_clic_ack_int = clic_u_int;
 									if (clic_u_vec) begin
-										c_next_pc = r_pc;
+										c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 										c_int_force_fetch = 1;
 									end else begin
 										c_next_pc = {r_u_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -446,7 +447,7 @@ module csr(input clk, input reset,
 									int_clic_ack_save = 1;
 									int_clic_ack_int = clic_m_int;
 									if (clic_m_vec) begin
-										c_next_pc = r_pc;
+										c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 										c_int_force_fetch = 1;
 									end else begin
 										c_next_pc = {r_m_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -471,7 +472,7 @@ module csr(input clk, input reset,
 									int_clic_ack_save = 1;
 									int_clic_ack_int = clic_s_int;
 									if (clic_s_vec) begin
-										c_next_pc = r_pc;
+										c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 										c_int_force_fetch = 1;
 									end else begin
 										c_next_pc = {r_s_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -496,7 +497,7 @@ module csr(input clk, input reset,
 									int_clic_ack_save = 1;
 									int_clic_ack_int = clic_u_int;
 									if (clic_u_vec) begin
-										c_next_pc = r_pc;
+										c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 										c_int_force_fetch = 1;
 									end else begin
 										c_next_pc = {r_u_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -530,12 +531,12 @@ module csr(input clk, input reset,
 			begin
 				case (r_control[1:0]) // synthesis full_case parallel_case
 				0:	begin	// pipe break
-						c_next_pc = r_pc+2;
+						c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+2;
 						c_trap_br_enable = 1;
 					end
 				1:	begin	// wfi
 						if (int_m_pending|int_s_pending|int_u_pending) begin	// pipe_flush
-							c_next_pc = r_pc+2;
+							c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+2;
 							c_trap_br_enable = 1;
 						end else
 						if (cpu_mode[1:0] != 0 && wfi_timeout) begin
@@ -563,12 +564,12 @@ module csr(input clk, input reset,
 				0:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_inst_align?4'b1000:(r_cpu_mode[1]||!r_s_deleg_inst_align?4'b0010:4'b0001);
 						c_v = !r_m_deleg_inst_align&r_v&r_h_deleg_inst_align;
-						tval = {r_pc, 1'b0};
+						tval = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 					end
 				1:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_inst_access?4'b1000:(r_cpu_mode[1]||!r_s_deleg_inst_access?4'b0010:4'b0001);
 						c_v = !r_m_deleg_inst_access&r_v&r_h_deleg_inst_access;
-						tval = {r_pc,1'b0};
+						tval = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 					end
 				2:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_illegal_inst?4'b1000:(r_cpu_mode[1]||!r_s_deleg_illegal_inst?4'b0010:4'b0001);
@@ -578,7 +579,7 @@ module csr(input clk, input reset,
 				3:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_break?4'b1000:(r_cpu_mode[1]||!r_s_deleg_break?4'b0010:4'b0001);
 						c_v = !r_m_deleg_break&r_v&r_h_deleg_break;
-						tval = {r_pc,1'b0};
+						tval = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 					end
 				4:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_load_align?4'b1000:(r_cpu_mode[1]||!r_s_deleg_load_align?4'b0010:4'b0001);
@@ -603,12 +604,12 @@ module csr(input clk, input reset,
 				8:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_env_u?4'b1000:(r_cpu_mode[1]||!r_s_deleg_env_u?4'b0010:4'b0001);
 						c_v = !r_m_deleg_env_u&r_v;
-						tval = {r_pc,1'b0};
+						tval = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 					end
 				9:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_env_s?4'b1000:4'b0010;
 						c_v = !r_m_deleg_env_s&r_v&r_h_deleg_env_s;
-						tval = {r_pc,1'b0};
+						tval = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 					end
 				11:	begin
 						c_cpu_mode = 4'b1000;
@@ -617,7 +618,7 @@ module csr(input clk, input reset,
 				12:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_ins_pf?4'b1000:(r_cpu_mode[1]||!r_s_deleg_ins_pf?4'b0010:4'b0001);
 						c_v = !r_m_deleg_ins_pf&r_v&r_h_deleg_ins_pf;
-						tval = {r_pc,1'b0};
+						tval = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 					end
 				13:	begin
 						c_cpu_mode = r_cpu_mode[3]||!r_m_deleg_load_pf?4'b1000:(r_cpu_mode[1]||!r_s_deleg_load_pf?4'b0010:4'b0001);
@@ -651,7 +652,7 @@ module csr(input clk, input reset,
 								int_clic_ack_save = 1;
 								int_clic_ack_int = clic_m_int;
 								if (clic_m_vec) begin
-									c_next_pc = r_pc;
+									c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 									c_int_force_fetch = 1;
 								end else begin
 									c_next_pc = {r_m_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -673,7 +674,7 @@ module csr(input clk, input reset,
 								int_clic_ack_save = 1;
 								int_clic_ack_int = clic_s_int;
 								if (clic_s_vec) begin
-									c_next_pc = r_pc;
+									c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 									c_int_force_fetch = 1;
 								end else begin
 									c_next_pc = {r_s_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -695,7 +696,7 @@ module csr(input clk, input reset,
 								int_clic_ack_save = 1;
 								int_clic_ack_int = clic_u_int;
 								if (clic_u_vec) begin
-									c_next_pc = r_pc;
+									c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 									c_int_force_fetch = 1;
 								end else begin
 									c_next_pc = {r_u_trap_base[RV-1:6], 4'b0000, 1'b0};
@@ -713,11 +714,11 @@ module csr(input clk, input reset,
 								end
 								c_cpu_mode = 4'b0001;
 							end
-					3'b000:		// there's a timing hole where an interrupt request has been snoved into the pipe
+					3'b000:		// there's a timing hole where an interrupt request has been shoved into the pipe
 								//		but meantime interrupts have been turned off ... in that case just continue
 								//		with a pipe flush 
 						begin
-							c_next_pc = r_pc;
+							c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc};
 							c_trap_br_enable = 1;
 						end
 					endcase
@@ -725,7 +726,7 @@ module csr(input clk, input reset,
 			end
 		6'b0_??_?_?_1:	// csr write
 			begin
-				c_next_pc = r_pc+2;		// when do we need to flush
+				c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+1; // when do we need to flush
 				casez (r_immed[11:0]) // synthesis full_case parallel_case
 				12'b00_11_0000_0000,
 				12'b00_11_0100_0101:
@@ -807,7 +808,7 @@ module csr(input clk, input reset,
 
 	always @(posedge clk)
 	if (trap_s ||
-		(interrupt && s_pending && !r_control[0]) && !fast_int_s)  r_s_epc <= r_pc; else	// FIXME virt
+		(interrupt && s_pending && !r_control[0]) && !fast_int_s)  r_s_epc <= {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}; else	// FIXME virt
 	if (iret && r_control[1:0] == 3 && fast_int_s) r_s_epc <= r_m_epc; else
 	if (csr_write && (!r_v||cpu_mode[3]) && r_immed[11:0] == 12'h141)
 	if (r_control[1]) r_s_epc <= r_s_epc|in[RV-1:1]; else
@@ -822,7 +823,7 @@ module csr(input clk, input reset,
 
 	always @(posedge clk)
 	if (trap_m ||
-		(interrupt && m_pending && !r_control[0] && !fast_int_m)) r_m_epc <= r_pc; else
+		(interrupt && m_pending && !r_control[0] && !fast_int_m)) r_m_epc <= {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}; else
 	if (csr_write && r_immed[11:0] == 12'h341)
 	if (r_control[1]) r_m_epc <= r_m_epc|in[RV-1:1]; else
 	if (r_control[2]) r_m_epc <= r_m_epc&~in[RV-1:1]; else
@@ -830,7 +831,7 @@ module csr(input clk, input reset,
 
 	always @(posedge clk)
 	if (trap_u ||
-		(interrupt && u_pending && !r_control[0]) && !fast_int_u) r_u_epc <= r_pc; else	// FIXME virt
+		(interrupt && u_pending && !r_control[0]) && !fast_int_u) r_u_epc <= {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}; else	// FIXME virt
 	if (iret && r_control[1:0] == 3 && fast_int_u) r_u_epc <= r_m_epc; else
 	if (iret && r_control[1:0] == 1 && fast_int_u) r_u_epc <= r_s_epc; else
 	if (csr_write && r_immed[11:0] == 12'h041)
@@ -3544,10 +3545,10 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 `endif
 `ifdef SIMD
 	always @(posedge clk) begin
-		if (trap_br_enable && simd_enable) $display("T %d %x %x->%x", $time,r_rd,{r_pc,1'b0},{trap_br,1'b0});
+		if (trap_br_enable && simd_enable) $display("T %d %x %x->%x", $time,r_rd,{{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc,1'b0},{trap_br,1'b0});
 	end
 	always @(posedge clk) begin
-		if (int_br_enable && simd_enable) $display("I %d %x %x->%x", $time,r_rd,{r_pc,1'b0},{trap_br,1'b0});
+		if (int_br_enable && simd_enable) $display("I %d %x %x->%x", $time,r_rd,{{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc,1'b0},{trap_br,1'b0});
 	end
 `endif
 

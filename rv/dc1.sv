@@ -568,7 +568,9 @@ wire [31:0]match_1=match[1];
 				for (B=0; B<(CACHE_LINE_SIZE/8); B=B+1) begin
 					always @(posedge clk)
 					if (wl[S]) begin
+`ifdef SIMD
 if (mask[W][B] && match_ok_write[W][S]) $display("%d cache write error %d %d", $time, S, B);
+`endif
 						r_data[dc_raddr[11:ACACHE_LINE_SIZE]][B*8+7:B*8] <= dc_rdata[B*8+7:B*8];
 					end else
 					if (mask[W][B] && match_ok_write[W][S]) begin

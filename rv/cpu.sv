@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -393,8 +393,8 @@ assign pmp[1].valid=0;
 
 	wire [NCOMMIT-1:0]commit_branch[0:NHART-1];
 	wire [NCOMMIT-1:0]commit_branch_ok[0:NHART-1];
-	wire  [RV-1:1]commit_update_pc[0:NCOMMIT-1];
-	wire  [RV-1:1]commit_update_dest[0:NCOMMIT-1];
+	wire  [VA_SZ-1:1]commit_update_pc[0:NCOMMIT-1];
+	wire  [VA_SZ-1:1]commit_update_dest[0:NCOMMIT-1];
 	wire  [NCOMMIT-1:0]commit_update_taken;
 	wire             commit_update_short_pc[0:NCOMMIT-1];
 
@@ -405,8 +405,10 @@ assign pmp[1].valid=0;
 	wire      [RA-1:0]rs2_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [RA-1:0]rs3_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [31:0]immed_commit[0:NCOMMIT-1][0:NHART-1];
-	wire      [RV-1:1]pc_commit[0:NCOMMIT-1][0:NHART-1];
-	wire      [RV-1:1]branch_dest_commit[0:NCOMMIT-1][0:NHART-1];
+	wire      [NHART-1:0]short_commit[0:NCOMMIT-1];
+	wire      [NHART-1:0]start_commit[0:NCOMMIT-1];
+	wire   [VA_SZ-1:1]pc_commit[0:NCOMMIT-1][0:NHART-1];
+	wire   [VA_SZ-1:1]branch_dest_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [BDEC-1:1]branch_dec_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [NCOMMIT-1:0]branch_taken_commit[0:NHART-1];
 	wire [$clog2(NUM_PENDING)-1:0]branch_token_commit[0:NCOMMIT-1][0:NHART-1];
@@ -530,13 +532,13 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			wire 	[2*NDEC-1:0]has_jmp;
 			wire 	[2*NDEC-1:0]has_jmp_back;
 
-			wire 	[RV-1:1]pc_dest_dec;
+			wire 	[VA_SZ-1:1]pc_dest_dec;
 			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token;
 			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token_prev;
 			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret;
 			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret_prev;
 
-			pc #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .NDEC(NDEC), .NHART(NHART), .NPHYS(NPHYS), .LNHART(LNHART), .BDEC(BDEC), .PC_BRANCH_HISTORY(PC_BRANCH_HISTORY), .HISTORY_DEPTH(HISTORY_DEPTH), .CALL_STACK_SIZE(CALL_STACK_SIZE))prog_counter(
+			pc #(.RV(RV), .VA_SZ(VA_SZ), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .NDEC(NDEC), .NHART(NHART), .NPHYS(NPHYS), .LNHART(LNHART), .BDEC(BDEC), .PC_BRANCH_HISTORY(PC_BRANCH_HISTORY), .HISTORY_DEPTH(HISTORY_DEPTH), .CALL_STACK_SIZE(CALL_STACK_SIZE))prog_counter(
 				.clk(clk),
 `ifdef AWS_DEBUG
 				.xxtrig(xxtrig),
@@ -612,6 +614,8 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			wire	[ 4:0]rs3_dec[0:2*NDEC-1];
 			wire	[ 4:0]rd_dec[0:2*NDEC-1];
 			wire	[31:0]immed_dec[0:2*NDEC-1];
+			wire    [2*NDEC-1:0]short_dec; 	
+			wire    [2*NDEC-1:0]start_dec; 	
  
 			wire	[2*NDEC-1:0]needs_rs2_dec;
 			wire	[2*NDEC-1:0]needs_rs3_dec;
@@ -623,7 +627,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			wire    [3:0]unit_type_dec[0:2*NDEC-1];
 			wire    [CNTRL_SIZE-1:0]control_dec[0:2*NDEC-1];
 			wire 	[RV-1:1]pc_br_fetch[0:2*NDEC-1];
-			wire 	[RV-1:1]pc_dec[0:2*NDEC-1];
+			wire 	[VA_SZ-1:1]pc_dec[0:2*NDEC-1];
 			wire 	[2*NDEC-1:0]jumping_rel_jmp_fetch;
 			wire 	[2*NDEC-1:0]jumping_rel_jmp_end_fetch;
 			wire 	[2*NDEC-1:0]jumping_term;
@@ -644,7 +648,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 
 			wire    valid_dec_0, valid_dec_1, valid_dec_2; 
 	
-			wire [RV-1:1]partial_pc[0:NDEC];
+			wire [VA_SZ-1:1]partial_pc[0:NDEC];
 			wire [15:0]partial_ins[0:NDEC];
 			//wire       partial_valid[0:NDEC];
 			wire partial_valid_0, partial_valid_1, partial_valid_2, partial_valid_3, partial_valid_4;
@@ -653,7 +657,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			wire [1:0]trap_dec[0:NDEC-1];
 			wire      partial_valid_int_0;
 
-			decode_partial #(.RV(RV), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decp(.reset(reset), .clk(clk),
+			decode_partial #(.VA_SZ(VA_SZ), .RV(RV), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decp(.reset(reset), .clk(clk),
 				.rename_stall(rename_stall[H]),
 				.valid_fetch(valid_fetch),
 				.partial_nuke((!rename_stall&predicted_branch)|commit_trap_br_enable[H]|commit_int_br_enable[H]|commit_br_enable[0][H]),
@@ -663,7 +667,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 				.save_partial(partial_valid_4),
 				//.save_partial(partial_valid[NDEC]),
 				.partial_ins(partial_ins[NDEC]),
-				.decode_pc(partial_pc[NDEC][RV-1:BDEC]),
+				.decode_pc(partial_pc[NDEC][VA_SZ-1:BDEC]),
 
 				.partial_valid_out(partial_valid_0),
 				.partial_valid_out_int(partial_valid_int_0),
@@ -714,7 +718,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					assign partial_valid_int_in = 1'b0;
 				end 
 
-				decode #(.RV(RV), .ADDR(D), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decoder(.reset(reset), .clk(clk),
+				decode #(.VA_SZ(VA_SZ), .RV(RV), .ADDR(D), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decoder(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 					.xxtrig(xxtrig),
 `endif
@@ -722,7 +726,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					.cpu_mode(cpu_mode[H]),
 					.timer_prot(timer_prot[H]),
 					.ins(icache_out[H][31+32*D:32*D]), 
-					.pc(pc_fetch[H][RV-1:1]), 
+					.pc(pc_fetch[H][VA_SZ-1:1]), 
 					.valid(valid_fetch),
 					.valid_in(valid_in),
 					.valid_next(valid_out),
@@ -761,6 +765,8 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					.rs3_1(rs3_dec[2*D]),
 					.rd_1(rd_dec[2*D]),
 					.immed_1(immed_dec[2*D]),
+					.short_1(short_dec[2*D]),
+					.start_1(start_dec[2*D]),
 					.needs_rs2_1(needs_rs2_dec[2*D]),
 					.needs_rs3_1(needs_rs3_dec[2*D]),
 					.rs1_fp_1(rs1_fp_dec[2*D]),
@@ -793,6 +799,8 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					.rs3_fp_2(rs3_fp_dec[2*D+1]),
 					.rd_fp_2(rd_fp_dec[2*D+1]),
 					.immed_2(immed_dec[2*D+1]),
+					.short_2(short_dec[2*D+1]),
+					.start_2(start_dec[2*D+1]),
 					.needs_rs2_2(needs_rs2_dec[2*D+1]),
 					.needs_rs3_2(needs_rs3_dec[2*D+1]),
 					.makes_rd_2(makes_rd_dec[2*D+1]),
@@ -817,10 +825,10 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			always @(posedge clk)
 				r_dec_partial0 <= partial_valid_0;
 
-			wire 	[RV-1:1]pc_dest_rename;
+			wire 	[VA_SZ-1:1]pc_dest_rename;
 			wire			force_fetch_rename;
 
-			rename_ctrl #(.RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
+			rename_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
 				.commit_br_enable(commit_br_enable[0][H]),
 				.commit_trap_br_enable(commit_trap_br_enable[H]|commit_int_br_enable[H]),
 				.commit_int_force_fetch(commit_int_force_fetch[H]),
@@ -853,6 +861,8 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire	[LNCOMMIT-1:0]rd_rename[0:2*NDEC-1];
 			wire	[ 4:0]rd_real_rename[0:2*NDEC-1];
 			wire	[31:0]immed_rename[0:2*NDEC-1];
+			wire    [2*NDEC-1:0]short_rename; 	
+			wire    [2*NDEC-1:0]start_rename; 	
 			wire	      needs_rs2_rename[0:2*NDEC-1];
 			wire	      needs_rs3_rename[0:2*NDEC-1];
 			wire	      makes_rd_rename[0:2*NDEC-1];
@@ -865,7 +875,7 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename[0:2*NDEC-1];
 			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename[0:2*NDEC-1];
 			wire      [2*NDEC-1:0]valid_rename;
-			wire 	[RV-1:1]pc_rename[0:2*NDEC-1];
+			wire 	[VA_SZ-1:1]pc_rename[0:2*NDEC-1];
 `ifdef FP
 			wire    [RA-1:0]scoreboard_latest_rename_fp[0:31];
 `endif
@@ -883,6 +893,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg [2*NDEC-1:0]sel_out;
 				reg [4:0]s1, s2, s3, d;
 				reg      makes_d, needs_s2, needs_s3;
+				reg      short, start;
 				reg		 rd_fp, rs1_fp, rs2_fp, rs3_fp;
 				reg	[31:0]immed;
 				reg    [3:0]unit_type;
@@ -904,7 +915,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				end 
 
 			
-				rename #(.RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
+				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
 					.rv32(rv32[H]),
 					.valid(valid_out_dec),
 					.rs1(s1),
@@ -912,6 +923,8 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.rs3(s3),
                 	.rd(d),
                 	.immed(immed),
+					.short(short),
+					.start(start),
                 	.needs_rs2(needs_s2),
                 	.needs_rs3(needs_s3),
 					.rd_fp(rd_fp),
@@ -960,6 +973,8 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.rd_out(rd_rename[D]),
                 	.rd_real_out(rd_real_rename[D]),
                 	.immed_out(immed_rename[D]),
+                	.short_out(short_rename[D]),
+                	.start_out(start_rename[D]),
                 	.needs_rs2_out(needs_rs2_rename[D]),
                 	.needs_rs3_out(needs_rs3_rename[D]),
 					.rd_fp_out(rd_fp_rename[D]),
@@ -1129,7 +1144,7 @@ end
 					r_commit_token_ret[I] <= |token_match_ret[I];
 			end
 
-			commit_ctrl #(.RV(RV), .HART(H), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NUM_TRANSFER_PORTS(NUM_TRANSFER_PORTS))cc(.reset(reset), .clk(clk),
+			commit_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NUM_TRANSFER_PORTS(NUM_TRANSFER_PORTS))cc(.reset(reset), .clk(clk),
 				.advance_count(count_out_rename),
 				.advance(proceed_rename),
 				.commit_trap_br_addr(commit_trap_br_addr[H]),
@@ -1174,11 +1189,12 @@ end
 				reg [4:0]real_rs1, real_rs2, real_rs3;
 				reg [RA-1:0]rs1, rs2, rs3;
 				reg [31:0]immed;
+				reg   short, start;
 				reg	  makes_rd, needs_rs2, needs_rs3;
 				reg	  rd_fp, rs1_fp, rs2_fp, rs3_fp;
 				reg [CNTRL_SIZE-1:0]control;
 				reg [3:0]unit_type;
-				reg 	[RV-1:1]pc_rn;
+				reg 	[VA_SZ-1:1]pc_rn;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
 				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
 	
@@ -1206,7 +1222,7 @@ end
 
 				assign commit_load[H][C] = xload&~(commit_br_enable[0][H]|commit_trap_br_enable[H]|commit_int_br_enable[H]);
 
-				commit #(.RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
+				commit #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
 `ifdef SIMD
 					.simd_enable(simd_enable),
 `endif
@@ -1228,6 +1244,8 @@ end
 					.real_rs3(real_rs3),
         			.rd(real_rd),
         			.immed(immed),
+					.short(short),
+					.start(start),
         			.makes_rd(makes_rd),
         			.needs_rs2(needs_rs2),
         			.needs_rs3(needs_rs3),
@@ -1306,6 +1324,8 @@ end
 					.rs2_out(rs2_commit[C][H]),
 					.rs3_out(rs3_commit[C][H]),
 					.immed_out(immed_commit[C][H]),
+					.short_out(short_commit[C][H]),
+					.start_out(start_commit[C][H]),
 					.needs_rs2_out(needs_rs2_commit[C][H]),
 					.needs_rs3_out(needs_rs3_commit[C][H]),
 `ifdef FP
@@ -1327,6 +1347,28 @@ end
 					);
 			
 			end
+
+`ifdef TRACE_CACHE
+
+			parameter NUM_TRACE_LINES=32;
+			wire [RV-1:1]trace_pc;
+			wire [RV-1:1]trace_pc_next;
+			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
+			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
+
+			trace_cache #(.VA_SZ(VA_SZ), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
+					.pc(trace_pc[VA_SZ-1:1]),
+					.pc_next(trace_pc_next[VA_SZ-1:1]),
+					.pc_used(1'b1),
+					.trace_out(trace_out),
+
+					.flush(),          // we did a pipe-flush
+					.invalidate(),     // invalidate the trace cache
+					.trace_in(trace_in));
+			for (I = 0; I < (NDEC*2); I = I+1) begin
+				
+			end
+`endif
 		end
 
 		
@@ -1425,7 +1467,7 @@ end
 				reg_read_enable[2*A+1][hart_sched[A]] = enable_sched[A];
 			end
 
-			alu #(.RV(RV), .RA(RA), .ADDR(A), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))a(.reset(reset), .clk(clk), 
+			alu #(.VA_SZ(VA_SZ), .RV(RV), .RA(RA), .ADDR(A), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))a(.reset(reset), .clk(clk), 
 `ifdef SIMD
 				.simd_enable(simd_enable),
 `endif
@@ -1848,7 +1890,7 @@ end
 				assign local_reg_read_addr[2*B+1][H] = rs2_commit[local_alu_sched[B][H]][H];
 				always @(*) 
 					local_reg_read_enable[2*B+1][H] = local_enable_sched[B][H];
-				branch #(.RV(RV), .RA(RA), .ADDR(B), .HART(H), .CNTRL_SIZE(CNTRL_SIZE), .BDEC(BDEC), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))b(.reset(reset), .clk(clk), 
+				branch #(.VA_SZ(VA_SZ), .RV(RV), .RA(RA), .ADDR(B), .HART(H), .CNTRL_SIZE(CNTRL_SIZE), .BDEC(BDEC), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))b(.reset(reset), .clk(clk), 
 `ifdef SIMD
 					.simd_enable(simd_enable),
 `endif

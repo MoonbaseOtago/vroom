@@ -413,12 +413,12 @@ wire [NITOTAL-1:0]loading_0=loading[0];
 					c_paddr[H] = 'bx;
 					casez ({cpu_mode[H][3], tlb_valid[H], sup_vm_mode[H]}) // synthesis full_case parallel_case
 					6'b1_?_????: begin
-									c_rom[H] = c_vaddr[H][NPHYS-1];
-									c_paddr[H] = c_vaddr[H][NPHYS-1:BDEC];
+									c_rom[H] = c_vaddr[H][VA_SZ-1];
+									c_paddr[H] = {{NPHYS-VA_SZ{c_vaddr[H][VA_SZ-1]}}, c_vaddr[H][VA_SZ-1:BDEC]};
 								 end
 					6'b0_?_???1: begin
 									c_rom[H] = 0;
-									c_paddr[H] = c_vaddr[H][NPHYS-1:BDEC];
+									c_paddr[H] = {{NPHYS-VA_SZ{c_vaddr[H][VA_SZ-1]}}, c_vaddr[H][VA_SZ-1:BDEC]};
 								 end
 					6'b0_?_??1?: begin
 									c_rom[H] = 0;

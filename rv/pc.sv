@@ -65,7 +65,7 @@ module pc(input clk,  input reset,
 	output			      br_default,
 	output				  pop_available,
 
-	output	[RV-1:1]pc_dest_dec,
+	output	[VA_SZ-1:1]pc_dest_dec,
 	output [$clog2(NUM_PENDING)-1:0]dec_branch_token,
 	output [$clog2(NUM_PENDING)-1:0]dec_branch_token_prev,
 	output [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret,
@@ -83,6 +83,7 @@ module pc(input clk,  input reset,
     parameter BDEC=5;
     parameter HART=0;
 	parameter RV=64;
+	parameter VA_SZ=64;
 	parameter NPHYS=56;
     parameter NHART=1;
     parameter LNHART=0;
@@ -118,7 +119,7 @@ module pc(input clk,  input reset,
 
 	reg	[RV-1:1]r_pc_dest_fetch, c_pc_dest_fetch;
 	reg	[RV-1:1]r_pc_dest_dec, c_pc_dest_dec;
-	assign pc_dest_dec = r_pc_dest_dec;
+	assign pc_dest_dec = r_pc_dest_dec[VA_SZ-1:1];
     reg [$clog2(NUM_PENDING)-1:0]r_dec_branch_token, r_dec_branch_token_prev;
 	assign dec_branch_token = r_dec_branch_token;
 	assign dec_branch_token_prev = r_dec_branch_token_prev;
@@ -137,7 +138,7 @@ module pc(input clk,  input reset,
 
 
 	wire				  predict_branch_taken;
-	wire		  [RV-1:1]predict_branch_pc;
+	wire	     [VA_SZ-1:1]predict_branch_pc;
 	wire				  predict_branch_valid;
 	wire  [$clog2(2*NDEC)-1:0]predict_branch_decoder;
 
@@ -148,7 +149,7 @@ module pc(input clk,  input reset,
 	wire	[$clog2(NUM_PENDING)-1:0]push_token;
 	wire	[$clog2(NUM_PENDING_RET)-1:0]push_token_ret;
 
-	wire		  [RV-1:1]return_branch_pc;
+	wire	     [VA_SZ-1:1]return_branch_pc;
 	wire				  return_branch_valid;
 
 	reg [$clog2(2*NDEC)-1:0]push_branch_decoder;
@@ -197,7 +198,7 @@ module pc(input clk,  input reset,
 	reg		fixup_dest;
 		
 	
-	bpred #(.RV(RV), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .BDEC(BDEC), .NDEC(NDEC), .CALL_STACK_SIZE(CALL_STACK_SIZE))pred(
+	bpred #(.VA_SZ(VA_SZ), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .BDEC(BDEC), .NDEC(NDEC), .CALL_STACK_SIZE(CALL_STACK_SIZE))pred(
 		.clk(clk),
 `ifdef RAMSYNTH
 		.clkX4(clkX4),   // 4x clock for sync dual port ram
@@ -206,7 +207,7 @@ module pc(input clk,  input reset,
 		.cpu_mode(cpu_mode),
 		.reset(reset),
 
-		.pc(r_pc),
+		.pc(r_pc[VA_SZ-1:1]),
 		.predict_branch_taken(predict_branch_taken),
 		.predict_branch_pc(predict_branch_pc),
 		.predict_branch_valid(predict_branch_valid),
@@ -221,8 +222,8 @@ module pc(input clk,  input reset,
 
 		.push_enable(push_enable),
 		.push_noissue(push_noissue),
-		.push_pc(r_pc_fetch),
-		.push_dest(push_dest),
+		.push_pc(r_pc_fetch[VA_SZ-1:1]),
+		.push_dest(push_dest[VA_SZ-1:1]),
 		.push_branch_decoder(push_branch_decoder),
 		.push_taken(push_taken),
 		.push_token(push_token),
@@ -230,7 +231,7 @@ module pc(input clk,  input reset,
 		.push_context(push_context),
 
 		.fixup_dest(fixup_dest),
-		.fixup_dest_pc(dec_branch),
+		.fixup_dest_pc(dec_branch[VA_SZ-1:1]),
 		.fixup_dest_dec(dec_br_offset),
 
 		.trap_shootdown(trap_br_enable),			// trap
@@ -242,14 +243,14 @@ module pc(input clk,  input reset,
 		.commit_shootdown_dec(commit_br_dec),
 		.commit_shootdown_short(commit_br_short),
 		.commit_shootdown_taken(commit_br_taken),
-		.commit_shootdown_dest(commit_br),			// 
+		.commit_shootdown_dest(commit_br[VA_SZ-1:1]),			// 
 
 		.commit_token(commit_token),			// bit encoded tokens from the commitQ commit stage
 		.commit_token_ret(commit_token_ret),			
 
 		.push_cs_stack(!rename_stall&&push_cs_stack),
 		.pop_cs_stack(!rename_stall&&pop_cs_stack),
-		.ret_addr(ret_addr),
+		.ret_addr(ret_addr[VA_SZ-1:1]),
 		.pop_available(pop_available),
 		.return_branch_valid(return_branch_valid),
 		.return_branch_pc(return_branch_pc),
@@ -520,7 +521,7 @@ module pc(input clk,  input reset,
 			4'b01??,																// interrupt service
 			4'b0?1?: c_pc = trap_br;							// trap 
 			4'b0001: c_pc = commit_br;							// mispredict
-			default: c_pc = ~((1<<(NPHYS-2))-1);				// reset into ROM;
+			default: c_pc = ~((1<<(VA_SZ-2))-1);				// reset into ROM;
 			endcase
 			c_dec_stall = 1; 
 			c_pc_stall = c_issue_interrupt|c_issue_fetch_trap|commit_int_force_fetch;
@@ -572,11 +573,11 @@ module pc(input clk,  input reset,
 				c_fetch_prediction_context = prediction_context;
 				if (predict_branch_valid) begin
 					if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
-						c_pc = predict_branch_pc;
+						c_pc = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 						c_pc_branched = 1;
 						c_pc_br_default = 0;
 						c_pc_br_taken = 1;
-						c_pc_dest_fetch = predict_branch_pc;
+						c_pc_dest_fetch = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 						c_fetch_br_predict_dec = predict_branch_decoder;
 						c_pc_br_predict_dec = predict_branch_decoder;
 						prediction_taken = 1;
@@ -622,12 +623,12 @@ module pc(input clk,  input reset,
 					c_fetch_br_default = r_fetch_br_default;
 				end else
 				if (dec_br_enable && return_branch_valid) begin
-					if (r_pc != return_branch_pc) begin
+					if (r_pc != {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc}) begin
 						push_enable = 1;
 						push_noissue = unconditional_jmp && !might_branch && (!(r_fetch_br_valid && r_fetch_br_taken) || r_fetch_br_default || unconditional_jmp_offset <= r_fetch_br_predict_dec);
 						push_taken = 1; //(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp;
 						push_branch_decoder = (unconditional_jmp && (!(r_fetch_br_valid && r_fetch_br_taken) || unconditional_jmp_offset <= r_fetch_br_predict_dec)) ? unconditional_jmp_offset : r_fetch_br_valid && r_fetch_br_taken ? r_fetch_br_predict_dec : dec_br_offset;
-						push_dest = return_branch_pc;
+						push_dest = {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc};
 					//	c_fetch_br_default = r_pc_br_default;
 						c_fetch_br_default = 1;
 						c_fetch_br_taken = r_pc_br_taken;
@@ -637,8 +638,8 @@ module pc(input clk,  input reset,
 						c_pc_br_default = 1;
 						c_pc_br_taken = 1'bx;
 						c_pc_br_predict_dec = dec_br_offset;
-						c_pc = return_branch_pc;
-						c_pc_dest_dec = return_branch_pc;
+						c_pc = {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc};
+						c_pc_dest_dec = {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc};
 						c_pc_branched = 1;
 						c_dec_stall = 1;            // invalidate current fetch
 						c_pc_fetch = 63'bx;
@@ -661,7 +662,7 @@ module pc(input clk,  input reset,
 							push_dest = r_pc;
 							c_fetch_state = 3'b010;
 							c_dec_stall = 0;
-							c_pc_dest_dec = return_branch_pc;
+							c_pc_dest_dec = {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc};
 							c_pc_fetch = r_pc;
 							c_fetch_branched = 1;
 							//c_fetch_br_default = r_pc_br_default&!predict_branch_valid;
@@ -675,13 +676,13 @@ module pc(input clk,  input reset,
 							c_fetch_prediction_context = prediction_context;
 							if (predict_branch_valid) begin
 								if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
-									c_pc = predict_branch_pc;
+									c_pc = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 									c_pc_branched = 1;
 									c_pc_br_default = 0;
 									c_pc_br_taken = 1;
 									c_fetch_br_predict_dec = predict_branch_decoder;
 									c_pc_br_predict_dec = predict_branch_decoder;
-									c_pc_dest_fetch = predict_branch_pc;
+									c_pc_dest_fetch = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 									prediction_taken = 1;
 								end else begin
 									c_pc = branch_next;
@@ -729,13 +730,13 @@ module pc(input clk,  input reset,
 						c_fetch_prediction_context = prediction_context;
 						if (predict_branch_valid) begin
 							if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
-								c_pc = predict_branch_pc;
+								c_pc = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 								c_pc_branched = 1;
 								c_pc_br_default = 0;
 								c_pc_br_taken = 1;
 								c_pc_br_predict_dec = predict_branch_decoder;
 								c_fetch_br_predict_dec = predict_branch_decoder;
-								c_pc_dest_fetch = predict_branch_pc;
+								c_pc_dest_fetch = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 								prediction_taken = 1;
 							end else begin
 								c_pc = branch_next;
@@ -916,13 +917,13 @@ module pc(input clk,  input reset,
 						prediction_used = 1;
 						if (predict_branch_valid) begin
 							if (predict_branch_taken && r_pc[3:1] <= predict_branch_decoder) begin
-								c_pc = predict_branch_pc;
+								c_pc = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 								c_pc_branched = 1;
 								c_pc_br_default = 0;
 								c_pc_br_taken = 1;
 								c_pc_br_predict_dec = predict_branch_decoder;
 								c_fetch_br_predict_dec = predict_branch_decoder;
-								c_pc_dest_fetch = predict_branch_pc;
+								c_pc_dest_fetch = {{RV-VA_SZ{predict_branch_pc[VA_SZ-1]}}, predict_branch_pc};
 								prediction_taken = 1;
 							end else begin
 								c_pc = branch_next;

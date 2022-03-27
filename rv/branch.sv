@@ -28,8 +28,8 @@ module branch(
     input [CNTRL_SIZE-1:0]control,
     input [RV-1:0]r1, r2,
     input [31:0]immed,
-    input [RV-1:1]pc,
-    input [RV-1:1]branch_dest,
+    input [VA_SZ-1:1]pc,
+    input [VA_SZ-1:1]branch_dest,
 	input [LNCOMMIT-1:0]rd,
     input         makes_rd,
 	input [NCOMMIT-1:0]commit_kill,
@@ -48,6 +48,7 @@ module branch(
     parameter NDEC = 4; // number of decode stages
     parameter ADDR=0;
  	parameter RV=64;
+ 	parameter VA_SZ=48;
     parameter NHART=1;
     parameter HART=0;
     parameter LNHART=0;
@@ -77,7 +78,8 @@ module branch(
     assign res_rd = r_res_rd;
 	reg [NHART-1:0]r_res_makes_rd;
     assign res_makes_rd = r_res_makes_rd;
-	reg	[RV-1:1]r_pc, new_address, r_branch_dest;
+	reg	[VA_SZ-1:1]r_pc, r_branch_dest;
+	reg	[RV-1:1]new_address;
 	assign commit_br_dec = r_pc[BDEC-1:1];
 	reg	      need_jmp;
 	assign commit_br = new_address;
@@ -117,7 +119,7 @@ module branch(
 		r_immed <= immed;
 		r_branch_dest <= branch_dest;
 `ifdef SIMD
-if (commit_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{r_pc,1'b0},{commit_br,1'b0});
+if (commit_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc,1'b0},{commit_br,1'b0});
 `endif
 	end
 
@@ -139,24 +141,24 @@ if (commit_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{r_pc
 
 		always @(*) begin
 			if (r_cjmp) begin
-				new_address = r_pc+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed[31]}}, r_immed[31:0]});
+				new_address = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed[31]}}, r_immed[31:0]});
 				match = 1'bx;
 			end else begin :xt
 				reg [63:0]t;
 				t = r1[63:0]+{{32{r_immed[31]}},r_immed[31:0]};
-				match = t[RV-1:1] == r_branch_dest;
+				match = t[RV-1:1] == {{RV-VA_SZ{r_branch_dest[VA_SZ-1]}}, r_branch_dest};
 				new_address = t[63:1];
 			end
 		end
 
 		always @(posedge clk) 
-			r_res <= {(r_pc+(r_short_pc?63'd1:63'd2)), 1'b0};
+			r_res <= {({{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_short_pc?63'd1:63'd2)), 1'b0};
 
 	end else begin
 
 		always @(*) begin
 			if (r_cjmp) begin
-				new_address = r_pc+(r_predicted?(r_short_pc?31'd1:31'd2):r_immed[30:0]);
+				new_address = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_predicted?(r_short_pc?31'd1:31'd2):r_immed[30:0]);
 			end else begin : xy
 				reg [31:0]t;
 				t = r1[31:0]+r_immed[31:0];
@@ -166,7 +168,7 @@ if (commit_br_enable && simd_enable) $display("B %d %x %x->%x", $time,r_rd,{r_pc
 		end
 
 		always @(posedge clk) 
-			r_res <= {(r_pc+(r_short_pc?31'd1:31'd2)), 1'b0};
+			r_res <= {({{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_short_pc?31'd1:31'd2)), 1'b0};
 
 	end
 

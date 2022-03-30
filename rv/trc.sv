@@ -35,9 +35,13 @@ module trace_cache(input clk, input reset,
 	parameter NRETIRE=8;
 	parameter CNTRL_SIZE=7;
 	parameter LNCOMMIT=5;
-	parameter NUM_TRACE_LINES=32;
+	parameter NUM_TRACE_LINES=64;
 	parameter VA_SZ=48;   
-	parameter BUNDLE_SIZE=(VA_SZ-1)+4*5+1+1+1+4+CNTRL_SIZE+32+1+1+1+1+(VA_SZ-1)+1+1;
+	parameter BUNDLE_SIZE=(VA_SZ-1)+4*5+1+1+1+4+CNTRL_SIZE+32+
+`ifdef FP
+						1+1+1+1+
+`endif
+						(VA_SZ-1)+1+1;
 	// why can't I say? parameter BUNDLE_SIZE=$bits(trace_in.b[0]);
 
 
@@ -112,11 +116,11 @@ module trace_cache(input clk, input reset,
 				end else
 				if (pc_used && match[I]) begin
 					if (!dec_use && r_use[I] < 7)
-						c_use[I] = r_use[I] +1;
+						c_use[I] = r_use[I]+1;
 				end else
 				if (dec_use) begin
 					if (r_use[I] != 0)
-						c_use[I] = r_use[I] + 1;
+						c_use[I] = r_use[I]-1;
 				end
 			end
 
@@ -127,7 +131,7 @@ module trace_cache(input clk, input reset,
 					r_valid[I] <= 0;
 				end else
 				if (write_meta && (write_meta_update ? r_last == I : r_next_use == I)) begin
-					r_valid[I] <= c_meta_valid;
+					r_valid[I] <= c_meta_valid | (write_meta_update?r_valid[I]:0);
 				end
 
 				if (write_meta && !write_meta_update && r_next_use == I)
@@ -169,6 +173,9 @@ module trace_cache(input clk, input reset,
 			if (NUM_TRACE_LINES == 32) begin
 `include "mk22_32_8.inc"
 			end else
+			if (NUM_TRACE_LINES == 48) begin
+`include "mk22_48_8.inc"
+			end else
 			if (NUM_TRACE_LINES == 64) begin
 `include "mk22_64_8.inc"
 			end 
@@ -192,6 +199,11 @@ module trace_cache(input clk, input reset,
 			assign next_ins[I] = (trace_in.branched[I]?trace_in.b[I].pc_dest:trace_in.b[I].pc+{{(VA_SZ-1){1'b0}},~trace_in.b[I].short_ins,trace_in.b[I].short_ins});
 		end
 
+wire [NRETIRE-1:0]short_vec;
+wire [NRETIRE-1:0]valid_vec=trace_in.valid;
+for (I = 0; I < NRETIRE; I=I+1) begin
+assign short_vec[I] = trace_in.b[I].short_ins;
+end
 		wire [NRETIRE-1:0]start_vec;
 		for (I = 0; I < NRETIRE; I=I+1) begin
 			assign start_vec[I] = trace_in.b[I].start;
@@ -226,15 +238,15 @@ module trace_cache(input clk, input reset,
         reg [NRETIRE-1:0]l1b_c_waiting_valid;
         reg [VA_SZ-1:1]l1b_c_waiting_pc;
         reg [VA_SZ-1:1]l1b_c_waiting_next;
-        reg [BUNDLE_SIZE*(NRETIRE-1)-1:0]l1b_c_waiting;
-        reg [$clog2(NRETIRE)-1:0]l1b_c_waiting_offset;
+        reg [BUNDLE_SIZE*NRETIRE-1:0]l1b_c_waiting;
+        reg [$clog2(NRETIRE):0]l1b_c_waiting_offset;
 
         // 2 case
         reg [NRETIRE-1:0]l2_c_waiting_valid;
         reg [VA_SZ-1:1]l2_c_waiting_pc;
         reg [VA_SZ-1:1]l2_c_waiting_next;
-        reg [BUNDLE_SIZE*(NRETIRE-1)-1:0]l2_c_waiting;
-        reg [$clog2(NRETIRE)-1:0]l2_c_waiting_offset;
+        reg [BUNDLE_SIZE*NRETIRE-1:0]l2_c_waiting;
+        reg [$clog2(NRETIRE):0]l2_c_waiting_offset;
 
         // 4 case
         reg [VA_SZ-1:1]l4_next;
@@ -246,16 +258,18 @@ module trace_cache(input clk, input reset,
         reg [NRETIRE-1:0]l3_c_waiting_valid;
         reg [VA_SZ-1:1]l3_c_waiting_pc;
         reg [VA_SZ-1:1]l3_c_waiting_next;
-        reg [BUNDLE_SIZE*(NRETIRE-1)-1:0]l3_c_waiting;
-        reg [$clog2(NRETIRE)-1:0]l3_c_waiting_offset;
+        reg [BUNDLE_SIZE*NRETIRE-1:0]l3_c_waiting;
+        reg [$clog2(NRETIRE):0]l3_c_waiting_offset;
 
 		if (NRETIRE == 8) begin		// pull in lots of 8:1 muxes to set the above up
 `include "mk23_8.inc"
 		end
 
-		reg [BUNDLE_SIZE*(NRETIRE-1)-1:0]r_waiting, c_waiting;
-		reg	 [NRETIRE-2:0]r_waiting_valid, c_waiting_valid;	// left over from the last time
-		reg	[$clog2(BUNDLE_SIZE):0]r_waiting_offset, c_waiting_offset; // offset for the next bunch
+wire [VA_SZ-1:1]trace_in_pc_0=trace_in.b[0].pc;
+
+		reg [BUNDLE_SIZE*NRETIRE-1:0]r_waiting, c_waiting;
+		reg	 [NRETIRE-1:0]r_waiting_valid, c_waiting_valid;	// left over from the last time
+		reg	[$clog2(NRETIRE):0]r_waiting_offset, c_waiting_offset; // offset for the next bunch
 		reg [VA_SZ-1:1]r_waiting_pc, c_waiting_pc;			// pc to write it to
 		reg [VA_SZ-1:1]r_waiting_next, c_waiting_next;			// where it will go next
 
@@ -279,10 +293,16 @@ module trace_cache(input clk, input reset,
 
 		wire [NUM_TRACE_LINES-1:0]match_last;
 		for (I = 0; I < NUM_TRACE_LINES; I = I+1)
-			assign match_last[I] = r_valid[I] && r_pc_next[I] == trace_in.b[0].pc;
+			assign match_last[I] = r_valid[I][7] && r_pc_next[I] == trace_in.b[0].pc;
 
+		wire [NUM_TRACE_LINES-1:0]match_waiting;
+		for (I = 0; I < NUM_TRACE_LINES; I = I+1)
+			assign match_waiting[I] = r_valid[I][0] && r_pc_tag[I] == r_waiting_pc;
+ 
 
+reg [3:0]debug;
 		always @(*) begin
+debug=0;
 			write_meta = 0;
 			write_meta_update = 'bx;
 			trace_write_strobe = 0;
@@ -300,37 +320,43 @@ module trace_cache(input clk, input reset,
 			c_waiting = 'bx;
 			if (r_waiting_valid[0]) begin	// data is waiting
 				if (r_next_use_valid) begin	// somewhere to put it?
-					if (trace_in.valid[0] && trace_in.b[0].pc == r_waiting_next) begin	// l1a
-						trace_write_strobe = {1'b0,r_waiting_valid};
+					if (!(trace_in.valid[0] && trace_in.b[0].pc == r_waiting_next)) begin	// l1a
+debug=1;
+						trace_write_strobe = |match_waiting?0:r_waiting_valid;
 						trace_write_data = {{BUNDLE_SIZE{1'bx}}, r_waiting};
 
 						c_meta_valid = {1'b0,r_waiting_valid};
 						c_meta_next = r_waiting_next;
 						c_meta_pc = r_waiting_pc;
-						write_meta = 1;
+						write_meta = ! |match_waiting;
 						write_meta_update = 0;
 
-						c_last = r_next_use;
-						c_last_next = r_waiting_next;
-						c_last_valid = trace_write_strobe;
+						if (! |match_waiting) begin
+							c_last = r_next_use;
+							c_last_next = r_waiting_next;
+							c_last_valid = trace_write_strobe;
+						end
 
 						c_waiting_valid = 0;
 						c_waiting_pc = 'bx;
 						c_waiting_next = 'bx;
 						c_waiting_offset = 'bx;
 					end else begin														// l1b
-						trace_write_strobe = l1b_write_strobe;
+debug=2;
+						trace_write_strobe = |match_waiting?0:l1b_write_strobe;
 						trace_write_data = l1b_write_data;
 
 						c_meta_valid = l1b_write_strobe;
 						c_meta_next = l1b_meta_next;
 						c_meta_pc = r_waiting_pc;
-						write_meta = 1;
+						write_meta = ! |match_waiting;
 						write_meta_update = 0;
 
-						c_last = r_next_use;
-						c_last_next = l1b_meta_next;
-						c_last_valid = trace_write_strobe;
+						if (! |match_waiting) begin
+							c_last = r_next_use;
+							c_last_next = l1b_meta_next;
+							c_last_valid = trace_write_strobe;
+						end
 
 						c_waiting_valid = l1b_c_waiting_valid;
 						c_waiting = l1b_c_waiting;
@@ -339,6 +365,7 @@ module trace_cache(input clk, input reset,
 						c_waiting_offset = l1b_c_waiting_offset;
 					end
 				end	else begin	// else l2[a/b]		// discard waiting data, fill it with next data
+debug=3;
 					c_waiting_valid = l2_c_waiting_valid;
 					c_waiting = l2_c_waiting;
 					c_waiting_pc = l2_c_waiting_pc;
@@ -349,6 +376,7 @@ module trace_cache(input clk, input reset,
 			if (trace_in.valid[0]) begin
 				if (r_next_use_valid) begin	// somewhere to put it?
 					if (r_last_valid[0] && !r_last_valid[NRETIRE-1] && trace_in.b[0].pc == r_last_next) begin	// 3
+debug=4;
 						trace_write_strobe = l3_write_strobe;
 						trace_write_data = l3_write_data;
 
@@ -367,12 +395,13 @@ module trace_cache(input clk, input reset,
 						c_waiting_next = l3_c_waiting_next;	
 						c_waiting_offset = l3_c_waiting_offset;
 					end else
-					if (|match_last) begin // 4
+					if (|match_last && ! |match_waiting) begin // 4
+debug=5;
 						trace_write_strobe = trace_in.valid;
 						trace_write_data = cx;
 	
 						write_meta = 1;
-						write_meta_update = 0;
+						write_meta_update = 1;
 						c_meta_valid = trace_in.valid;
 						c_meta_pc = trace_in.b[0].pc;
 						c_meta_next = l4_next;
@@ -382,8 +411,16 @@ module trace_cache(input clk, input reset,
 						c_last_next = l4_next;
 
 						c_waiting_valid = 0;
+					end else begin	// 5
+debug=6;
+						c_waiting_valid = l2_c_waiting_valid;
+						c_waiting = l2_c_waiting;
+						c_waiting_pc = l2_c_waiting_pc;
+						c_waiting_next = l2_c_waiting_next;	
+						c_waiting_offset = l2_c_waiting_offset;
 					end
 				end else begin	// 5
+debug=7;
 					c_waiting_valid = l2_c_waiting_valid;
 					c_waiting = l2_c_waiting;
 					c_waiting_pc = l2_c_waiting_pc;
@@ -391,6 +428,7 @@ module trace_cache(input clk, input reset,
 					c_waiting_offset = l2_c_waiting_offset;
 				end
 			end else begin
+debug=8;
 				// case 6
 				trace_write_strobe = 0;
 				c_waiting_valid = 0;

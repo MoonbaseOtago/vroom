@@ -653,6 +653,8 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			//wire       partial_valid[0:NDEC];
 			wire partial_valid_0, partial_valid_1, partial_valid_2, partial_valid_3, partial_valid_4;
 			wire partial_valid_5, partial_valid_6, partial_valid_7, partial_valid_8;
+			wire [NDEC-1:0]partial_start_out;
+			wire [NDEC-1:0]partial_start_in;
 			wire [31:0]trap_ins_dec[0:NDEC-1];
 			wire [1:0]trap_dec[0:NDEC-1];
 			wire      partial_valid_int_0;
@@ -664,11 +666,13 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 				.partial_nuke_now(fetch_branched[H]|issue_fetch_trap[H]),
 				//.partial_nuke_now(fetch_branched[H]|issue_interrupt[H]|issue_fetch_trap[H]),
 
+				.partial_start(partial_start_out[NDEC-1]),
 				.save_partial(partial_valid_4),
 				//.save_partial(partial_valid[NDEC]),
 				.partial_ins(partial_ins[NDEC]),
 				.decode_pc(partial_pc[NDEC][VA_SZ-1:BDEC]),
 
+				.partial_start_out(partial_start_in[0]),
 				.partial_valid_out(partial_valid_0),
 				.partial_valid_out_int(partial_valid_int_0),
 				//.partial_valid_out(partial_valid[0]),
@@ -701,6 +705,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					assign partial_valid_2 = partial_valid_out;
 					assign jumping_stall_1 = jumping_stall_out;
 					assign partial_valid_int_in = 1'b0;
+					assign partial_start_in[1]=0;
 				end else 
 				if (D == 2) begin
 					assign valid_in = valid_dec_1;
@@ -709,6 +714,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					assign partial_valid_3 = partial_valid_out;
 					assign jumping_stall_2 = jumping_stall_out;
 					assign partial_valid_int_in = 1'b0;
+					assign partial_start_in[2]=0;
 				end else 
 				if (D == 3) begin
 					assign valid_in = valid_dec_2;
@@ -716,6 +722,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					assign partial_valid_4 = partial_valid_out;
 					assign jumping_stall_3 = jumping_stall_out;
 					assign partial_valid_int_in = 1'b0;
+					assign partial_start_in[3]=0;
 				end 
 
 				decode #(.VA_SZ(VA_SZ), .RV(RV), .ADDR(D), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decoder(.reset(reset), .clk(clk),
@@ -754,6 +761,8 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					.partial_valid_out(partial_valid_out),
 					//.partial_valid_in(partial_valid[D]),
 					//.partial_valid_out(partial_valid[D+1]),
+					.partial_start_in(partial_start_in[D]),
+					.partial_start_out(partial_start_out[D]),
 
 					.pop_available(pop_available),
 					.br_default(br_default),
@@ -1350,23 +1359,47 @@ end
 
 `ifdef TRACE_CACHE
 
-			parameter NUM_TRACE_LINES=32;
+			parameter NUM_TRACE_LINES=64;
 			wire [RV-1:1]trace_pc;
 			wire [RV-1:1]trace_pc_next;
+			wire		 trace_pc_used=0;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
 
 			trace_cache #(.VA_SZ(VA_SZ), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
 					.pc(trace_pc[VA_SZ-1:1]),
 					.pc_next(trace_pc_next[VA_SZ-1:1]),
-					.pc_used(1'b1),
+					.pc_used(trace_pc_used),
 					.trace_out(trace_out),
 
-					.flush(),          // we did a pipe-flush
-					.invalidate(),     // invalidate the trace cache
+					.flush('b0),          // we did a pipe-flush
+					.invalidate('b0),     // invalidate the trace cache
 					.trace_in(trace_in));
+
 			for (I = 0; I < (NDEC*2); I = I+1) begin
-				
+				wire  [LNCOMMIT-1:0]ind = current_start[H]+I;	// wraps
+				assign trace_in.b[I].pc = pc_commit[ind][H];
+				assign trace_in.b[I].rd = rd_commit[ind][H];
+				assign trace_in.b[I].rs1 = rs1_commit[ind][H];
+				assign trace_in.b[I].rs2 = rs2_commit[ind][H];
+				assign trace_in.b[I].rs3 = rs3_commit[ind][H];
+				assign trace_in.b[I].makes_rd = makes_rd_commit[H][ind];
+				assign trace_in.b[I].needs_r2 = needs_rs2_commit[ind][H];
+				assign trace_in.b[I].needs_r3 = needs_rs3_commit[ind][H];
+				assign trace_in.b[I].unit_type = unit_type_commit[ind][H];
+				assign trace_in.b[I].control = control_commit[ind][H];
+				assign trace_in.b[I].immed = immed_commit[ind][H];
+`ifdef FP
+				assign trace_in.b[I].rd_fp = rd_fp_commit[H][ind];
+				assign trace_in.b[I].rs1_fp = rs1_fp_commit[H][ind];
+				assign trace_in.b[I].rs2_fp = rs2_fp_commit[H][ind];
+				assign trace_in.b[I].rs3_fp = rs3_fp_commit[H][ind];
+`endif
+				assign trace_in.b[I].pc_dest = branch_dest_commit[ind][H];
+				assign trace_in.b[I].start = start_commit[ind][H];
+				assign trace_in.b[I].short_ins = short_commit[ind][H];
+				assign trace_in.valid[I] = current_commit_mask[(NDEC*2)-1-I];
+				assign trace_in.branched[I] = 0;
 			end
 `endif
 		end

@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -123,6 +123,8 @@ module decode(input clk,
 		input		  partial_valid_int_in,
 		output		  partial_valid_out,
 		input		  pop_available,
+		input	      partial_start_in,
+		output	      partial_start_out,
 
 		input	valid,
 		input	valid_in,
@@ -249,11 +251,11 @@ module decode(input clk,
 	wire after = pc[BDEC-1:2] < ADDR;
 
 	reg r_start_out_1, r_start_out_2;
-	assign start_out_1 = r_start_out_1;
-	assign start_out_2 = r_start_out_2;
+	assign start_1 = r_start_out_1;
+	assign start_2 = r_start_out_2;
 	reg r_short_out_1, r_short_out_2;
-	assign short_out_1 = r_short_out_1;
-	assign short_out_2 = r_short_out_2;
+	assign short_1 = r_short_out_1;
+	assign short_2 = r_short_out_2;
 	reg r_valid_out_1, r_valid_out_2;
 	reg c_valid_out_1, c_valid_out_2;
 	assign valid_out_1 = r_valid_out_1;
@@ -680,9 +682,10 @@ module decode(input clk,
 	assign pc_br_fetch_1 = {{RV-VA_SZ{c_pc_1[VA_SZ-1]}}, c_pc_1}+{{RV-1-20{c_br_imm_1[19]}}, c_br_imm_1};
 	assign pc_br_fetch_2 = {{RV-VA_SZ{pc[VA_SZ-1]}}, pc[VA_SZ-1:BDEC], pc_2_lo}+{{RV-1-20{c_br_imm_2[19]}}, c_br_imm_2};
 
+	assign partial_start_out = first && pc[1];
 	always @(posedge clk)
 	if (!rename_stall) begin
-		r_start_out_1 <= (fetch_branched && first && !pc[1])||(partial_valid_in && ADDR==0);
+		r_start_out_1 <= (fetch_branched && first && !pc[1])||(partial_valid_in && partial_start_in && !partial_nuke && ADDR==0);
 		r_start_out_2 <= first && pc[1];
 		r_short_out_1 <= !partial_valid_in && ins[1:0] != 3;
 		r_short_out_2 <= ins[17:16] != 3;

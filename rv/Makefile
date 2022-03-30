@@ -93,7 +93,7 @@ UART = rvuart.sv uart/raminfr.v uart/uart_receiver.v uart/uart_regs.v uart/uart_
 UART_DEF1 = +incdir+uart 
 UART_DEF2 = -Iuart 
 
-VERILATOR= /usr/local/bin/verilator --error-limit 10 -j 16 --timescale-override "1ns/1ns"
+VERILATOR= /usr/local/bin/verilator --error-limit 10 -j 16 --timescale-override "1ns/1ns" --trace-max-array 64
 
 MX = mkinc4.inc mkinc8.inc mkinc16.inc
 MX2 = mk2_4.inc mk2_8.inc mk2_16.inc
@@ -117,7 +117,7 @@ MX17 = mk17_1_6.inc mk17_1_5.inc  mk17_1_4.inc
 MX19 = mk19_64.inc 
 MX20 = mk20_32_8.inc mk20_32_16.inc
 MX21 = mk21_32_6_4_4_16.inc mk21_32_4_2_2_16.inc mk21_32_6_4_4_32.inc mk21_32_4_2_2_32.inc
-MX22 = mk22_16_8.inc mk22_32_8.inc mk22_64_8.inc
+MX22 = mk22_16_8.inc mk22_32_8.inc mk22_48_8.inc  mk22_64_8.inc
 MX23 = mk23_8.inc 
 #MXREG = rfile_13_3_6_2_8_32_1.sv 
 #MXREG = rfile_15_3_7_2_8_32_1.sv
@@ -601,6 +601,8 @@ mk22_16_8.inc: mk22
 	./mk22 16 8 >$@
 mk22_32_8.inc: mk22
 	./mk22 32 8 >$@
+mk22_48_8.inc: mk22
+	./mk22 48 8 >$@
 mk22_64_8.inc: mk22
 	./mk22 64 8 >$@
 

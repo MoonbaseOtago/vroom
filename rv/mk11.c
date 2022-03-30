@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ int main(int argc, char ** argv)
 
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
-	printf("// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com\n");
+	printf("// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com\n");
 	printf("//\n");
 	printf("// This program is free software: you can redistribute it and/or modify\n");
 	printf("// it under the terms of the GNU General Public License as published by\n");

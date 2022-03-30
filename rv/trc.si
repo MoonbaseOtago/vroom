@@ -33,10 +33,12 @@ interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5
 		bit      [ 3: 0]unit_type;	// 4
 		bit[CNTRL_SIZE-1:0]control;	// 7
 		bit       [31:0]immed;		// 32
+`ifdef FP
 		bit				rd_fp;		// 1
 		bit				rs1_fp;		// 1
 		bit				rs2_fp;		// 1
 		bit				rs3_fp;		// 1
+`endif
 		bit     [VA_SZ-1:1]pc_dest;	// 63
 		bit			    start;		// 1
 		bit				short_ins;	// 1

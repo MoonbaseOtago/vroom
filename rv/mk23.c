@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-21 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -98,6 +98,12 @@ int main(int argc, char ** argv)
 	printf("	always @(*) begin\n");
 	printf("		l1b_write_strobe = 0;\n");
 	printf("		l1b_meta_next = 'bx;\n");
+	printf("		l1b_write_data = 'bx;\n");
+	printf("		l1b_c_waiting_valid = 'bx;\n");
+	printf("		l1b_c_waiting_pc = 'bx;\n");
+	printf("		l1b_c_waiting = 'bx;\n");
+	printf("		l1b_c_waiting_next = 'bx;\n");	
+	printf("		l1b_c_waiting_offset = 'bx;\n");	
 	printf("		casez ({trace_in.valid[NRETIRE-1:1], r_waiting_offset}) // synthesis full_case parallel_case\n");
 	for (i = 1; i < num_retire; i++) {
 	for (j = 1; j < (num_retire-(i-1)); j++) {

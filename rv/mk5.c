@@ -72,6 +72,7 @@ int main(int argc, char ** argv)
 	printf("		needs_rs2 = 1'bx;\n");
 	printf("		needs_rs3 = 1'bx;\n");
 	printf("		pc_rn = 63'bx;\n");
+	printf("		pc_dest_rn = 63'bx;\n");
 	printf("		real_rd = 'bx;\n");
 	printf("		real_rs1 = 'bx;\n");
 	printf("		real_rs2 = 'bx;\n");
@@ -104,6 +105,7 @@ int main(int argc, char ** argv)
 		printf("			rs2_fp = rs2_fp_rename[%d];\n",i);
 		printf("			rs3_fp = rs3_fp_rename[%d];\n",i);
 		printf("			pc_rn = pc_rename[%d];\n",i);
+		printf("			pc_dest_rn = pc_dest_rename[%d];\n",i);
 		printf("			real_rd = rd_real_rename[%d];\n",i);
 		printf("			rs1 = rs1_rename[%d];\n",i);
 		printf("			rs2 = rs2_rename[%d];\n",i);

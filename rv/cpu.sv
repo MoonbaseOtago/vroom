@@ -238,7 +238,10 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	PMP         #(.NUM_PMP(NUM_PMP), .NPHYS(NPHYS))pmp[0:1]();	// PMP interface
 assign pmp[1].valid=0;
 
-	reg [RV-1:1]pc_pre_fetch[0:NHART-1];
+	wire [RV-1:1]pc_pre_fetch[0:NHART-1];
+	wire [VA_SZ-1:1]pc_trace_next[0:NHART-1];
+	wire [NHART-1:0]pc_trace_used;
+	wire [NHART-1:0]pc_trace_hit;
 	wire [127:0]icache_out[0:NHART-1];
 	wire    [NHART-1:0]irand;
 	wire			   frand;
@@ -425,6 +428,34 @@ assign pmp[1].valid=0;
 `endif
 	wire      [CNTRL_SIZE-1:0]control_commit[0:NCOMMIT-1][0:NHART-1];
 	wire	            [3: 0]unit_type_commit[0:NCOMMIT-1][0:NHART-1];
+
+`ifdef TRACE_CACHE
+	wire	[NHART-1:0]rename_from_trace;
+assign rename_from_trace=0;
+	wire   [2*NDEC-1:0]trace_out_valid[0:NHART-1];
+	wire          [4:0]trace_out_rd[0:NHART-1][0:2*NDEC-1];
+	wire          [4:0]trace_out_rs1[0:NHART-1][0:2*NDEC-1];
+	wire          [4:0]trace_out_rs2[0:NHART-1][0:2*NDEC-1];
+	wire          [4:0]trace_out_rs3[0:NHART-1][0:2*NDEC-1];
+	wire [CNTRL_SIZE-1:0]trace_out_control[0:NHART-1][0:2*NDEC-1];
+	wire   [2*NDEC-1:0]trace_out_makes_rd[0:NHART-1];
+	wire   [2*NDEC-1:0]trace_out_needs_rs2[0:NHART-1];
+	wire   [2*NDEC-1:0]trace_out_needs_rs3[0:NHART-1];
+`ifdef FP
+	wire   [2*NDEC-1:0]trace_out_rd_fp[0:NHART-1];
+	wire   [2*NDEC-1:0]trace_out_rs1_fp[0:NHART-1];
+	wire   [2*NDEC-1:0]trace_out_rs2_fp[0:NHART-1];
+	wire   [2*NDEC-1:0]trace_out_rs3_fp[0:NHART-1];
+`endif
+	wire   [$clog2(NUM_PENDING)-1:0]trace_out_branch_token[0:NHART-1][0:2*NDEC-1];
+	wire   [$clog2(NUM_PENDING_RET)-1:0]trace_out_branch_token_ret[0:NHART-1][0:2*NDEC-1];
+	wire          [3:0]trace_out_unit_type[0:NHART-1][0:2*NDEC-1];
+	wire   [2*NDEC-1:0]trace_out_short[0:NHART-1];
+	wire   [2*NDEC-1:0]trace_out_start[0:NHART-1];
+	wire         [31:0]trace_out_immed[0:NHART-1][0:2*NDEC-1];
+	wire    [VA_SZ-1:1]trace_out_pc[0:NHART-1][0:2*NDEC-1];
+	wire    [VA_SZ-1:1]trace_out_pc_dest[0:NHART-1][0:2*NDEC-1];
+`endif
 	
 
 	wire	[LNCOMMIT-1:0]current_start[0: NHART-1]; // valid range of the commit buffer 
@@ -834,7 +865,6 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			always @(posedge clk)
 				r_dec_partial0 <= partial_valid_0;
 
-			wire 	[VA_SZ-1:1]pc_dest_rename;
 			wire			force_fetch_rename;
 
 			rename_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
@@ -848,10 +878,7 @@ assign gl_type_dec[H] = unit_type_dec[0];
 				.proceed(proceed_rename),
 				.count_out(count_out_rename),
 				.rename_count_out(total_count_out_rename[H]),
-				.current_available(current_available[H]),
-
-                .pc_dest(pc_dest_dec),						// note if/when we switch to having a trace cache these will 
-                .pc_dest_out(pc_dest_rename)
+				.current_available(current_available[H])
 				);
 		
 
@@ -885,6 +912,7 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename[0:2*NDEC-1];
 			wire      [2*NDEC-1:0]valid_rename;
 			wire 	[VA_SZ-1:1]pc_rename[0:2*NDEC-1];
+			wire 	[VA_SZ-1:1]pc_dest_rename[0:2*NDEC-1];
 `ifdef FP
 			wire    [RA-1:0]scoreboard_latest_rename_fp[0:31];
 `endif
@@ -907,7 +935,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg	[31:0]immed;
 				reg    [3:0]unit_type;
 				reg    [CNTRL_SIZE-1:0]control;
-				reg 	[RV-1:1]pc;
+				reg 	[RV-1:1]pc, pc_dest;
 				reg    [RA-1:0]renamed_rs1, renamed_rs2, renamed_rs3;
 				reg			local1, local2, local3;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
@@ -927,6 +955,10 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
 					.rv32(rv32[H]),
 					.valid(valid_out_dec),
+`ifdef TRACE_CACHE
+					.rename_from_trace(rename_from_trace[H]),
+					.trace_valid(trace_out_valid[H][D]),
+`endif
 					.rs1(s1),
                 	.rs2(s2),
                 	.rs3(s3),
@@ -944,6 +976,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.control(control),
                 	.unit_type(unit_type),
                 	.pc(pc),
+                	.pc_dest(pc_dest),
 					.renamed_rs1(renamed_rs1),
 					.renamed_rs2(renamed_rs2),
 					.renamed_rs3(renamed_rs3),
@@ -994,6 +1027,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.control_out(control_rename[D]),
                 	.unit_type_out(unit_type_rename[D]),
                 	.pc_out(pc_rename[D]),
+                	.pc_dest_out(pc_dest_rename[D]),
 					.will_be_valid(will_be_valid_rename[D]),
 					.branch_token_out(branch_token_rename[D]),
 					.branch_token_ret_out(branch_token_ret_rename[D]),
@@ -1204,6 +1238,7 @@ end
 				reg [CNTRL_SIZE-1:0]control;
 				reg [3:0]unit_type;
 				reg 	[VA_SZ-1:1]pc_rn;
+				reg 	[VA_SZ-1:1]pc_dest_rn;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
 				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
 	
@@ -1266,7 +1301,7 @@ end
 `endif
         			.control(control),
         			.pc(pc_rn),
-					.pc_dest(pc_dest_rename),
+					.pc_dest(pc_dest_rn),
 					.branch_token(branch_token),
 					.branch_token_ret(branch_token_ret),
         			.unit_type(unit_type), 
@@ -1360,22 +1395,45 @@ end
 `ifdef TRACE_CACHE
 
 			parameter NUM_TRACE_LINES=64;
-			wire [RV-1:1]trace_pc;
 			wire [RV-1:1]trace_pc_next;
 			wire		 trace_pc_used=0;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
 
 			trace_cache #(.VA_SZ(VA_SZ), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
-					.pc(trace_pc[VA_SZ-1:1]),
-					.pc_next(trace_pc_next[VA_SZ-1:1]),
-					.pc_used(trace_pc_used),
+					.pc(pc_pre_fetch[H][VA_SZ-1:1]),
+					.pc_next(pc_trace_next[H]),
+					.pc_used(pc_trace_used[H]),
+					.trace_hit(pc_trace_hit[H]),
 					.trace_out(trace_out),
 
 					.flush('b0),          // we did a pipe-flush
 					.invalidate('b0),     // invalidate the trace cache
 					.trace_in(trace_in));
 
+			for (I = 0; I < (NDEC*2); I = I+1) begin
+				assign trace_out_valid[H][I] = trace_out.valid[I];
+				assign trace_out_pc[H][I] = trace_out.b[I].pc;
+				assign trace_out_rd[H][I] = trace_out.b[I].rd;
+				assign trace_out_rs1[H][I] = trace_out.b[I].rs1;
+				assign trace_out_rs2[H][I] = trace_out.b[I].rs2;
+				assign trace_out_rs3[H][I] = trace_out.b[I].rs3;
+				assign trace_out_makes_rd[H][I] = trace_out.b[I].makes_rd;
+				assign trace_out_needs_rs2[H][I] = trace_out.b[I].needs_rs2;
+				assign trace_out_needs_rs3[H][I] = trace_out.b[I].needs_rs3;
+				assign trace_out_unit_type[H][I] = trace_out.b[I].unit_type;
+				assign trace_out_control[H][I] = trace_out.b[I].control;
+				assign trace_out_immed[H][I] = trace_out.b[I].immed;
+`ifdef FP
+				assign trace_out_rd_fp[H][I] = trace_out.b[I].rd_fp;
+				assign trace_out_rs1_fp[H][I] = trace_out.b[I].rs1_fp;
+				assign trace_out_rs2_fp[H][I] = trace_out.b[I].rs2_fp;
+				assign trace_out_rs3_fp[H][I] = trace_out.b[I].rs3_fp;
+`endif
+				assign trace_out_pc_dest[H][I] = trace_out.b[I].pc_dest;
+				assign trace_out_start[H][I] = trace_out.b[I].start;
+				assign trace_out_short[H][I] = trace_out.b[I].short_ins;
+			end
 			for (I = 0; I < (NDEC*2); I = I+1) begin
 				wire  [LNCOMMIT-1:0]ind = current_start[H]+I;	// wraps
 				assign trace_in.b[I].pc = pc_commit[ind][H];
@@ -1384,8 +1442,8 @@ end
 				assign trace_in.b[I].rs2 = rs2_commit[ind][H];
 				assign trace_in.b[I].rs3 = rs3_commit[ind][H];
 				assign trace_in.b[I].makes_rd = makes_rd_commit[H][ind];
-				assign trace_in.b[I].needs_r2 = needs_rs2_commit[ind][H];
-				assign trace_in.b[I].needs_r3 = needs_rs3_commit[ind][H];
+				assign trace_in.b[I].needs_rs2 = needs_rs2_commit[ind][H];
+				assign trace_in.b[I].needs_rs3 = needs_rs3_commit[ind][H];
 				assign trace_in.b[I].unit_type = unit_type_commit[ind][H];
 				assign trace_in.b[I].control = control_commit[ind][H];
 				assign trace_in.b[I].immed = immed_commit[ind][H];

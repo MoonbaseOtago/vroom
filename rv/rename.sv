@@ -27,9 +27,6 @@ module rename_ctrl(
 
 		output				force_fetch_rename,
 
-		input   [VA_SZ-1:1]pc_dest,
-		output   [VA_SZ-1:1]pc_dest_out,
-
 		output  [LNCOMMIT-1:0]count_out,
 		output  [3:0]rename_count_out,
 		output 	    proceed,
@@ -82,14 +79,6 @@ module rename_ctrl(
 	assign rename_reloading = r_stall!=0;
     always @(posedge clk)
 		r_stall <= (reset||commit_int_force_fetch?0:{r_stall[0], stall_in});
-
-	reg   [VA_SZ-1:1]r_pc_dest_out;
-	assign  pc_dest_out = r_pc_dest_out;
-
-	always @(posedge clk)
-	if (!rename_stall) begin
-		r_pc_dest_out <= pc_dest;
-	end
 
 endmodule
 
@@ -223,6 +212,10 @@ module rename(
 		input			rv32,
 
 		input	 [2*NDEC-1:0]valid,
+`ifdef TRACE_CACHE
+		input			rename_from_trace,
+		input			trace_valid,
+`endif
 		input    [ 4: 0]rs1,
 		input    [ 4: 0]rs2,
 		input    [ 4: 0]rs3,
@@ -240,6 +233,7 @@ module rename(
 		input [CNTRL_SIZE-1:0]control,
 		input  [3:0]unit_type,
 		input   [VA_SZ-1:1]pc,
+		input   [VA_SZ-1:1]pc_dest,
 		input    [LNCOMMIT-1: 0]next_start,
 		input	[RA-1: 0]renamed_rs1,
 		input	[RA-1: 0]renamed_rs2,
@@ -287,6 +281,7 @@ module rename(
 		output [CNTRL_SIZE-1:0]control_out,
 		output  [3:0]unit_type_out,
 		output   [VA_SZ-1:1]pc_out,
+		output   [VA_SZ-1:1]pc_dest_out,
 		output 		will_be_valid,
 		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
@@ -335,6 +330,7 @@ module rename(
 	reg [CNTRL_SIZE-1:0]r_control_out;
 	reg  [3:0]r_unit_type_out;
 	reg   [VA_SZ-1:1]r_pc_out;
+	reg   [VA_SZ-1:1]r_pc_dest_out;
 	reg		r_valid_out;
 	assign  rs1_out = r_rs1_out;
 	assign  rs2_out = r_rs2_out;
@@ -353,6 +349,7 @@ module rename(
 	assign  control_out = r_control_out;
 	assign  unit_type_out = r_unit_type_out;
 	assign  pc_out = r_pc_out;
+	assign  pc_dest_out = r_pc_dest_out;
 	assign	valid_out = r_valid_out&!(rename_stall|rename_reloading);
 	assign rd_real_out = r_rd_real_out;
 
@@ -496,7 +493,12 @@ module rename(
 		r_control_out <= control;
 		r_unit_type_out <= unit_type;
 		r_pc_out <= pc;
+		r_pc_dest_out <= pc_dest;
+`ifdef TRACE_CACHE
+		r_valid_out <= (rename_from_trace?trace_valid:c_valid_out)&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
+`else
 		r_valid_out <= c_valid_out&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
+`endif
 		r_branch_token_out <= branch_token;
 		r_branch_token_ret_out <= branch_token_ret;
 	end else begin

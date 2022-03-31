@@ -28,8 +28,8 @@ interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5
 		bit      [ 4: 0]rs2;		// 5
 		bit      [ 4: 0]rs3;		// 5
 		bit             makes_rd;	// 1
-		bit				needs_r2;	// 1
-		bit				needs_r3;	// 1
+		bit				needs_rs2;	// 1
+		bit				needs_rs3;	// 1
 		bit      [ 3: 0]unit_type;	// 4
 		bit[CNTRL_SIZE-1:0]control;	// 7
 		bit       [31:0]immed;		// 32

@@ -25,6 +25,7 @@ module trace_cache(input clk, input reset,
 	input			 pc_used,
 	TRACE_BUNDLE trace_out,
 	output [VA_SZ-1:0]pc_next,
+	output		 trace_hit,
 
 	input	flush,			// we did a pipe-flush
 	input	invalidate,		// invalidate the trace cache
@@ -155,7 +156,7 @@ module trace_cache(input clk, input reset,
 		for (I = 0; I < NUM_TRACE_LINES; I=I+1) begin
 			assign match[I] = r_valid[I][0] && pc[VA_SZ-1:1] == r_pc_tag[I];	// associative match
 		end
-		wire hit = |match;
+		assign trace_hit = |match;
 
 		
 		// one-hit mux cache = r_trace_cache[hit-line]
@@ -182,7 +183,7 @@ module trace_cache(input clk, input reset,
 		end
 
 		for (I = 0; I < NRETIRE; I=I+1) begin
-			assign trace_out.b[I] = r_trace_cache[hit][I];
+			assign trace_out.b[I] = cache[(I+1)*BUNDLE_SIZE-1:I*BUNDLE_SIZE];
 		end
 
 		//

@@ -22,7 +22,7 @@
 // what we store in the trace cache
 interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5);
 	typedef struct packed {
-		bit     [VA_SZ-1:1]pc;			// 63
+		bit     [VA_SZ-1:1]pc;		// 63
 		bit      [ 4: 0]rd;			// 5
 		bit      [ 4: 0]rs1;		// 5
 		bit      [ 4: 0]rs2;		// 5

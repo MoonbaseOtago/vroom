@@ -104,7 +104,7 @@ int main(int argc, char ** argv)
 	printf("		l1b_c_waiting = 'bx;\n");
 	printf("		l1b_c_waiting_next = 'bx;\n");	
 	printf("		l1b_c_waiting_offset = 'bx;\n");	
-	printf("		casez ({trace_in.valid[NRETIRE-1:1], r_waiting_offset}) // synthesis full_case parallel_case\n");
+	printf("		casez ({trace_in.valid[NRETIRE-1:1]&~will_trap[NRETIRE-1:1], r_waiting_offset}) // synthesis full_case parallel_case\n");
 	for (i = 1; i < num_retire; i++) {
 	for (j = 1; j < (num_retire-(i-1)); j++) {
 	printf("		%d'b", num_retire-1+clog2(num_retire)+1);
@@ -133,13 +133,13 @@ int main(int argc, char ** argv)
 	printf("};\n");
 	printf("					l1b_c_waiting_next = 'bx;\n");	
 	printf("					l1b_c_waiting_offset = 'bx;\n");	
-	printf("					casez (trace_in.valid[NRETIRE-1:%d]) // synthesis full_case parallel_case\n", j);
+	printf("					casez (trace_in.valid[NRETIRE-1:%d]&~will_trap[NRETIRE-1:%d]) // synthesis full_case parallel_case\n", j, j);
 	for (k = j; k <= num_retire; k++) {
 	printf("					%d'b", num_retire-j);
 	for (l=num_retire-1;l >= j; l--) printf(l>k?"?":l==k?"0":"1");printf(": begin\n");
 	if (k != j) {
 	printf("						l1b_c_waiting_next = next_ins[%d];\n", k-1);	
-	printf("						l1b_c_waiting_offset = %d;\n", k);	
+	printf("						l1b_c_waiting_offset = %d;\n", k-j);	
 	}
 	printf("						end\n");
 	}
@@ -166,10 +166,10 @@ int main(int argc, char ** argv)
 	printf("					l1b_meta_next = r_waiting_next;\n");
 	printf("					l1b_c_waiting = cx;\n");
 	printf("					l1b_c_waiting_pc = trace_in.b[0].pc;\n");
-	printf("					l1b_c_waiting_valid = trace_in.valid;\n");
+	printf("					l1b_c_waiting_valid = trace_in.valid&~will_trap;\n");
 	printf("					l1b_c_waiting_next = 'bx;\n");
 	printf("					l1b_c_waiting_offset = 'bx;\n");
-	printf("					casez (trace_in.valid) // synthesis full_case parallel_case\n");
+	printf("					casez (trace_in.valid&~will_trap) // synthesis full_case parallel_case\n");
 	for (i = 1; i <= num_retire; i++) {
 	printf("					%d'b", num_retire);
 	for (k=num_retire-1;k>=0;k--) printf(k > i?"?":k==i?"0":"1"); printf(": begin\n");
@@ -189,28 +189,28 @@ int main(int argc, char ** argv)
 	printf("		l2_c_waiting_next = 'bx;\n");
 	printf("		l2_c_waiting = 'bx;\n");
 	printf("		l2_c_waiting_offset = 'bx;\n");
-	printf("		casez (trace_in.valid&start_vec) // synthesis full_case parallel_case\n");
+	printf("		casez (trace_in.valid&start_vec&~will_trap) // synthesis full_case parallel_case\n");
 	for (i = 0; i < num_retire; i++) {
 	printf("		%d'b", num_retire);
 	for (k = num_retire-1;k >= 0; k--) printf(k > i?"?":k==i?"1":"0"); printf(": begin\n");; 
 	printf("					l2_c_waiting_pc = trace_in.b[%d].pc;\n", i);
 	if (i == 0) {
-	printf("					l2_c_waiting_valid = trace_in.valid;\n");
+	printf("					l2_c_waiting_valid = trace_in.valid&~will_trap;\n");
 	printf("					l2_c_waiting = cx;\n");
 	} else {
-	printf("					l2_c_waiting_valid = {{%d{1'b0}}, trace_in.valid[NRETIRE-1:%d]};\n", i, i);
+	printf("					l2_c_waiting_valid = {{%d{1'b0}}, trace_in.valid[NRETIRE-1:%d]&~will_trap[NRETIRE-1:%d]};\n", i, i, i);
 	printf("					l2_c_waiting = {{%d*BUNDLE_SIZE{1'bx}}, cx[BUNDLE_SIZE*%d-1:BUNDLE_SIZE*%d]};\n", i, num_retire, i);
 	}
 	if (i == (num_retire-1)){
 	printf("					l2_c_waiting_next = next_ins[%d];\n", i);
-	printf("					l2_c_waiting_offset = %d;\n", i+1);
+	printf("					l2_c_waiting_offset = %d;\n", 1);
 	} else {
-	printf("					casez (trace_in.valid[NRETIRE-1:%d]) // synthesis full_case parallel_case\n", i+1);
+	printf("					casez (trace_in.valid[NRETIRE-1:%d]&~will_trap[NRETIRE-1:%d]) // synthesis full_case parallel_case\n", i+1, i+1);
 	for (j = i+1; j <= num_retire; j++) {
 	printf("					%d'b", num_retire-i-1);
 	for (k = num_retire-1; k >= (i+1); k--) printf(k > j?"?":k==j?"0":"1"); printf(": begin\n");
 	printf("								l2_c_waiting_next = next_ins[%d];\n", j-1);
-	printf("								l2_c_waiting_offset = %d;\n", j);
+	printf("								l2_c_waiting_offset = %d;\n", j-i);
 	printf("							end\n");
 	}
 	printf("					endcase\n");
@@ -224,7 +224,7 @@ int main(int argc, char ** argv)
 	printf("	// 4 case\n");
 	printf("	always @(*) begin\n");
 	printf("		l4_next = 'bx;\n");
-	printf("		casez (trace_in.valid[NRETIRE-1:1]) // synthesis full_case parallel_case\n");
+	printf("		casez (trace_in.valid[NRETIRE-1:1]&~will_trap[NRETIRE-1:1]) // synthesis full_case parallel_case\n");
 	for (i = 1; i <= num_retire; i++) {
 	printf("		%d'b", num_retire-1);
 	for (k = num_retire-1; k >= 1; k--) printf(k>i?"?":k==i?"0":"1");printf(": l4_next = next_ins[%d];\n", i-1);
@@ -243,19 +243,19 @@ int main(int argc, char ** argv)
 	printf("		l3_c_waiting_pc = 'bx;\n");
 	printf("		l3_c_waiting_next = 'bx;\n");
 	// we know that r_last_valid[0] == 1 and r_last_valid[7]==0 (otherwise we couldn't add)
-	printf("		casez (r_last_valid[NRETIRE-1:1]) // synthesis full_case parallel_case\n");
+	printf("		casez (r_last_valid[NRETIRE-2:1]) // synthesis full_case parallel_case\n");
 	for (i = 1; i < (num_retire); i++) {
 	printf("		%d'b", num_retire-2);
 	for (k = num_retire-2; k >= 1; k--) printf(k>i?"?":k==i?"0":"1"); printf(": begin\n");
-	printf("				l3_write_strobe = {trace_in.valid[%d:0], %d'b0};\n", num_retire-i-1, i);
+	printf("				l3_write_strobe = {trace_in.valid[%d:0]&~will_trap[%d:0], %d'b0};\n", num_retire-i-1, num_retire-i-1, i);
 	printf("				l3_write_data = {cx[%d*BUNDLE_SIZE-1:0], {BUNDLE_SIZE*%d{1'bx}}};\n", num_retire-i, i);	
-	printf("				l3_c_waiting_valid = {%d'b0, trace_in.valid[NRETIRE-1:%d]};\n", num_retire-i, num_retire-i);
+	printf("				l3_c_waiting_valid = {%d'b0, trace_in.valid[NRETIRE-1:%d]&~will_trap[NRETIRE-1:%d]};\n", num_retire-i, num_retire-i, num_retire-i);
 	printf("				l3_c_waiting = {{BUNDLE_SIZE*%d{1'bx}}, cx[NRETIRE*BUNDLE_SIZE-1:%d*BUNDLE_SIZE]};\n", i, num_retire-i);	
 	printf("				l3_c_waiting_pc = trace_in.b[%d].pc;\n", num_retire-i);	
 	if (i == (num_retire-1)) {
 	printf("				l3_meta_next = next_ins[0];\n");	
 	} else {
-	printf("				casez (trace_in.valid[%d:1]) // synthesis full_case parallel_case\n", num_retire-i);
+	printf("				casez (trace_in.valid[%d:1]&~will_trap[%d:1]) // synthesis full_case parallel_case\n", num_retire-i-1, num_retire-i-1);
 	for (j = 1; j <= (num_retire-i); j++) {
 	printf("				%d'b", num_retire-i-1);
 	for (k = num_retire-i-1; k >= 1; k--) printf(k>j?"?":k==j?"0":"1"); printf(": begin\n");
@@ -264,7 +264,7 @@ int main(int argc, char ** argv)
 	}
 	printf("				endcase\n");
 	}
-	printf("				casez (trace_in.valid[NRETIRE-1:%d]) // synthesis full_case parallel_case\n", num_retire-i);
+	printf("				casez (trace_in.valid[NRETIRE-1:%d]&~will_trap[NRETIRE-1:%d]) // synthesis full_case parallel_case\n", num_retire-i, num_retire-i);
 	for (j = num_retire-i; j <= num_retire; j++) {
 	printf("				%d'b", i);
 	for (k = num_retire-1; k >= (num_retire-i); k--) printf(k>j?"?":k==j?"0":"1"); printf(": begin\n");
@@ -273,7 +273,7 @@ int main(int argc, char ** argv)
 	printf("						l3_c_waiting_offset = 'bx;\n");
 	} else {
 	printf("						l3_c_waiting_next = next_ins[%d];\n", j-1);
-	printf("						l3_c_waiting_offset = %d;\n", j);
+	printf("						l3_c_waiting_offset = %d;\n", j-(num_retire-i));
 	}
 	printf("					end\n");
 	}

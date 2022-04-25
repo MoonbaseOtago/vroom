@@ -23,6 +23,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 
 `ifdef SIMD
 	input simd_enable,
+	input simd_trace_enable,
 `endif
 
 `ifdef AWS_DEBUG
@@ -139,6 +140,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter LNHART=(NHART==1?1:$clog2(NHART));	// number of bits to encode hyperthreads
 	parameter BDEC = (NDEC==1?2:NDEC==2?3:NDEC<=4?4:NDEC<=8?5:6); // LSB of common part of pc for decoders
 	parameter NCOMMIT = 32;	// number of commit registers 
+	parameter NLDSTQ = 32;  // for the moment must be >= NCOMMIT to avoid deadlocks
 	parameter LNCOMMIT = $clog2(NCOMMIT);	// number of bits to encode that
 	parameter NUM_PENDING = NCOMMIT;		// number of pending branches
 	parameter NUM_PENDING_RET = NCOMMIT/2;	// number of pending call slots
@@ -176,7 +178,6 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 `else
 	parameter NSTORE = 4;
 `endif
-	parameter	NLDSTQ = 8;
 	parameter NMUL = 1;
 `ifdef COMBINED_BRANCH
 	parameter NBRANCH = 0;	// number of branch units per-hart
@@ -228,6 +229,10 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
     wire       [3:0]sup_vm_mode[0:NHART-1];
     wire      [15:0]sup_asid[0:NHART-1];
 	wire [NHART-1:0]unified_asid;
+`ifdef TRACE_CACHE
+	wire [NHART-1:0]trace_enable;
+	wire       [3:0]trace_scale[0:NHART-1];
+`endif
     wire [NHART-1:0]sup_vm_sum;
     wire [NHART-1:0]mxr;
 	wire       [3:0]cpu_mode[0:NHART-1];
@@ -414,6 +419,9 @@ assign pmp[1].valid=0;
 	wire   [VA_SZ-1:1]branch_dest_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [BDEC-1:1]branch_dec_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [NCOMMIT-1:0]branch_taken_commit[0:NHART-1];
+`ifdef TRACE_CACHE
+	wire    [NCOMMIT-1:0]will_trap_commit[0:NHART-1];
+`endif
 	wire [$clog2(NUM_PENDING)-1:0]branch_token_commit[0:NCOMMIT-1][0:NHART-1];
 	wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_commit[0:NCOMMIT-1][0:NHART-1];
 	wire [NUM_PENDING-1:0]commit_token[0:NHART-1];
@@ -430,8 +438,6 @@ assign pmp[1].valid=0;
 	wire	            [3: 0]unit_type_commit[0:NCOMMIT-1][0:NHART-1];
 
 `ifdef TRACE_CACHE
-	wire	[NHART-1:0]rename_from_trace;
-assign rename_from_trace=0;
 	wire   [2*NDEC-1:0]trace_out_valid[0:NHART-1];
 	wire          [4:0]trace_out_rd[0:NHART-1][0:2*NDEC-1];
 	wire          [4:0]trace_out_rs1[0:NHART-1][0:2*NDEC-1];
@@ -592,7 +598,11 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 				.subr_pop(subr_pop),
 				.subr_inc2(subr_inc2),
 				.pop_available(pop_available),
-
+`ifdef TRACE_CACHE
+				.trace_hit(pc_trace_hit[H]), 
+				.trace_next(pc_trace_next[H]), 
+				.trace_used(pc_trace_used[H]), 
+`endif
 				.dec_br_enable(predicted_branch),	
 				.dec_branch(branch_address),
 				.dec_br_offset(dec_br_offset),
@@ -868,6 +878,9 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire			force_fetch_rename;
 
 			rename_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
+`ifdef TRACE_CACHE
+				.trace_used(pc_trace_used[H]),
+`endif
 				.commit_br_enable(commit_br_enable[0][H]),
 				.commit_trap_br_enable(commit_trap_br_enable[H]|commit_int_br_enable[H]),
 				.commit_int_force_fetch(commit_int_force_fetch[H]),
@@ -880,7 +893,12 @@ assign gl_type_dec[H] = unit_type_dec[0];
 				.rename_count_out(total_count_out_rename[H]),
 				.current_available(current_available[H])
 				);
-		
+	
+`ifdef TRACE_CACHE
+			wire [2*NDEC-1:0]rename_valid_in = (pc_trace_used[H]? trace_out_valid[H] : valid_out_dec);
+`else
+			wire [2*NDEC-1:0]rename_valid_in = valid_out_dec;
+`endif
 
 			wire	[LNCOMMIT-1: 0]map_rd_rename[0:2*NDEC-1];
 			wire	[ 4: 0]all_rd_rename[0:2*NDEC-1];
@@ -951,14 +969,11 @@ assign gl_type_rename[H] = unit_type_rename[0];
 `include "mk2_16.inc"
 				end 
 
+
 			
 				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
 					.rv32(rv32[H]),
-					.valid(valid_out_dec),
-`ifdef TRACE_CACHE
-					.rename_from_trace(rename_from_trace[H]),
-					.trace_valid(trace_out_valid[H][D]),
-`endif
+					.valid(rename_valid_in),
 					.rs1(s1),
                 	.rs2(s2),
                 	.rs3(s3),
@@ -1384,6 +1399,10 @@ end
 					.branch_dest_out(branch_dest_commit[C][H]),
 					.branch_dec_out(branch_dec_commit[C][H]),
 					.branch_taken_out(branch_taken_commit[H][C]),
+`ifdef TRACE_CACHE
+					.will_trap_out(will_trap_commit[H][C]),
+`endif
+
 					.branch_token_out(branch_token_commit[C][H]),
 					.branch_token_ret_out(branch_token_ret_commit[C][H]),
 					.valid_out(valid_commit[H][C]),
@@ -1395,20 +1414,27 @@ end
 `ifdef TRACE_CACHE
 
 			parameter NUM_TRACE_LINES=64;
-			wire [RV-1:1]trace_pc_next;
-			wire		 trace_pc_used=0;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
 
+			wire [NDEC*2-1:0]will_trap;
 			trace_cache #(.VA_SZ(VA_SZ), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
+`ifdef SIMD
+					.simd_enable(simd_enable),
+`endif
+					.trace_enable(trace_enable[H]),
+					.trace_scale(trace_scale[H]),
 					.pc(pc_pre_fetch[H][VA_SZ-1:1]),
 					.pc_next(pc_trace_next[H]),
 					.pc_used(pc_trace_used[H]),
+					.rename_stall(rename_stall[H]),
 					.trace_hit(pc_trace_hit[H]),
 					.trace_out(trace_out),
 
-					.flush('b0),          // we did a pipe-flush
-					.invalidate('b0),     // invalidate the trace cache
+					.flush(1'b0),						// we did a pipe-flush
+					.invalidate(tlb_wr_invalidate),     // invalidate the trace cache
+					.cpu_mode(cpu_mode[H]),
+					.will_trap(will_trap),
 					.trace_in(trace_in));
 
 			for (I = 0; I < (NDEC*2); I = I+1) begin
@@ -1434,6 +1460,9 @@ end
 				assign trace_out_start[H][I] = trace_out.b[I].start;
 				assign trace_out_short[H][I] = trace_out.b[I].short_ins;
 			end
+wire [5:0]tt_commit[0:(NDEC*2)-1];
+wire [3:0]tt_type[0:(NDEC*2)-1];
+wire [VA_SZ-1:1]tt_dest_pc[0:(NDEC*2)-1];
 			for (I = 0; I < (NDEC*2); I = I+1) begin
 				wire  [LNCOMMIT-1:0]ind = current_start[H]+I;	// wraps
 				assign trace_in.b[I].pc = pc_commit[ind][H];
@@ -1457,7 +1486,11 @@ end
 				assign trace_in.b[I].start = start_commit[ind][H];
 				assign trace_in.b[I].short_ins = short_commit[ind][H];
 				assign trace_in.valid[I] = current_commit_mask[(NDEC*2)-1-I];
-				assign trace_in.branched[I] = 0;
+				assign trace_in.branched[I] = unit_type_commit[ind][H]==6 && (!control_commit[ind][H][0] || control_commit[ind][H][5]);
+assign tt_commit[I] = control_commit[ind][H];
+assign tt_type[I] = unit_type_commit[ind][H];
+assign tt_dest_pc[I] = branch_dest_commit[ind][H];
+				assign will_trap[I] = will_trap_commit[H][ind];
 			end
 `endif
 		end
@@ -2014,6 +2047,7 @@ end
 			csr #(.RV(RV), .RA(RA), .NPHYS(NPHYS), .NUM_PMP(NUM_PMP), .HART(H), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NUM_TRANSFER_PORTS(NUM_TRANSFER_PORTS), .NINTERRUPTS(NINTERRUPTS))csr_trap(.reset(reset), .clk(clk), 
 `ifdef SIMD
 				.simd_enable(simd_enable),
+				.simd_trace_enable(simd_trace_enable),
 `endif
 `ifdef AWS_DEBUG
 				.xxtrig(xxtrig),
@@ -2040,6 +2074,10 @@ end
 				.sup_vm_mode(sup_vm_mode[H]),
 				.sup_asid(sup_asid[H]),
 				.unified_asid(unified_asid[H]),
+`ifdef TRACE_CACHE
+				.trace_enable(trace_enable[H]),
+				.trace_scale(trace_scale[H]),
+`endif
 				.sup_vm_sum(sup_vm_sum[H]),
 				.mxr(mxr[H]),
 				.cpu_mode(cpu_mode[H]),

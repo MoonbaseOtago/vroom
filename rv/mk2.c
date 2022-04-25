@@ -95,7 +95,7 @@ int main(int argc, char ** argv)
 		for (j = i-1; j >= 0; j--)printf("all_rd_fp_rename[%d]==rs1_fp%s",j,j>0?",":"};\n");
 		printf("`else\n");
 		printf("		wire [%d:0]fpmatch1 = %d'b", i-1,i);
-		for (j = i-1; j >= 0; j--)printf("1");printf(";");
+		for (j = i-1; j >= 0; j--)printf("1");printf(";\n");
 		printf("`endif\n");
 		printf("		wire [%d:0]mk1 = fpmatch1&{", i-1);
 		for (j = i-1; j >= 0; j--) 
@@ -316,7 +316,7 @@ int main(int argc, char ** argv)
         printf("		unit_type = 'bx;\n");
         printf("		pc_dest = pc_dest_dec;\n");
         printf("`ifdef TRACE_CACHE\n");
-        printf("		if (rename_from_trace[H]) begin \n");
+        printf("		if (pc_trace_used[H]) begin \n");
         printf("			d = trace_out_rd[H][D];\n");
         printf("			s1 = trace_out_rs1[H][D];\n");
         printf("			s2 = trace_out_rs2[H][D];\n");

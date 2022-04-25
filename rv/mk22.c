@@ -105,7 +105,7 @@ int main(int argc, char ** argv)
 	for (i = 0; i < num_trace_lines; i++) {
 	printf("	%d'b", num_trace_lines);
 	for (j = num_trace_lines-1; j>=0; j--) printf(i==j?"1":"?");
-	printf(": cache = {\n");
+	printf(": cache = {");
 	for (j = num_retire-1; j>=0; j--) printf("r_trace_cache[%d][%d]%s",i,j,j!=0?",":""); printf("};\n");
 	}
 	printf("	default: cache = 'bx;\n");

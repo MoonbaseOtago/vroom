@@ -19,6 +19,7 @@
 module chip (input ireset, 
 `ifdef SIMD
 	input simd_enable,
+	input simd_trace_enable,
 `endif
 	input clk_in,
 
@@ -104,7 +105,8 @@ module chip (input ireset,
 	parameter NPHYS=56;
 	parameter CACHE_LINE_SIZE=512;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
-	parameter NLDSTQ=16;
+	parameter NLDSTQ=32;	// for the moment must be >= NCOMMIT to avoid deadlocks
+	parameter NCOMMIT=32;
 	parameter TRANS_ID_SIZE=6;	// 6 for i/tcaches must be >= $clog2(NLDSTQ)
 	parameter NI=NCPU*2;
 	parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
@@ -252,11 +254,12 @@ module chip (input ireset,
 	generate
 		for (I = 0; I < NCPU; I=I+1) begin: c
 			wire [2:0]sub_cpu=I;
-			cpu #(.NPHYS(NPHYS), .NHART(NHART), .NLDSTQ(NLDSTQ), .TRANS_ID_SIZE(TRANS_ID_SIZE), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .CACHE_LINE_SIZE(CACHE_LINE_SIZE), .NINTERRUPTS(NINTERRUPTS))cpu(.clk(clk), .reset(reset),
+			cpu #(.NPHYS(NPHYS), .NHART(NHART), .NLDSTQ(NLDSTQ), .TRANS_ID_SIZE(TRANS_ID_SIZE), .NCOMMIT(NCOMMIT), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .CACHE_LINE_SIZE(CACHE_LINE_SIZE), .NINTERRUPTS(NINTERRUPTS))cpu(.clk(clk), .reset(reset),
 				.reset_out(reset_out_c[I]),
 				.cpu_id({cpu_id, sub_cpu}),
 `ifdef SIMD
 				.simd_enable(simd_enable),
+				.simd_trace_enable(simd_trace_enable),
 `endif
 `ifdef AWS_DEBUG
 	            .cpu_trig(cpu_trig[I]),

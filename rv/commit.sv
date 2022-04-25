@@ -252,6 +252,9 @@ module commit(input clk,
 	output		 branch_taken_out,
 	output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 	output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
+`ifdef TRACE_CACHE
+	output		 will_trap_out, 
+`endif
 
     output	alu_ready,
     output	shift_ready,
@@ -529,6 +532,10 @@ module commit(input clk,
 	reg		r_wfi_pause, c_wfi_pause;
 	assign csr_ready = ready&(r_unit_type==7||r_load_trap)&r_valid&!r_read&!r_wfi_pause;
 	assign csr_wfi_pause = ready&(r_unit_type==7)&r_valid&!r_read&r_wfi_pause;
+
+`ifdef TRACE_CACHE
+	assign will_trap_out = r_valid&(r_load_trap || (r_unit_type==7 && r_control[5:4] != 2'b10));
+`endif
 
 //always @(c_completed) $display("c_completed=",c_completed);
 //always @(c_done) $display("c_done=",c_done);
@@ -1038,8 +1045,16 @@ if (simd_enable) $display("C %d %x %x %x",$time,ADDR,{pc, 1'b0},unit_type);
 		end else begin
 			if (clear_immed)
 				r_immed <= 0;
-			if (br_in) 
-				r_pc_dest <= commit_br;
+`ifdef TRACE_CACHE
+			if (br_in) begin
+				if (r_unit_type == 6 && ~r_control[0]) begin	// remember for indirect branches
+					r_pc_dest <= commit_br;
+				end
+				if (r_unit_type == 6 && r_control[0]) begin	// remember for trace
+					r_control[5] <= ~r_control[5];
+				end
+			end
+`endif
 			if (c_load_trap)
 				r_makes_rd <= 0;
 			if (r_rs1[RA-1] && (commit_ack[r_rs1[LNCOMMIT-1:0]]||commit_done[r_rs1[LNCOMMIT-1:0]]) && !r_force_fetch) 

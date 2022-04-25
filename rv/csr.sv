@@ -22,6 +22,7 @@
 module csr(input clk, input reset, 
 `ifdef SIMD
 		input simd_enable,
+		input simd_trace_enable,
 `endif
 `ifdef AWS_DEBUG
         input       xxtrig,
@@ -49,7 +50,11 @@ module csr(input clk, input reset,
 		output     [43:0]sup_ppn,
 		output      [3:0]sup_vm_mode,
 		output     [15:0]sup_asid,
-		output			unified_asid,
+		output			 unified_asid,
+`ifdef TRACE_CACHE
+		output			 trace_enable,
+		output	    [3:0]trace_scale,
+`endif
 		output			sup_vm_sum,
 		output			mxr,
 		output	        trap_br_enable,
@@ -726,7 +731,7 @@ module csr(input clk, input reset,
 			end
 		6'b0_??_?_?_1:	// csr write
 			begin
-				c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+1; // when do we need to flush
+				c_next_pc = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+2; // when do we need to flush
 				casez (r_immed[11:0]) // synthesis full_case parallel_case
 				12'b00_11_0000_0000,
 				12'b00_11_0100_0101:
@@ -2909,6 +2914,33 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	if (r_control[1]) r_unified_asid <= r_unified_asid|in[0]; else
 	if (r_control[2]) r_unified_asid <= r_unified_asid&~in[0]; else r_unified_asid <= in[0];
 
+`ifdef TRACE_CACHE
+	reg [3:0]r_trace_enable;
+	reg [3:0]r_trace_scale;
+	assign trace_enable = |(r_trace_enable&r_cpu_mode);
+	assign trace_scale = r_trace_scale;
+
+	always @(posedge clk) 
+`ifdef SIMD
+	if (reset) r_trace_enable <= (simd_trace_enable?4'b1111:4'b0000); else // 0 turns it off
+`else
+	if (reset) r_trace_enable <= 4'b0000; else // 0 turns it off
+`endif
+	if (csr_write && (r_immed[11:0] == 12'hbf9)) 
+	if (r_control[1]) r_trace_enable <= r_trace_enable|in[4:1]; else
+	if (r_control[2]) r_trace_enable <= r_trace_enable&~in[4:1]; else r_trace_enable <= in[4:1];
+
+	always @(posedge clk) 
+	if (reset) r_trace_scale <= 4'b0101; else 
+	if (csr_write && (r_immed[11:0] == 12'hbf9)) 
+	if (r_control[1]) r_trace_scale <= r_trace_scale|in[8:5]; else
+	if (r_control[2]) r_trace_scale <= r_trace_scale&~in[8:5]; else r_trace_scale <= in[8:5];
+
+`else
+	wire [3:0]r_trace_enable=0;
+	wire [3:0]r_trace_scale=0;
+`endif
+
 	reg		r_all_reset;
 	assign	reset_out = r_all_reset;
 
@@ -3373,7 +3405,7 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		13'b?_10_11_1111_1000:		//	pseudo random 
 					c_res = {32'b0, r_pseudo_random};
 		13'b?_10_11_1111_1001:		//	options
-					c_res = {63'b0, r_unified_asid};
+					c_res = {55'b0, r_trace_scale, r_trace_enable, r_unified_asid};
 		13'b?_10_11_1111_1010:		//	all reset
 					c_res = 0;
 		//

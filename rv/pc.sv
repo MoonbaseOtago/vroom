@@ -26,6 +26,12 @@ module pc(input clk,  input reset,
 	input	  [3:0]cpu_mode,
 	input	 [15:0]asid,
 
+`ifdef TRACE_CACHE
+	input		   trace_hit, 
+	input [VA_SZ-1:0]trace_next, 
+	output		   trace_used,
+`endif
+
 	input	       dec_br_enable,
 	input  [RV-1:1]dec_branch,				// predicted branch from decoder (delta of PC)
 	input	  [BDEC-1:1]dec_br_offset,			// which section - end of instruction
@@ -382,7 +388,51 @@ module pc(input clk,  input reset,
 		ret_addr = {in_v[BDEC]?fetch_inc:r_pc_fetch[RV-1:BDEC], in_v[BDEC-1:1]};
 	end
 
+`ifdef TRACE_CACHE
+	reg		r_trace_used, c_trace_used;	// T
+	reg		r_trace_wait, c_trace_wait;	// W
+	assign trace_used = r_trace_used;	// on this clock rename unit will take
+	wire	hi_pc_ok = r_pc[RV-1:VA_SZ] == {{RV-VA_SZ{1'b0}}} || r_pc[RV-1:VA_SZ] == {{RV-VA_SZ{1'b1}}};
+`endif
+
+
+	//
+	//	[interrupt/branch/miss/reset/trap] fetch
+	//		|
+	//		V
+	//		[001] fetching data from i/trace caches - no data to decode
+	//		|I	  ^		|T			^
+	//		V	  |!I 	|			|
+	//		[010] fetching data from i/trace caches - data applied to decoder
+	//		|I			|		|T	|
+	//		V			|		|	|
+	//		[100] waiting for branch miss with no prediction (usually an indirect jump)
+	//					|		|	|
+	//					|		v	|
+	//		[001]W	waiting for decoder to flush
+	//					|		|1	|
+	//					v		v	|!T
+	//		[001]T	trace cache continues
+	//
+	//
+	//			r_pc					
+	//			|I				|T
+	//			|	icache		|	trace cache
+	//			v				v
+	//			r_pc_fetch		r_pc_fetch
+	//			|				|
+	//			|	decode		|	rename
+	//			v				v
+	//			decode out		
+	//			|
+	//			|	rename
+	//			v
+	//
 	always @(posedge clk) begin
+`ifdef TRACE_CACHE
+		r_trace_used <= c_trace_used;
+		r_trace_wait <= c_trace_wait;
+`endif
 		r_fetch_state <= c_fetch_state;
 		r_pc <= c_pc;
 		r_pc_stall <= c_pc_stall;
@@ -466,6 +516,10 @@ module pc(input clk,  input reset,
 	//		
 
 	always @(*) begin
+`ifdef TRACE_CACHE
+		c_trace_used = 0;
+		c_trace_wait = 0;
+`endif
 		fixup_dest = 0;
 		prediction_used = 0;
 		prediction_taken = 'bx;
@@ -554,6 +608,48 @@ module pc(input clk,  input reset,
 		end else
 		casez (r_fetch_state)	// synthesis full_case parallel_case
 		3'b??1:						// state 0 is "cache read request running, no valid fetched data
+`ifdef TRACE_CACHE
+			//
+			//	
+			//
+			if (r_trace_wait) begin
+				c_dec_stall = 1;
+				c_fetch_state = 3'b001;
+				if (!rename_stall) begin
+					c_trace_used = 1;
+					c_pc = trace_next;
+					c_pc_branched = 1;
+					c_pc_restart = 0;
+				end else begin
+					c_trace_wait = 1;
+				end
+			end else
+			if (r_trace_used && rename_stall) begin
+				c_dec_stall = 1;
+				c_fetch_state = 3'b001;
+				c_trace_used = 1;
+				c_pc = r_pc;
+				c_pc_restart = 0;
+				c_trace_used = 1;
+			end else
+			if (trace_hit && hi_pc_ok) begin	// we hit in trace cache - decoders are idle so switch to trace cache now
+				if (!rename_stall) begin
+					c_trace_used = 1;
+					c_pc = trace_next;
+					c_pc_branched = 1;
+					c_fetch_state = 3'b001;
+					c_dec_stall = 1;
+					c_pc_restart = 0;
+					c_pc_fetch = r_pc;
+				end else begin
+					c_trace_used = r_trace_used;
+					c_dec_stall = 1;
+					c_fetch_state = 3'b001;
+					c_pc = r_pc;
+					c_pc_restart = 0;
+				end
+			end else
+`endif
 			if (fetch_ok) begin		// we will have fetch data in next clock
 				c_fetch_state = 3'b010;
 				c_dec_stall = 0;
@@ -646,6 +742,18 @@ module pc(input clk,  input reset,
 						c_fetch_branched = 0;
 						c_fetch_state = 3'b001;
 					end else begin
+`ifdef TRACE_CACHE
+						if (trace_hit && hi_pc_ok) begin
+							c_trace_wait = 1;
+							c_fetch_state = 3'b001;
+							c_dec_stall = 1;
+							c_pc_dest_fetch = r_pc_dest_fetch;
+							c_pc = r_pc;
+							c_pc_branched = r_pc_branched;
+							c_pc_fetch = 64'bx;
+                            c_fetch_branched = 0;
+						end else
+`endif
 						if (!fetch_ok) begin
 							c_pc_dest_fetch = r_pc_dest_fetch;
 							c_pc = r_pc;
@@ -768,6 +876,29 @@ module pc(input clk,  input reset,
 						c_fetch_branched = 0;
 					end
 				end else begin
+`ifdef TRACE_CACHE
+					if (trace_hit && hi_pc_ok && !(fetch_ok&&unconditional_jmp)) begin
+						if (rename_stall) begin
+							c_pc = r_pc;
+							c_pc_branched = r_pc_branched;
+							c_pc_dest_fetch = r_pc_dest_fetch;
+							c_read_stall = 0;
+							c_dec_stall = 0;            
+							c_pc_fetch = r_pc_fetch;
+							c_fetch_branched = r_fetch_branched;
+							c_fetch_br_default = r_fetch_br_default;
+						end else begin
+							c_trace_wait = 1;
+							c_fetch_state = 3'b001;
+							c_dec_stall = 1;
+							c_pc_dest_fetch = r_pc_dest_fetch;
+							c_pc = r_pc;
+							c_pc_branched = r_pc_branched;
+							c_pc_fetch = 64'bx;
+                            c_fetch_branched = 0;
+						end 
+					end else
+`endif
 					if (fetch_ok) begin
 						push_enable = |has_jmp;
 						push_noissue = 0;
@@ -868,6 +999,29 @@ module pc(input clk,  input reset,
 						c_fetch_branched = r_fetch_branched;
 						c_fetch_state = 3'b010;
 					end
+`ifdef TRACE_CACHE
+				end else
+				if (trace_hit && hi_pc_ok && !(fetch_ok&&unconditional_jmp)) begin
+					if (rename_stall) begin
+						c_pc = r_pc;
+						c_pc_branched = r_pc_branched;
+						c_pc_dest_fetch = r_pc_dest_fetch;
+						c_read_stall = 0;
+						c_dec_stall = 0;            
+						c_pc_fetch = r_pc_fetch;
+						c_fetch_branched = r_fetch_branched;
+						c_fetch_br_default = r_fetch_br_default;
+					end else begin
+						c_trace_wait = 1;
+						c_fetch_state = 3'b001;
+						c_dec_stall = 1;
+						c_pc_dest_fetch = r_pc_dest_fetch;
+						c_pc = r_pc;
+						c_pc_branched = r_pc_branched;
+						c_pc_fetch = 64'bx;
+						c_fetch_branched = 0;
+					end 
+`endif
 				end else begin		// we will have fetch data in next clock and have predicted correctly
 					c_fetch_state = 3'b010;
 					if (rename_stall) begin

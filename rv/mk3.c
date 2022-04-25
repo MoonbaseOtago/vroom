@@ -67,15 +67,15 @@ int main(int argc, char ** argv)
 	printf("// along with this program.  If not, see <http://www.gnu.org/licenses/>.\n");
 	printf("//\n");
 
-	printf("`ifdef FP");
+	printf("`ifdef FP\n");
 	printf("	assign rename_match = {");
 	for (i = 0; i < B; i++) 
 		printf("(all_rd_rename[%d]==R)&(all_rd_fp_rename[%d]==is_fp)&all_makes_rd_rename[%d]%s", i, i, i, i==(B-1)?"};\n":", ");
-	printf("`else");
+	printf("`else\n");
 	printf("	assign rename_match = {");
 	for (i = 0; i < B; i++) 
 		printf("(all_rd_rename[%d]==R)&all_makes_rd_rename[%d]%s", i, i, i==(B-1)?"};\n":", ");
-	printf("`endif");
+	printf("`endif\n");
 	printf("		always @(*) begin\n");
 	printf("			rename_result = 'bx;\n"); 
 	printf("			rename_match_valid = 1;\n"); 

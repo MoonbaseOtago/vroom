@@ -19,6 +19,9 @@
 module rename_ctrl(
 		input		clk, 
 		input		reset,
+`ifdef TRACE_CACHE
+		input		trace_used,
+`endif
 		input   [2*NDEC-1:0]will_be_valid,
 		input	[LNCOMMIT:0]current_available,
 		input			    commit_br_enable,
@@ -76,7 +79,11 @@ module rename_ctrl(
 		end 
 	endgenerate
 
+`ifdef TRACE_CACHE
+	assign rename_reloading = (trace_used? r_stall[0]|stall_in :  r_stall!=0);
+`else
 	assign rename_reloading = r_stall!=0;
+`endif
     always @(posedge clk)
 		r_stall <= (reset||commit_int_force_fetch?0:{r_stall[0], stall_in});
 
@@ -132,7 +139,7 @@ module scoreboard(
 //	barrel shifters
 //
 //	1) here we remember the last one put in and where it is:
-//		a) when therte's an exception or mis predict there's going to be a 3 clock pipe bubble
+//		a) when there's an exception or mispredict there's going to be a 3 clock pipe bubble
 //			(fetch, decode rename) - that gives us enough time for a multi clock
 //			network to figure it out
 //		b) when there's a commit we simply clear it, when there's a commit for it we just clear 
@@ -212,10 +219,6 @@ module rename(
 		input			rv32,
 
 		input	 [2*NDEC-1:0]valid,
-`ifdef TRACE_CACHE
-		input			rename_from_trace,
-		input			trace_valid,
-`endif
 		input    [ 4: 0]rs1,
 		input    [ 4: 0]rs2,
 		input    [ 4: 0]rs3,
@@ -494,11 +497,7 @@ module rename(
 		r_unit_type_out <= unit_type;
 		r_pc_out <= pc;
 		r_pc_dest_out <= pc_dest;
-`ifdef TRACE_CACHE
-		r_valid_out <= (rename_from_trace?trace_valid:c_valid_out)&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
-`else
 		r_valid_out <= c_valid_out&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
-`endif
 		r_branch_token_out <= branch_token;
 		r_branch_token_ret_out <= branch_token_ret;
 	end else begin

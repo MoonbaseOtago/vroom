@@ -28,8 +28,12 @@ module pc(input clk,  input reset,
 
 `ifdef TRACE_CACHE
 	input		   trace_hit, 
-	input [VA_SZ-1:0]trace_next, 
+	input [VA_SZ-1:1]trace_next, 
+	input [VA_SZ-1:1]trace_ret_addr, 
+	input          trace_ret_addr_short, 
+	input     [1:0]trace_push_pop, 
 	output		   trace_used,
+	output		   trace_pop,
 `endif
 
 	input	       dec_br_enable,
@@ -76,6 +80,9 @@ module pc(input clk,  input reset,
 	output [$clog2(NUM_PENDING)-1:0]dec_branch_token_prev,
 	output [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret,
 	output [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret_prev,
+`ifdef TRACE_CACHE
+	output [$clog2(NUM_PENDING_RET)-1:0]trace_token_ret,
+`endif
 
 	output		   fetch_branched,
 
@@ -132,6 +139,10 @@ module pc(input clk,  input reset,
     reg [$clog2(NUM_PENDING_RET)-1:0]r_dec_branch_token_ret, r_dec_branch_token_ret_prev;
 	assign dec_branch_token_ret = r_dec_branch_token_ret;
 	assign dec_branch_token_ret_prev = r_dec_branch_token_ret_prev;
+`ifdef TRACE_CACHE
+    assign trace_token_ret = push_token_ret;
+`endif
+
 
 	reg         r_br_stall, c_br_stall;
 	assign		br_stall = r_br_stall;
@@ -254,15 +265,52 @@ module pc(input clk,  input reset,
 		.commit_token(commit_token),			// bit encoded tokens from the commitQ commit stage
 		.commit_token_ret(commit_token_ret),			
 
+`ifdef TRACE_CACHE
+		.push_cs_stack(!rename_stall&&(r_dec_stall?c_trace_used&&trace_push_pop[1]:push_cs_stack)),
+		.pop_cs_stack(!rename_stall&&(r_dec_stall?c_trace_used&&trace_push_pop[0]&&pop_available:pop_cs_stack)),
+		.ret_addr(r_dec_stall&&c_trace_used?current_trace_ret_addr:ret_addr[VA_SZ-1:1]),
+`else
 		.push_cs_stack(!rename_stall&&push_cs_stack),
-		.pop_cs_stack(!rename_stall&&pop_cs_stack),
+		.pop_cs_stack(!rename_stall&&pop_cs_stack)),
 		.ret_addr(ret_addr[VA_SZ-1:1]),
+`endif
 		.pop_available(pop_available),
 		.return_branch_valid(return_branch_valid),
 		.return_branch_pc(return_branch_pc),
 
 		.clear_user(clear_user),
 		.clear_sup(clear_sup) );
+
+
+
+`ifdef TRACE_CACHE
+	reg			   r_trace_pop;
+	assign	trace_pop = r_trace_pop;
+	reg	[VA_SZ-1:1]r_trace_ret_addr;
+	reg	[VA_SZ-1:1]c_trace_ret_addr;
+	reg			   r_trace_ret_addr_short;
+	reg			   c_trace_ret_addr_short;
+	wire [VA_SZ-1:1] current_trace_ret_addr;
+
+	always @(*) begin
+		c_trace_ret_addr = r_trace_ret_addr;
+		c_trace_ret_addr_short = r_trace_ret_addr_short;
+		if (trace_hit) begin
+			c_trace_ret_addr = trace_ret_addr;
+			c_trace_ret_addr_short = trace_ret_addr_short;
+		end
+	end
+
+	always @(posedge clk) begin
+		r_trace_ret_addr <= c_trace_ret_addr;
+		r_trace_ret_addr_short <= trace_ret_addr_short;
+		if (trace_hit) begin
+			r_trace_pop <= !rename_stall&&r_dec_stall&&c_trace_used&&trace_push_pop[0]&&pop_available;
+		end
+	end
+
+	assign current_trace_ret_addr = c_trace_ret_addr + {{VA_SZ-3{1'b0}}, ~c_trace_ret_addr_short, c_trace_ret_addr_short};
+`endif
 
 	//	pipe stage input to icache 
 	reg			r_pc_br_default, c_pc_br_default;
@@ -445,7 +493,11 @@ module pc(input clk,  input reset,
 		r_pc_dest_fetch <= c_pc_dest_fetch;
 		r_pc_br_predict_dec <= c_pc_br_predict_dec;
 		//if (!rename_stall)
-		if (!dec_stall&&!rename_stall) begin
+`ifdef TRACE_CACHE
+		if ((!dec_stall||c_trace_used)&&!rename_stall) begin
+`else
+		if ((!dec_stall)&&!rename_stall) begin
+`endif
 			r_pc_dest_dec <= c_pc_dest_dec;
 			r_dec_branch_token <= push_token;
 			r_dec_branch_token_ret <= push_token_ret;
@@ -617,7 +669,7 @@ module pc(input clk,  input reset,
 				c_fetch_state = 3'b001;
 				if (!rename_stall) begin
 					c_trace_used = 1;
-					c_pc = trace_next;
+					c_pc = (trace_push_pop[0]&&return_branch_valid?return_branch_pc:trace_next);
 					c_pc_branched = 1;
 					c_pc_restart = 0;
 				end else begin
@@ -630,12 +682,11 @@ module pc(input clk,  input reset,
 				c_trace_used = 1;
 				c_pc = r_pc;
 				c_pc_restart = 0;
-				c_trace_used = 1;
 			end else
 			if (trace_hit && hi_pc_ok) begin	// we hit in trace cache - decoders are idle so switch to trace cache now
 				if (!rename_stall) begin
 					c_trace_used = 1;
-					c_pc = trace_next;
+					c_pc = (trace_push_pop[0]&&return_branch_valid?return_branch_pc:trace_next);
 					c_pc_branched = 1;
 					c_fetch_state = 3'b001;
 					c_dec_stall = 1;

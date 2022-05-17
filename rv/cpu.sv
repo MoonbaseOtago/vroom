@@ -244,9 +244,15 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 assign pmp[1].valid=0;
 
 	wire [RV-1:1]pc_pre_fetch[0:NHART-1];
+`ifdef TRACE_CACHE
 	wire [VA_SZ-1:1]pc_trace_next[0:NHART-1];
+	wire [VA_SZ-1:1]pc_trace_ret_addr[0:NHART-1];
+	wire [NHART-1:0]pc_trace_ret_addr_short;
+	wire       [1:0]pc_trace_push_pop[0:NHART-1];
 	wire [NHART-1:0]pc_trace_used;
 	wire [NHART-1:0]pc_trace_hit;
+	wire [NHART-1:0]pc_trace_pop;
+`endif
 	wire [127:0]icache_out[0:NHART-1];
 	wire    [NHART-1:0]irand;
 	wire			   frand;
@@ -453,8 +459,6 @@ assign pmp[1].valid=0;
 	wire   [2*NDEC-1:0]trace_out_rs2_fp[0:NHART-1];
 	wire   [2*NDEC-1:0]trace_out_rs3_fp[0:NHART-1];
 `endif
-	wire   [$clog2(NUM_PENDING)-1:0]trace_out_branch_token[0:NHART-1][0:2*NDEC-1];
-	wire   [$clog2(NUM_PENDING_RET)-1:0]trace_out_branch_token_ret[0:NHART-1][0:2*NDEC-1];
 	wire          [3:0]trace_out_unit_type[0:NHART-1][0:2*NDEC-1];
 	wire   [2*NDEC-1:0]trace_out_short[0:NHART-1];
 	wire   [2*NDEC-1:0]trace_out_start[0:NHART-1];
@@ -572,6 +576,9 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			wire 	[VA_SZ-1:1]pc_dest_dec;
 			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token;
 			wire [$clog2(NUM_PENDING)-1:0]dec_branch_token_prev;
+`ifdef TRACE_CACHE
+			wire [$clog2(NUM_PENDING)-1:0]trace_token_ret;
+`endif
 			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret;
 			wire [$clog2(NUM_PENDING_RET)-1:0]dec_branch_token_ret_prev;
 
@@ -600,7 +607,11 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 				.pop_available(pop_available),
 `ifdef TRACE_CACHE
 				.trace_hit(pc_trace_hit[H]), 
+				.trace_pop(pc_trace_pop[H]), 
 				.trace_next(pc_trace_next[H]), 
+				.trace_ret_addr(pc_trace_ret_addr[H]), 
+				.trace_ret_addr_short(pc_trace_ret_addr_short[H]), 
+				.trace_push_pop(pc_trace_push_pop[H]), 
 				.trace_used(pc_trace_used[H]), 
 `endif
 				.dec_br_enable(predicted_branch),	
@@ -620,6 +631,9 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 				.pc_dest_dec(pc_dest_dec),
 				.dec_branch_token(dec_branch_token),
 				.dec_branch_token_prev(dec_branch_token_prev),
+`ifdef TRACE_CACHE
+				.trace_token_ret(trace_token_ret),
+`endif
 				.dec_branch_token_ret(dec_branch_token_ret),
 				.dec_branch_token_ret_prev(dec_branch_token_ret_prev),
 				.has_jmp(has_jmp),
@@ -1426,6 +1440,9 @@ end
 					.trace_scale(trace_scale[H]),
 					.pc(pc_pre_fetch[H][VA_SZ-1:1]),
 					.pc_next(pc_trace_next[H]),
+					.pc_ret_addr(pc_trace_ret_addr[H]), 
+					.pc_ret_addr_short(pc_trace_ret_addr_short[H]), 
+					.pc_push_pop(pc_trace_push_pop[H]),
 					.pc_used(pc_trace_used[H]),
 					.rename_stall(rename_stall[H]),
 					.trace_hit(pc_trace_hit[H]),
@@ -1486,7 +1503,6 @@ wire [VA_SZ-1:1]tt_dest_pc[0:(NDEC*2)-1];
 				assign trace_in.b[I].start = start_commit[ind][H];
 				assign trace_in.b[I].short_ins = short_commit[ind][H];
 				assign trace_in.valid[I] = current_commit_mask[(NDEC*2)-1-I];
-				assign trace_in.branched[I] = unit_type_commit[ind][H]==6 && (!control_commit[ind][H][0] || control_commit[ind][H][5]);
 assign tt_commit[I] = control_commit[ind][H];
 assign tt_type[I] = unit_type_commit[ind][H];
 assign tt_dest_pc[I] = branch_dest_commit[ind][H];

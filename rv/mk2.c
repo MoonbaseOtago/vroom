@@ -294,6 +294,15 @@ int main(int argc, char ** argv)
 	}
 	printf("	begin end\n");
 	printf("	\n");
+        printf("`ifdef TRACE_CACHE\n");
+        printf("	// we need the predicted return address from pc for the return at the end of a trace block\n");
+        printf("	wire [VA_SZ-1:1]trace_pc_dest;\n");
+        printf("	if (D == %d) begin\n", B-1);
+        printf("		assign trace_pc_dest = (pc_trace_pop[H]?pc_dest_dec:trace_out_pc_dest[H][D]);\n");
+        printf("	end else begin\n");
+        printf("		assign trace_pc_dest = (!trace_out_valid[H][D+1]&&pc_trace_pop[H]?pc_dest_dec:trace_out_pc_dest[H][D]);\n");
+        printf("	end\n");
+        printf("`endif \n");
 
         printf("	always @(*) begin\n");
         printf("		d = 5'bx;\n");
@@ -331,14 +340,14 @@ int main(int argc, char ** argv)
         printf("			rs2_fp = trace_out_rs2_fp[H][D];\n");
         printf("			rs3_fp = trace_out_rs3_fp[H][D];\n");
         printf("`endif\n");
-        printf("			branch_token = trace_out_branch_token[H][D];\n");
-        printf("			branch_token_ret = trace_out_branch_token_ret[H][D];\n");
+        printf("			branch_token = dec_branch_token;\n");
+        printf("			branch_token_ret = trace_token_ret;\n");
         printf("			short = trace_out_short[H][D];\n");
         printf("			start = trace_out_start[H][D];\n");
         printf("			immed = trace_out_immed[H][D];\n");
         printf("			unit_type = trace_out_unit_type[H][D];\n");
         printf("			pc = trace_out_pc[H][D];\n");
-        printf("			pc_dest = trace_out_pc_dest[H][D];\n");
+        printf("			pc_dest = trace_pc_dest;\n");
         printf("		end else\n");
         printf("`endif\n");
         printf("		casez (sel_out) // synthesis full_case parallel_case\n");

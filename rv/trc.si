@@ -46,7 +46,6 @@ interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5
 	bundle b[0:NRETIRE-1];
 	// (not part of stored bundle)
 	bit	[NRETIRE-1:0]valid;		// Nth entry is valid
-	bit	[NRETIRE-1:0]branched;	// next ins is pc_dest otherwise
 endinterface
 
 `endif

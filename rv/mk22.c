@@ -160,10 +160,19 @@ int main(int argc, char ** argv)
 	for (i = 0; i < num_trace_lines; i++) {
 	printf("	%d'b", num_trace_lines);
 	for (j = num_trace_lines-1; j>=0; j--) printf(i==j?"1":"?");
-	printf(": xpc_next = r_pc_next[%d];\n", i);
+	printf(": begin xpc_next = r_pc_next[%d]; xpc_push_pop = r_pc_push_pop[%d]; xpc_ret_addr = r_pc_ret_addr[%d]; xpc_ret_addr_short = r_pc_ret_addr_short[%d];end \n", i, i, i, i);
 	}
-	printf("	default: xpc_next = 'bx;\n");
+	printf("	default: begin xpc_next = 'bx; xpc_push_pop = 'bx; xpc_ret_addr = 'bx; xpc_ret_addr_short = 'bx; end\n");
 	printf("	endcase\n");
 
+	printf("	always @(*)\n");
+	printf("	casez (match_starting) // synthesis full_case parallel_case\n");
+	for (i = 0; i < num_trace_lines; i++) {
+        printf("        %d'b", num_trace_lines);
+        for (j = num_trace_lines-1; j>=0; j--) printf(i==j?"1":"?");
+	printf(": starting_valid = r_valid[%d];\n", i);
+	}
+	printf("	default: starting_valid = 'bx;\n");
+	printf("	endcase\n");
 	
 }

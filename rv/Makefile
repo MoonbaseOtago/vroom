@@ -117,7 +117,7 @@ MX17 = mk17_1_6.inc mk17_1_5.inc  mk17_1_4.inc
 MX19 = mk19_64.inc 
 MX20 = mk20_32_8.inc mk20_32_16.inc
 MX21 = mk21_32_6_4_4_16.inc mk21_32_4_2_2_16.inc mk21_32_6_4_4_32.inc mk21_32_4_2_2_32.inc
-MX22 = mk22_16_8.inc mk22_32_8.inc mk22_48_8.inc  mk22_64_8.inc mk22_128_8.inc
+MX22 = mk22_16_8.inc mk22_32_8.inc mk22_48_8.inc  mk22_64_8.inc mk22_128_8.inc mk22_96_8.inc
 MX23 = mk23_8.inc 
 #MXREG = rfile_13_3_6_2_8_32_1.sv 
 #MXREG = rfile_15_3_7_2_8_32_1.sv
@@ -605,6 +605,8 @@ mk22_48_8.inc: mk22
 	./mk22 48 8 >$@
 mk22_64_8.inc: mk22
 	./mk22 64 8 >$@
+mk22_96_8.inc: mk22
+	./mk22 96 8 >$@
 mk22_128_8.inc: mk22
 	./mk22 128 8 >$@
 

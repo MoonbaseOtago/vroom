@@ -2931,7 +2931,7 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	if (r_control[2]) r_trace_enable <= r_trace_enable&~in[4:1]; else r_trace_enable <= in[4:1];
 
 	always @(posedge clk) 
-	if (reset) r_trace_scale <= 4'b0101; else 
+	if (reset) r_trace_scale <= 4'b1001; else 
 	if (csr_write && (r_immed[11:0] == 12'hbf9)) 
 	if (r_control[1]) r_trace_scale <= r_trace_scale|in[8:5]; else
 	if (r_control[2]) r_trace_scale <= r_trace_scale&~in[8:5]; else r_trace_scale <= in[8:5];

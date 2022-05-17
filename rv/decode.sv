@@ -2916,7 +2916,7 @@ module decode(input clk,
 									rd = 1;
 									makes_rd = 1;
 									sub_push = 1;
-									sub_pop = (rs1==1 || rs1==5) && (rs1!=1); 
+									sub_pop = (rs1==5);
 								end
 							end else begin
 								// c.jr

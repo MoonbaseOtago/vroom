@@ -95,7 +95,15 @@ module scoreboard(
 
 		input			rename_valid,
 		input [LNCOMMIT-1:0]rename_result,
+`ifdef RENAME_OPT
+		input			rename_is_0,
+		input			rename_is_move,
+		input   [RA-1:0]rename_is_move_reg,
+		input [NCOMMIT-1:0]commit_completed,
 
+		output			sb_is_0,
+		output			sb_is_reg,
+`endif
 
 		input [LNCOMMIT-1:0]current_end,
 		input [NCOMMIT-1:0] commit_reg,
@@ -103,6 +111,9 @@ module scoreboard(
 		input				rename_reloading,
 		input				rename_stall,
 
+`ifdef RENAME_OPT
+		output [RA-1:0]scoreboard_latest_commit,
+`endif
 		output [RA-1:0]scoreboard_latest_rename);
         parameter CNTRL_SIZE=7;
         parameter NDEC = 4; // number of decode stages
@@ -155,6 +166,11 @@ module scoreboard(
 	wire [RA-1:0]na_v;
 
 	assign scoreboard_latest_rename = r_reg;
+`ifdef RENAME_OPT
+	reg [RA-1:0]r_commit_reg;
+	reg [RA-1:0]c_commit_reg;
+	assign scoreboard_latest_commit = r_commit_reg;
+`endif
 					
 	generate
 		wire [4:0]rr = ADDR;
@@ -177,15 +193,49 @@ module scoreboard(
 		end
 	
 		always @(*) begin 
+`ifdef RENAME_OPT
+			c_commit_reg = {1'b0, {RA-1{1'bx}}};
+`endif
 			if (reset) begin 
 				c_reg = current;
 			end else
 			if (!rename_reloading&rename_valid&!rename_stall) begin
+`ifdef RENAME_OPT
+				if (rename_is_0) begin
+					c_reg = 0;	
+				end else
+				if (rename_is_move && (!rename_is_move_reg[RA-1] || !commit_completed[rename_is_move_reg[LNCOMMIT-1:0]])) begin
+					c_reg = rename_is_move_reg;
+					c_commit_reg = rn_result;
+				end else begin
+					c_reg = rn_result;
+				end
+`else
 				c_reg = rn_result;
+`endif
 			end else
+`ifdef RENAME_OPT
+			if (r_reg[RA-1] && r_commit_reg[RA-1] && commit_completed[r_reg[LNCOMMIT-1:0]]) begin
+				if (commit_reg[r_commit_reg[LNCOMMIT-1:0]]) begin
+					c_reg = current;
+				end else begin
+					c_reg = r_commit_reg;
+				end
+			end else
+`endif
 			if (r_reg[RA-1] && commit_reg[r_reg[LNCOMMIT-1:0]]) begin
+`ifdef RENAME_OPT
+				if (r_commit_reg[RA-1] && !commit_reg[r_commit_reg[LNCOMMIT-1:0]]) begin
+					c_reg = r_commit_reg;
+				end else
+`endif
 				c_reg = current;
 			end else
+`ifdef RENAME_OPT
+			if (r_commit_reg[RA-1] && commit_reg[r_commit_reg[LNCOMMIT-1:0]]) begin
+				c_reg = current;
+			end else
+`endif
 			if (rename_reloading) begin
 				if (na_valid) begin
 					c_reg = na_v;
@@ -194,11 +244,24 @@ module scoreboard(
 				end
 			end else begin
 				c_reg = r_reg;
+`ifdef RENAME_OPT
+				c_commit_reg = r_commit_reg;
+`endif
 			end
 		end
 
+`ifdef RENAME_OPT
+assign sb_is_0=r_reg==0;
+assign sb_is_reg= !r_reg[RA-1] && r_reg[RA-2:0] != 0 && r_reg[RA-2:0] != ADDR; 
+`endif
+
 		always @(posedge clk) 
 			r_reg <= c_reg;
+
+`ifdef RENAME_OPT
+		always @(posedge clk) 
+			r_commit_reg <= c_commit_reg;
+`endif
 
 
 		if (NCOMMIT == 16) begin
@@ -285,10 +348,23 @@ module rename(
 		output  [3:0]unit_type_out,
 		output   [VA_SZ-1:1]pc_out,
 		output   [VA_SZ-1:1]pc_dest_out,
-		output 		will_be_valid,
+		output			will_be_valid,
 		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
-		output 		valid_out
+		output			valid_out
+`ifdef RENAME_OPT
+		,
+		input	[NCOMMIT-1:0]commit_completed,
+		output			next_is_0,
+		output			next_is_move,
+		output     [4:0]next_is_move_reg,
+	    input    [RA-1:0]renamed_commit_rs1,
+	    input    [RA-1:0]renamed_commit_rs2,
+	    input    [RA-1:0]renamed_commit_rs3,
+	    output    [RA-1:0]renamed_commit_rs1_out,
+	    output    [RA-1:0]renamed_commit_rs2_out,
+	    output    [RA-1:0]renamed_commit_rs3_out
+`endif
 		);
 
 	parameter CNTRL_SIZE=7;
@@ -306,6 +382,57 @@ module rename(
 	parameter NUM_PENDING=32;
 	parameter NUM_PENDING_RET=8;
 
+`ifdef RENAME_OPT
+	reg is_0;
+	reg is_move;
+	reg [4:0]is_move_reg;
+	assign next_is_0 = is_0;
+	assign next_is_move = is_move;
+	assign next_is_move_reg = is_move_reg;
+	always @(*) begin
+		is_0 = 0;
+		is_move = 0;
+		is_move_reg = 'bx;
+		case (unit_type) // synthesis full_case parallel_case
+		0:	begin
+				case ({control[5], control[2:0]}) // synthesis full_case parallel_case
+				0_000: if (!control[4]) // add
+					   if (control[3]) begin
+							is_0 = rs1 == rs2 && needs_rs2;
+					   end else begin
+							is_0 = (rs1==0) && (needs_rs2 ? rs2==0:immed==0);
+							is_move = (rs1 == 0 && needs_rs2) ||
+							          (needs_rs2 ? rs2==0 : immed==0 );
+							is_move_reg = (rs1 == 0 && needs_rs2 ? rs2 : rs1);
+					   end
+				0_001: if (!control[4])	// xor
+					   if (!control[3]) begin
+							is_0 = (rs1 == rs2) && needs_rs2;
+							is_move = (rs1 == 0 && needs_rs2) ||
+							          (needs_rs2 ? rs2==0: immed==0);
+							is_move_reg = (rs1 == 0 && needs_rs2 ? rs2 : rs1);
+					   end
+				0_010: if (!control[4])	// and
+					   if (!control[3]) begin
+							is_0 = rs1 == 0 || (needs_rs2 ? rs2==0 : immed==0);
+							is_move = (rs1 == rs2) && needs_rs2;
+							is_move_reg = (rs1 == 0 && needs_rs2 ? rs2 : rs1);
+					   end
+				0_011: if (!control[4])	// or
+					   if (!control[3]) begin
+							is_0 = rs1 == 0 && (needs_rs2 ? rs2==0 : immed==0);
+							is_move = (rs1 == 0 && needs_rs2) ||
+							          (needs_rs2? rs2 == 0 : immed == 0);
+							is_move_reg = (rs1 == 0 && needs_rs2 ? rs2 : rs1);
+					   end
+				default:;
+				endcase
+			end
+		default:;
+		endcase
+	end
+`endif
+
 
 	reg    [   4: 0]r_real_rs1_out, c_real_rs1_out;
 	reg    [   4: 0]r_real_rs2_out, c_real_rs2_out;
@@ -313,6 +440,14 @@ module rename(
 	assign real_rs1_out = r_real_rs1_out;
 	assign real_rs2_out = r_real_rs2_out;
 	assign real_rs3_out = r_real_rs3_out;
+`ifdef RENAME_OPT
+	reg    [RA-1: 0]r_renamed_commit_rs1_out;
+	reg    [RA-1: 0]r_renamed_commit_rs2_out;
+	reg    [RA-1: 0]r_renamed_commit_rs3_out;
+	assign  renamed_commit_rs1_out = r_renamed_commit_rs1_out;
+	assign  renamed_commit_rs2_out = r_renamed_commit_rs2_out;
+	assign  renamed_commit_rs3_out = r_renamed_commit_rs3_out;
+`endif
 	reg    [RA-1: 0]r_rs1_out;
 	reg    [RA-1: 0]r_rs2_out;
 	reg    [RA-1: 0]r_rs3_out;
@@ -420,6 +555,11 @@ module rename(
 			r_real_rs1_out <= 0;
 			r_real_rs2_out <= 0;
 			r_real_rs3_out <= 0;
+`ifdef RENAME_OPT
+			r_renamed_commit_rs1_out <= {1'b0, {RA-1{'bx}}};
+			r_renamed_commit_rs2_out <= {1'b0, {RA-1{'bx}}};
+			r_renamed_commit_rs3_out <= {1'b0, {RA-1{'bx}}};
+`endif
 			r_rs1_out <= {1'b1, commit_trap_br_addr};
 			r_rs2_out <= 0;
 			r_rs3_out <= 0;
@@ -448,6 +588,11 @@ module rename(
 			r_real_rs1_out <= 0;
 			r_real_rs2_out <= 0;
 			r_real_rs3_out <= 0;
+`ifdef RENAME_OPT
+			r_renamed_commit_rs1_out <= {1'b0, {RA-1{'bx}}};
+			r_renamed_commit_rs2_out <= {1'b0, {RA-1{'bx}}};
+			r_renamed_commit_rs3_out <= {1'b0, {RA-1{'bx}}};
+`endif
 			r_rd_fp_out <= 0;
 			r_rs1_fp_out <= 0;
 			r_rs2_fp_out <= 0;
@@ -481,6 +626,11 @@ module rename(
 		r_rs1_out <= ((renamed_rs1[RA-1] && commit_done[renamed_rs1[LNCOMMIT-1:0]])?rs1:renamed_rs1);
 		r_rs2_out <= ((renamed_rs2[RA-1] && commit_done[renamed_rs2[LNCOMMIT-1:0]])?rs2:renamed_rs2);
 		r_rs3_out <= ((renamed_rs3[RA-1] && commit_done[renamed_rs3[LNCOMMIT-1:0]])?rs3:renamed_rs3);
+`ifdef RENAME_OPT
+		r_renamed_commit_rs1_out <= (!renamed_commit_rs1[RA-1] || commit_completed[renamed_commit_rs1[LNCOMMIT-1:0]])?{1'b0, {RA-1{'bx}}}:renamed_commit_rs1;
+		r_renamed_commit_rs2_out <= (!renamed_commit_rs2[RA-1] || commit_completed[renamed_commit_rs2[LNCOMMIT-1:0]])?{1'b0, {RA-1{'bx}}}:renamed_commit_rs2;
+		r_renamed_commit_rs3_out <= (!renamed_commit_rs3[RA-1] || commit_completed[renamed_commit_rs3[LNCOMMIT-1:0]])?{1'b0, {RA-1{'bx}}}:renamed_commit_rs3;
+`endif
 		r_rd_out <= next_map_rd;
 		r_rd_real_out <= rd;
 		r_immed_out <= immed;
@@ -507,6 +657,14 @@ module rename(
 			r_rs2_out <= r_real_rs2_out;
 		if (!r_local3 && r_rs3_out[RA-1] && commit_done[r_rs3_out[LNCOMMIT-1:0]])
 			r_rs3_out <= r_real_rs3_out;
+`ifdef RENAME_OPT
+		if (r_renamed_commit_rs1_out[RA-1] && commit_completed[r_renamed_commit_rs1_out[LNCOMMIT-1:0]])
+			r_renamed_commit_rs1_out <= {1'b0, {RA-1{'bx}}};
+		if (r_renamed_commit_rs2_out[RA-1] && commit_completed[r_renamed_commit_rs2_out[LNCOMMIT-1:0]])
+			r_renamed_commit_rs2_out <= {1'b0, {RA-1{'bx}}};
+		if (r_renamed_commit_rs3_out[RA-1] && commit_completed[r_renamed_commit_rs3_out[LNCOMMIT-1:0]])
+			r_renamed_commit_rs3_out <= {1'b0, {RA-1{'bx}}};
+`endif
 	end
 
 `ifdef AWS_DEBUG

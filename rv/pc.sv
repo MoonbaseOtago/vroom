@@ -271,7 +271,7 @@ module pc(input clk,  input reset,
 		.ret_addr(r_dec_stall&&c_trace_used?current_trace_ret_addr:ret_addr[VA_SZ-1:1]),
 `else
 		.push_cs_stack(!rename_stall&&push_cs_stack),
-		.pop_cs_stack(!rename_stall&&pop_cs_stack)),
+		.pop_cs_stack(!rename_stall&&pop_cs_stack),
 		.ret_addr(ret_addr[VA_SZ-1:1]),
 `endif
 		.pop_available(pop_available),
@@ -284,7 +284,7 @@ module pc(input clk,  input reset,
 
 
 `ifdef TRACE_CACHE
-	reg			   r_trace_pop;
+	reg			   r_trace_pop, c_trace_pop;
 	assign	trace_pop = r_trace_pop;
 	reg	[VA_SZ-1:1]r_trace_ret_addr;
 	reg	[VA_SZ-1:1]c_trace_ret_addr;
@@ -304,9 +304,8 @@ module pc(input clk,  input reset,
 	always @(posedge clk) begin
 		r_trace_ret_addr <= c_trace_ret_addr;
 		r_trace_ret_addr_short <= trace_ret_addr_short;
-		if (trace_hit) begin
-			r_trace_pop <= !rename_stall&&r_dec_stall&&c_trace_used&&trace_push_pop[0]&&pop_available;
-		end
+		if (!rename_stall)
+			r_trace_pop <= c_trace_pop;
 	end
 
 	assign current_trace_ret_addr = c_trace_ret_addr + {{VA_SZ-3{1'b0}}, ~c_trace_ret_addr_short, c_trace_ret_addr_short};
@@ -571,6 +570,7 @@ module pc(input clk,  input reset,
 `ifdef TRACE_CACHE
 		c_trace_used = 0;
 		c_trace_wait = 0;
+		c_trace_pop = 0;
 `endif
 		fixup_dest = 0;
 		prediction_used = 0;
@@ -669,7 +669,9 @@ module pc(input clk,  input reset,
 				c_fetch_state = 3'b001;
 				if (!rename_stall) begin
 					c_trace_used = 1;
-					c_pc = (trace_push_pop[0]&&return_branch_valid?return_branch_pc:trace_next);
+					c_pc = (trace_push_pop[0]&&return_branch_valid?return_branch_pc:trace_next);	
+					c_trace_pop = trace_push_pop[0]&&return_branch_valid;
+					c_pc_dest_dec = {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc};
 					c_pc_branched = 1;
 					c_pc_restart = 0;
 				end else begin
@@ -687,6 +689,8 @@ module pc(input clk,  input reset,
 				if (!rename_stall) begin
 					c_trace_used = 1;
 					c_pc = (trace_push_pop[0]&&return_branch_valid?return_branch_pc:trace_next);
+					c_trace_pop = trace_push_pop[0]&&return_branch_valid;
+					c_pc_dest_dec = {{RV-VA_SZ{return_branch_pc[VA_SZ-1]}}, return_branch_pc};
 					c_pc_branched = 1;
 					c_fetch_state = 3'b001;
 					c_dec_stall = 1;

@@ -78,10 +78,20 @@ int main(int argc, char ** argv)
 	printf("			renamed_rs1 = rs1_fp?scoreboard_latest_rename_fp[s1]:scoreboard_latest_rename[s1];\n");
 	printf("			renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[s2];\n");
 	printf("			renamed_rs3 = rs3_fp?scoreboard_latest_rename_fp[s3]:scoreboard_latest_rename[s3];\n");
+	printf("`ifdef RENAME_OPT\n");
+	printf("			renamed_commit_rs1 = rs1_fp?scoreboard_latest_commit_fp[s1]:scoreboard_latest_commit[s1];\n");
+	printf("			renamed_commit_rs2 = rs2_fp?scoreboard_latest_commit_fp[s2]:scoreboard_latest_commit[s2];\n");
+	printf("			renamed_commit_rs3 = rs3_fp?scoreboard_latest_commit_fp[s3]:scoreboard_latest_commit[s3];\n");
+	printf("`endif\n");
 	printf("`else\n");
 	printf("			renamed_rs1 = scoreboard_latest_rename[s1];\n");
 	printf("			renamed_rs2 = scoreboard_latest_rename[s2];\n");
 	printf("			renamed_rs3 = scoreboard_latest_rename[s3];\n");
+	printf("`ifdef RENAME_OPT\n");
+	printf("			renamed_commit_rs1 = scoreboard_latest_commit[s1];\n");
+	printf("			renamed_commit_rs2 = scoreboard_latest_commit[s2];\n");
+	printf("			renamed_commit_rs3 = scoreboard_latest_commit[s3];\n");
+	printf("`endif\n");
 	printf("`endif\n");
 	printf("			local1 = 0;\n");
 	printf("			local2 = 0;\n");
@@ -122,6 +132,9 @@ int main(int argc, char ** argv)
 				printf("				always @(*) begin local1 = 1; \n");
 				printf("				if (s1==0) begin\n");
 				printf("					renamed_rs1 = 0;\n");
+				printf("`ifdef RENAME_OPT\n");
+				printf("					renamed_commit_rs1 = 0;\n");
+				printf("`endif\n");
 				printf("				end else\n");
 				printf("				casez (mk1) // synthesis full_case parallel_case\n");
 				for (j=i-1; j >= 0 ; j--) {
@@ -130,13 +143,23 @@ int main(int argc, char ** argv)
 						printf(k >j?"0":k==j?"1":"?");
 					if (n == 1) {
 //						if (mm==0) {
-							printf(": renamed_rs1 = {1'b1, ff, map_rd_rename[%d]};\n", j);
+							printf(": begin\n");
+							printf("			renamed_rs1 = {1'b1, ff, map_rd_rename[%d]};\n", j);
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs1 = 0;\n");
+				printf("`endif\n");
+							printf("		end\n");
 //						} else {
 //							printf(": renamed_rs1 = {1'b1, hart_dec, ff, map_rd_rename[%d]};\n", j);
 //						}
 					} else {
 //						if (mm == 0) {
-							printf(": renamed_rs1 = {1'b1, map_rd_rename[%d]};\n", j);
+							printf(": begin\n");
+							printf("			renamed_rs1 = {1'b1, map_rd_rename[%d]};\n", j);
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs1 = 0;\n");
+				printf("`endif\n");
+							printf("		end\n");
 //						} else {
 //							printf(": renamed_rs1 = {1'b1, hart_dec, map_rd_rename[%d]};\n", j);
 //						}
@@ -144,11 +167,16 @@ int main(int argc, char ** argv)
 				
 				}
 			
+				printf("				default: begin\n");
 				printf("`ifdef FP\n");
-				printf("				default: begin local1 = 0; renamed_rs1 = rs1_fp?scoreboard_latest_rename_fp[s1]:scoreboard_latest_rename[s1]; end\n"); // something for hart here
+				printf("						local1 = 0; renamed_rs1 = rs1_fp?scoreboard_latest_rename_fp[s1]:scoreboard_latest_rename[s1];\n"); // something for hart here
 				printf("`else\n");
-				printf("				default: begin local1 = 0;renamed_rs1 = scoreboard_latest_rename[s1];end\n");
+				printf("						local1 = 0;renamed_rs1 = scoreboard_latest_rename[s1];\n");
 				printf("`endif\n");
+				printf("`ifdef RENAME_OPT\n");
+				printf("					renamed_commit_rs1 = scoreboard_latest_commit[s1];\n");
+				printf("`endif\n");
+				printf("					end\n");
 				printf("				endcase\n");
 				printf("				end\n");
 //				if (mm == 1) 
@@ -190,6 +218,9 @@ int main(int argc, char ** argv)
 				printf("				always @(*) begin local2 = 1;\n");
 				printf("				if (s2==0) begin\n");
 				printf("					renamed_rs2 = 0;\n");
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs2 = 0;\n");
+				printf("`endif\n");
 				printf("				end else\n");
 				printf("				casez (mk2) // synthesis full_case parallel_case\n");
 				for (j=i-1; j >= 0 ; j--) {
@@ -198,23 +229,38 @@ int main(int argc, char ** argv)
 						printf(k >j?"0":k==j?"1":"?");
 					if (n == 1) {
 //						if (mm == 0) {
-							printf(": renamed_rs2 = {1'b1, ff, map_rd_rename[%d]};\n", j);
+							printf(": begin\n");
+							printf("			renamed_rs2 = {1'b1, ff, map_rd_rename[%d]};\n", j);
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs2 = 0;\n");
+				printf("`endif\n");
+							printf("		end\n");
 //						} else {
 //							printf(": renamed_rs2 = {1'b1, hart_dec, ff, map_rd_rename[%d]};\n", j);
 //						}
 					} else {
 //						if (mm == 0) {
-							printf(": renamed_rs2 = {1'b1, map_rd_rename[%d]};\n", j);
+							printf(": begin\n");
+							printf("			renamed_rs2 = {1'b1, map_rd_rename[%d]};\n", j);
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs2 = 0;\n");
+				printf("`endif\n");
+							printf("		end\n");
 //						} else {
 //							printf(": renamed_rs2 = {1'b1, hart_dec, map_rd_rename[%d]};\n", j);
 //						}
 					}
 				}
+				printf("				default: begin\n");
 				printf("`ifdef FP\n");
-				printf("				default: begin local2 = 0;renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[s2];end\n");
+				printf("						local2 = 0;renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[s2];\n");
 				printf("`else\n");
-				printf("				default: begin local2 = 0;renamed_rs2 = scoreboard_latest_rename[s2];end\n");
+				printf("						local2 = 0;renamed_rs2 = scoreboard_latest_rename[s2];\n");
 				printf("`endif\n");
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs2 = scoreboard_latest_commit[s2];\n");
+				printf("`endif\n");
+				printf("					end\n");
 				printf("				endcase\n");
 				printf("				end\n");
 //				if (mm == 1) 
@@ -256,6 +302,9 @@ int main(int argc, char ** argv)
 				printf("				always @(*) begin local3 = 1;\n");
 				printf("				if (s3==0) begin\n");
 				printf("					renamed_rs3 = 0;\n");
+				printf("`ifdef RENAME_OPT\n");
+				printf("					renamed_commit_rs3 = 0;\n");
+				printf("`endif\n");
 				printf("				end else\n");
 				printf("				casez (mk3) // synthesis full_case parallel_case\n");
 				for (j=i-1; j >= 0 ; j--) {
@@ -264,23 +313,38 @@ int main(int argc, char ** argv)
 						printf(k >j?"0":k==j?"1":"?");
 					if (n == 1) {
 //						if (mm == 0) {
-							printf(": renamed_rs3 = {1'b1, ff, map_rd_rename[%d]};\n", j);
+							printf(": begin\n");
+							printf("			renamed_rs3 = {1'b1, ff, map_rd_rename[%d]};\n", j);
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs3 = 0;\n");
+				printf("`endif\n");
+							printf("		end\n");
 //						} else {
 //							printf(": renamed_rs3 = {1'b1, hart_dec, ff, map_rd_rename[%d]};\n", j);
 //						}
 					} else {
 //						if (mm == 0) {
-							printf(": renamed_rs3 = {1'b1, map_rd_rename[%d]};\n", j);
+							printf(": begin\n");
+							printf("			renamed_rs3 = {1'b1, map_rd_rename[%d]};\n", j);
+				printf("`ifdef RENAME_OPT\n");
+				printf("						renamed_commit_rs3 = 0;\n");
+				printf("`endif\n");
+							printf("		end\n");
 //						} else {
 //							printf(": renamed_rs3 = {1'b1, hart_dec, map_rd_rename[%d]};\n", j);
 //						}
 					}
 				}
+				printf("				default: begin\n");
 				printf("`ifdef FP\n");
-				printf("				default: begin local3 = 0;renamed_rs3 = rs3_fp?scoreboard_latest_rename_fp[s3]:scoreboard_latest_rename[s3];end\n");
+				printf("						local3 = 0;renamed_rs3 = rs3_fp?scoreboard_latest_rename_fp[s3]:scoreboard_latest_rename[s3];\n");
 				printf("`else\n");
-				printf("				default: begin local3 = 0;renamed_rs3 = scoreboard_latest_rename[s3];end\n");
+				printf("						local3 = 0;renamed_rs3 = scoreboard_latest_rename[s3];\n");
 				printf("`endif\n");
+				printf("`ifdef RENAME_OPT\n");
+				printf("				renamed_commit_rs3 = scoreboard_latest_commit[s3];\n");
+				printf("`endif\n");
+				printf("					end\n");
 				printf("				endcase\n");
 				printf("				end\n");
 //				if (mm == 1) 

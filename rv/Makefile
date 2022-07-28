@@ -54,12 +54,17 @@ MXREG = rfile_21_1_9_1_8_32_4.sv   # for NALU3 COMBINED
 #NALU_2 = 
 #MXREG = rfile_19_1_8_1_8_32_2.sv   # for NALU2 COMBINED
 
-TRACE_1 = +define+TRACE_CACHE
-TRACE_2 = -DTRACE_CACHE
-TRACE_V = trc.sv
-#TRACE_1 = 
-#TRACE_2 = 
-#TRACE_V = 
+#TRACE_1 = +define+TRACE_CACHE
+#TRACE_2 = -DTRACE_CACHE
+#TRACE_V = trc.sv
+TRACE_1 = 
+TRACE_2 = 
+TRACE_V = 
+
+RENAME_OPT_1 = +define+RENAME_OPT
+RENAME_OPT_2 = -DRENAME_OPT
+#RENAME_OPT_1 = 
+#RENAME_OPT_2 =
 
 NSTORE2_1 = 
 NSTORE2_2 = 
@@ -76,8 +81,8 @@ CB_2 = -DCOMBINED_BRANCH
 # ------
 
 
-OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1)
-OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2)
+OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1) $(RENAME_OPT_1)
+OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2) $(RENAME_OPT_2)
 XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
 XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(OPT_FLAG_1)
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)

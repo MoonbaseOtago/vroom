@@ -279,4 +279,29 @@ hpmcounter5 = 81988
 IPC = 2.57
 BTC hit rate = %99
 
+==================================
+NOTE: At this point I found a rounding error bug in the code that calculates "Microseconds for one run
+through Dhrystone" for the simulator versions of the above code - it only effects the least significant
+bits of that one value - all the other numbers (DMips/etc) are correct
+==================================
+Repcompiling gives us slightly different (and lower) number though - likely due to different code
+alignments - we're NOT going to hack this to tweek the numbers - just restate the number 2 cases above as
+a baseline for future comparisons
+==================================
+
+24/7/22 - simulator m-mode - 644 ld/st unit - convert from branch unit/2 ALUs - to 3 combined ALUs
+Microseconds for one run through Dhrystone: 3.54
+Dhrystones per Second:                      282249
+DMips:                                      160.6
+DMips/(25)MHZ:                              6.42
+mcycle = 177260
+minstret = 452036
+hpmcounter4 = 82008
+hpmcounter5 = 81988
+hpmcounter6 = 452334
+hpmcounter7 = 120096
+
+IPC = 2.55
+BTC hit rate = %99
+==================================
 

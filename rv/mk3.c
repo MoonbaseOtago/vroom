@@ -76,17 +76,53 @@ int main(int argc, char ** argv)
 	for (i = 0; i < B; i++) 
 		printf("(all_rd_rename[%d]==R)&all_makes_rd_rename[%d]%s", i, i, i==(B-1)?"};\n":", ");
 	printf("`endif\n");
+	printf("`ifdef RENAME_OPT\n");
+	for (i = B-2; i >= 0 ; i--) {
+	printf("	wire [%d:1]move_match_%d = {", (B-i)-1, (B-i)-1);
+	for (j = B-1; j > i; j--) printf("%smap_is_move_rename[%d]&&(all_rd_rename[%d]==map_is_move_reg_rename[%d])", j==(B-1)?"":",", (B-1)-i, (B-1)-j, (B-1)-i);
+	printf("};\n");
+	}
+	printf("`endif\n");
+	
 	printf("		always @(*) begin\n");
 	printf("			rename_result = 'bx;\n"); 
 	printf("			rename_match_valid = 1;\n"); 
+	printf("`ifdef RENAME_OPT\n");
+	printf("			rename_is_0 = 'bx;\n");
+	printf("			rename_is_move = 'bx;\n");
+	printf("			rename_is_move_reg = 'bx;\n");
+	printf("`endif\n");
 	printf("			casez (rename_match) // synthesis full_case parallel_case\n");
 	for (i = B-1; i >= 0; i--) {
 		printf("			%d'b", B);
 		for (j = B-1; j >= 0; j--) 
 			printf(i==j?"1":j>i?"?":"0");
-		printf(": begin rename_result = map_rd_rename[%d]; end\n",  B-i-1 );
+		printf(": begin\n");
+		printf("						rename_result = map_rd_rename[%d];\n",  B-i-1 );
+		printf("`ifdef RENAME_OPT\n");
+		printf("						rename_is_0 = map_is_0_rename[%d];\n",  B-i-1 );
+		printf("						rename_is_move = map_is_move_rename[%d];\n",  B-i-1 );
+		if (i == B-1) {
+		printf("						rename_is_move_reg = map_is_move_reg_rename[%d];\n",  B-i-1 );
+		} else {
+		printf("						casez ({");
+		//for (j = B-1; j > i; j--) printf("%smap_is_move_rename[%d]&&(all_rd_rename[%d]==R)", j==(B-1)?"":",", (B-1)-i, (B-1)-j);
+		printf("move_match_%d", B-i-1);
+		printf("}) // synthesis full_case parallel_case\n");
+		for (j = B-1; j > i; j--) {
+		printf("						%d'b", (B-1)-i);
+		for (k = B-1; k > i; k--) printf(k == j?"1":k > j ?"?":"0");
+		printf(": rename_is_move_reg = {1'b1, map_rd_rename[%d]};\n", (B-1)-j);
+		}
+		printf("						default: rename_is_move_reg = map_is_move_reg_rename[%d];\n",  B-i-1 );
+		printf("						endcase\n");
+		}
+		printf("`endif\n");
+		printf("					end\n");
 	}
-	printf("			%d'd0: rename_match_valid=0;\n", B);
+	printf("			%d'd0: begin\n", B);
+	printf("					rename_match_valid=0;\n");
+	printf("			       end\n");
 	printf("			endcase\n");
 	printf("		end\n");
 }

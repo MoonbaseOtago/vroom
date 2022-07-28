@@ -198,6 +198,11 @@ module commit(input clk,
 	input [4:0]real_rs2,
 	input [RA-1:0]rs3,
 	input [4:0]real_rs3,
+`ifdef RENAME_OPT
+	input [RA-1:0]commit_rs1,
+	input [RA-1:0]commit_rs2,
+	input [RA-1:0]commit_rs3,
+`endif
 	input [4:0]rd,
 	input [31:0]immed,
 	input       makes_rd,
@@ -218,7 +223,7 @@ module commit(input clk,
 	input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret,
 	input  [3:0]unit_type,       // 0 ALU, 1 shift, 2 mul/dev, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 	input	[NCOMMIT-1:0]commit_ack,
-	input	[NCOMMIT-1:0]completed,
+	input	[NCOMMIT-1:0]commit_completed,
 
 	input			commit_kill,
 	input			br_in,
@@ -339,6 +344,11 @@ module commit(input clk,
 	reg [ 4:0]r_real_rs1;
 	reg [ 4:0]r_real_rs2;
 	reg [ 4:0]r_real_rs3;
+`ifdef RENAME_OPT
+	reg [RA-1:0]r_commit_rs1;
+	reg [RA-1:0]r_commit_rs2;
+	reg [RA-1:0]r_commit_rs3;
+`endif
 	reg [31:0]r_immed;
 	reg       r_makes_rd;
 	reg       r_start, c_start;
@@ -664,7 +674,11 @@ module commit(input clk,
 					end
 					if (r_unit_type == 6 && br_in) begin
 						c_br_ok = 0;
-						c_control[5] = ~r_control[5];
+						if (r_control[0]) begin
+							c_control[5] = ~r_control[5];
+						end else begin
+							c_control[5] = 1;
+						end
 					end
 			   end
 			2: begin			// mul 2 clocks
@@ -968,14 +982,14 @@ module commit(input clk,
 	end
 
 	reg		r_ready, r_ready_addr;
-	assign ready = r_valid&(r_ready|((!r_rs1[RA-1]|completed[r_rs1[LNCOMMIT-1:0]])&
-								     ((!r_rs2[RA-1]|completed[r_rs2[LNCOMMIT-1:0]])|!r_needs_rs2)&
-								     ((!r_rs3[RA-1]|completed[r_rs3[LNCOMMIT-1:0]])|!r_needs_rs3)));
-	assign addr_ready = r_valid&(r_ready_addr|(!r_rs1[RA-1]|completed[r_rs1[LNCOMMIT-1:0]]));
+	assign ready = r_valid&(r_ready|((!r_rs1[RA-1]|commit_completed[r_rs1[LNCOMMIT-1:0]])&
+								     ((!r_rs2[RA-1]|commit_completed[r_rs2[LNCOMMIT-1:0]])|!r_needs_rs2)&
+								     ((!r_rs3[RA-1]|commit_completed[r_rs3[LNCOMMIT-1:0]])|!r_needs_rs3)));
+	assign addr_ready = r_valid&(r_ready_addr|(!r_rs1[RA-1]|commit_completed[r_rs1[LNCOMMIT-1:0]]));
 `ifdef FP
-	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0&&!r_rs2_fp)|completed[r_rs2[LNCOMMIT-1:0]]));
+	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0&&!r_rs2_fp)|commit_completed[r_rs2[LNCOMMIT-1:0]]));
 `else
-	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0)|completed[r_rs2[LNCOMMIT-1:0]]));
+	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0)|commit_completed[r_rs2[LNCOMMIT-1:0]]));
 `endif
 
 	always @(posedge clk) begin
@@ -1002,6 +1016,67 @@ module commit(input clk,
 `endif
 		if (load&!commit_kill) begin
 			r_force_fetch <= force_fetch;
+`ifdef RENAME_OPT
+			if (commit_rs1[RA-1] && rs1[RA-1] && commit_completed[commit_rs1[LNCOMMIT-1:0]] && !force_fetch) begin
+				if (commit_ack[commit_rs1[LNCOMMIT-1:0]]||commit_done[commit_rs1[LNCOMMIT-1:0]]) begin
+					r_rs1 <= real_rs1;
+				end else begin
+					r_rs1 <= commit_rs1;
+				end
+				r_commit_rs1 <= {1'b0, {NA-1{1'bx}}};
+			end else
+			if (rs1[RA-1] && (commit_ack[rs1[LNCOMMIT-1:0]]||commit_done[rs1[LNCOMMIT-1:0]]) && !force_fetch) begin
+				if (commit_rs1[RA-1] && !(commit_ack[commit_rs1[LNCOMMIT-1:0]]||commit_done[commit_rs1[LNCOMMIT-1:0]])) begin
+					r_rs1 <= commit_rs1;
+				end else begin
+					r_rs1 <= real_rs1;
+				end
+				r_commit_rs1 <= {1'b0, {NA-1{1'bx}}};
+			end else begin
+				r_rs1 <= rs1;
+				r_commit_rs1 <= rs1[RA-1] ? commit_rs1 : {1'b0, {NA-1{1'bx}}};
+			end
+
+			if (commit_rs2[RA-1] && rs2[RA-1] && commit_completed[commit_rs2[LNCOMMIT-1:0]]) begin
+				if (commit_ack[commit_rs2[LNCOMMIT-1:0]]||commit_done[commit_rs2[LNCOMMIT-1:0]]) begin
+					r_rs2 <= real_rs2;
+				end else begin
+					r_rs2 <= commit_rs2;
+				end
+				r_commit_rs2 <= {1'b0, {NA-1{1'bx}}};
+			end else
+			if (rs2[RA-1] && (commit_ack[rs2[LNCOMMIT-1:0]]||commit_done[rs2[LNCOMMIT-1:0]])) begin
+				if (commit_rs2[RA-1] && !(commit_ack[commit_rs2[LNCOMMIT-1:0]]||commit_done[commit_rs2[LNCOMMIT-1:0]])) begin
+					r_rs2 <= commit_rs2;
+				end else begin
+					r_rs2 <= real_rs2;
+				end
+				r_commit_rs2 <= {1'b0, {NA-1{1'bx}}};
+			end else begin
+				r_rs2 <= rs2;
+				r_commit_rs2 <= rs2[RA-1] ? commit_rs2 : {1'b0, {NA-1{1'bx}}};
+			end
+
+			if (commit_rs3[RA-1] && rs3[RA-1] && commit_completed[commit_rs3[LNCOMMIT-1:0]]) begin
+				if (commit_ack[commit_rs3[LNCOMMIT-1:0]]||commit_done[commit_rs3[LNCOMMIT-1:0]]) begin
+					r_rs3 <= real_rs3;
+				end else begin
+					r_rs3 <= commit_rs3;
+				end
+				r_commit_rs3 <= {1'b0, {NA-1{1'bx}}};
+			end else
+			if (rs3[RA-1] && (commit_ack[rs3[LNCOMMIT-1:0]]||commit_done[rs3[LNCOMMIT-1:0]])) begin
+				if (commit_rs3[RA-1] && !(commit_ack[commit_rs3[LNCOMMIT-1:0]]||commit_done[commit_rs3[LNCOMMIT-1:0]])) begin
+					r_rs3 <= commit_rs3;
+				end else begin
+					r_rs3 <= real_rs3;
+				end
+				r_commit_rs3 <= {1'b0, {NA-1{1'bx}}};
+			end else begin
+				r_rs3 <= rs3;
+				r_commit_rs3 <= rs3[RA-1] ? commit_rs3 : {1'b0, {NA-1{1'bx}}};
+			end
+`else
 			if (rs1[RA-1] && (commit_ack[rs1[LNCOMMIT-1:0]]||commit_done[rs1[LNCOMMIT-1:0]]) && !force_fetch) begin
                 r_rs1 <= real_rs1;
 			end else begin
@@ -1017,6 +1092,7 @@ module commit(input clk,
 			end else begin
 				r_rs3 <= rs3;
 			end
+`endif
 			r_real_rs1 <= real_rs1;
 			r_real_rs2 <= real_rs2;
 			r_real_rs3 <= real_rs3;
@@ -1057,12 +1133,63 @@ if (simd_enable) $display("C %d %x %x %x",$time,ADDR,{pc, 1'b0},unit_type);
 `endif
 			if (c_load_trap)
 				r_makes_rd <= 0;
+`ifdef RENAME_OPT
+			if (r_commit_rs1[RA-1] && commit_completed[r_commit_rs1[LNCOMMIT-1:0]]) begin
+				if (!(commit_ack[r_commit_rs1[LNCOMMIT-1:0]]||commit_done[r_commit_rs1[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+					r_rs1 <= {1'b1, r_commit_rs1[LNCOMMIT-1:0]};
+				end else begin
+					r_rs1 <= {1'b0, r_real_rs1};
+				end
+			end else 
+			if (r_rs1[RA-1] && (commit_ack[r_rs1[LNCOMMIT-1:0]]||commit_done[r_rs1[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+				if (r_commit_rs1[RA-1] && !(commit_ack[r_commit_rs1[LNCOMMIT-1:0]]||commit_done[r_commit_rs1[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+					r_rs1 <= {1'b1, r_commit_rs1[LNCOMMIT-1:0]};
+				end else begin
+					r_rs1 <= {1'b0, r_real_rs1};
+				end
+			end
+			if (r_commit_rs2[RA-1] && commit_completed[r_commit_rs2[LNCOMMIT-1:0]]) begin
+				if (!(commit_ack[r_commit_rs2[LNCOMMIT-1:0]]||commit_done[r_commit_rs2[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+					r_rs2 <= {1'b1, r_commit_rs2[LNCOMMIT-1:0]};
+				end else begin
+					r_rs2 <= {1'b0, r_real_rs2};
+				end
+			end else 
+			if (r_rs2[RA-1] && (commit_ack[r_rs2[LNCOMMIT-1:0]]||commit_done[r_rs2[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+				if (r_commit_rs2[RA-1] && !(commit_ack[r_commit_rs2[LNCOMMIT-1:0]]||commit_done[r_commit_rs2[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+					r_rs2 <= {1'b1, r_commit_rs2[LNCOMMIT-1:0]};
+				end else begin
+					r_rs2 <= {1'b0, r_real_rs2};
+				end
+			end
+			if (r_commit_rs3[RA-1] && commit_completed[r_commit_rs3[LNCOMMIT-1:0]]) begin
+				if (!(commit_ack[r_commit_rs3[LNCOMMIT-1:0]]||commit_done[r_commit_rs3[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+					r_rs3 <= {1'b1, r_commit_rs3[LNCOMMIT-1:0]};
+				end else begin
+					r_rs3 <= {1'b0, r_real_rs3};
+				end
+			end else 
+			if (r_rs3[RA-1] && (commit_ack[r_rs3[LNCOMMIT-1:0]]||commit_done[r_rs3[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+				if (r_commit_rs3[RA-1] && !(commit_ack[r_commit_rs3[LNCOMMIT-1:0]]||commit_done[r_commit_rs3[LNCOMMIT-1:0]]) && !r_force_fetch) begin
+					r_rs3 <= {1'b1, r_commit_rs3[LNCOMMIT-1:0]};
+				end else begin
+					r_rs3 <= {1'b0, r_real_rs3};
+				end
+			end
+			if (r_commit_rs1[RA-1] && (commit_completed[r_commit_rs1[LNCOMMIT-1:0]]||commit_done[r_commit_rs1[LNCOMMIT-1:0]]||commit_ack[r_commit_rs1[LNCOMMIT-1:0]])) 
+				r_commit_rs1[RA-1] <= 1'b0;
+			if (r_commit_rs2[RA-1] && (commit_completed[r_commit_rs2[LNCOMMIT-1:0]]||commit_done[r_commit_rs2[LNCOMMIT-1:0]]||commit_ack[r_commit_rs2[LNCOMMIT-1:0]])) 
+				r_commit_rs2[RA-1] <= 1'b0;
+			if (r_commit_rs3[RA-1] && (commit_completed[r_commit_rs3[LNCOMMIT-1:0]]||commit_done[r_commit_rs3[LNCOMMIT-1:0]]||commit_ack[r_commit_rs3[LNCOMMIT-1:0]])) 
+				r_commit_rs3[RA-1] <= 1'b0;
+`else
 			if (r_rs1[RA-1] && (commit_ack[r_rs1[LNCOMMIT-1:0]]||commit_done[r_rs1[LNCOMMIT-1:0]]) && !r_force_fetch) 
 				r_rs1 <= {1'b0, r_real_rs1};
 			if (r_rs2[RA-1] && (commit_ack[r_rs2[LNCOMMIT-1:0]]||commit_done[r_rs2[LNCOMMIT-1:0]])) 
 				r_rs2 <= {1'b0, r_real_rs2};
 			if (r_rs3[RA-1] && (commit_ack[r_rs3[LNCOMMIT-1:0]]||commit_done[r_rs3[LNCOMMIT-1:0]])) 
 				r_rs3 <= {1'b0, r_real_rs3};
+`endif
 		end
 `ifdef SIMD
 if (r_valid&&commit_kill && simd_enable) $display("K %d %x %x %x", $time,ADDR,{r_pc,1'b0},r_unit_type);
@@ -1095,7 +1222,7 @@ if (commit_ended && simd_enable) $display("D %d %x %x %x", $time,ADDR,{r_pc,1'b0
            .valid(r_valid),
            .typ(r_unit_type),
            .pc({r_pc[31:1],1'b0}),
-           .state({3'b0, completed[r_rs1[LNCOMMIT-1:0]], completed[r_rs2[LNCOMMIT-1:0]], load_addr_ready, load_addr_not_ready, commit_load_done}),
+           .state({3'b0, commit_completed[r_rs1[LNCOMMIT-1:0]], commit_completed[r_rs2[LNCOMMIT-1:0]], load_addr_ready, load_addr_not_ready, commit_load_done}),
            .schedule(schedule),
            .commit_req(commit_req),
            .ready(ready),

@@ -179,13 +179,13 @@ module trace_cache(input clk, input reset,
 				c_pc_push_pop[I] = r_pc_push_pop[I];
 				c_pc_ret_addr[I] = r_pc_ret_addr[I];
 				c_pc_ret_addr_short[I] = r_pc_ret_addr_short[I];
-				if (write_meta && (write_meta_update ? r_last == I : r_next_use == I) && !match[I]) begin
+				if (write_meta && (write_meta_update ? r_last == I : r_next_use == I)) begin
 					c_pc_next[I] = c_meta_next;
 					c_pc_push_pop[I] = c_meta_push_pop;
 					c_pc_ret_addr[I] = c_meta_ret_addr;
 					c_pc_ret_addr_short[I] = c_meta_ret_addr_short;
 				end else
-				if (r_last_valid[0] && r_last == I && trace_in_valid[0]&~trace_in_will_trap[0] && !flush && r_last_changed && !match[I]) begin
+				if (r_last_valid[0] && r_last == I && trace_in_valid[0]&~trace_in_will_trap[0] && !flush && r_last_changed) begin
 					c_pc_next[I] = trace_in_pc[0];
 				end
 			end
@@ -196,11 +196,11 @@ module trace_cache(input clk, input reset,
 				if (reset || r_invalidate || !trace_enable) begin
 					r_valid[I] <= 0;
 				end else
-				if (write_meta && (write_meta_update ? r_last == I : r_next_use == I) && !match[I]) begin
+				if (write_meta && (write_meta_update ? r_last == I : r_next_use == I)) begin
 					r_valid[I] <= c_meta_valid | (write_meta_update?r_valid[I]:0);
 				end
 
-				if (write_meta && !write_meta_update && r_next_use == I && !match[I])
+				if (write_meta && !write_meta_update && r_next_use == I)
 					r_pc_tag[I] <= c_meta_pc;
 		
 				r_pc_next[I] <= c_pc_next[I];
@@ -222,7 +222,7 @@ module trace_cache(input clk, input reset,
 		assign trace_hit = |match;
 
 		
-		// one-hit mux cache = r_trace_cache[hit-line]
+		// one-hot mux cache = r_trace_cache[hit-line]
 		reg [NRETIRE*BUNDLE_SIZE-1:0]cache;	
 		reg [VA_SZ-1:1]xpc_next;
 		assign pc_next = xpc_next;
@@ -285,6 +285,10 @@ module trace_cache(input clk, input reset,
 		reg [NRETIRE-1:0]trace_in_will_terminate;
 		reg [NRETIRE-1:0]trace_in_short_ins;
 
+		wire [NRETIRE-1:0]sub_call;
+		wire [NRETIRE-1:0]sub_return;
+		wire [NRETIRE-1:0]branched;
+		wire [1:0]push_pop_in[0:NRETIRE-1];;
 
 		// unskipped
 		wire [VA_SZ-1:1]next_ins[0:NRETIRE-1];
@@ -296,19 +300,19 @@ module trace_cache(input clk, input reset,
 wire [NRETIRE-1:0]short_vec;
 wire [NRETIRE-1:0]valid_vec=trace_in.valid;
 wire [NRETIRE-1:0]start_vec;
+wire [2:0]unit_type[0:NRETIRE-1];
+wire [5:0]control[0:NRETIRE-1];
 for (I = 0; I < NRETIRE; I=I+1) begin
 assign short_vec[I] = trace_in.b[I].short_ins;
 assign start_vec[I] = trace_in.b[I].start;
+assign unit_type[I] = trace_in.b[I].unit_type;
+assign control[I] = trace_in.b[I].control;
 end
 
 		// unskipped partial instruction decodes for choosing trace beginning/ends
-		wire [NRETIRE-1:0]sub_call;
-		wire [NRETIRE-1:0]sub_return;
-		wire [NRETIRE-1:0]branched;
-		wire [1:0]push_pop_in[0:NRETIRE-1];;
 		for (I = 0; I < NRETIRE; I=I+1) begin
-			assign sub_call[I] = trace_in.b[I].unit_type == 6 && trace_in.b[I].makes_rd && (trace_in.b[I].rd==1||trace_in.b[I].rd==5);
-			assign sub_return[I] = trace_in.b[I].unit_type == 6 && !trace_in.b[I].makes_rd && (trace_in.b[I].rs1==1||trace_in.b[I].rs1==5);
+			assign sub_call[I] = trace_in.b[I].unit_type == 6 && trace_in.b[I].makes_rd && (trace_in.b[I].rd==1||trace_in.b[I].rd==5) && !trace_in.b[I].control[0];
+			assign sub_return[I] = trace_in.b[I].unit_type == 6 && !trace_in.b[I].makes_rd && (trace_in.b[I].rs1==1||trace_in.b[I].rs1==5) && (trace_in.b[I].control[1:0] == 2'b00);
 			assign push_pop_in[I] = {sub_call[I], sub_return[I]};
 			assign branched[I] = trace_in.b[I].unit_type == 6 && (!trace_in.b[I].control[0] || trace_in.b[I].control[5]);
 		end
@@ -432,10 +436,12 @@ wire [VA_SZ-1:1]trace_in_pc_7=trace_in.b[7].pc;
 		reg [$clog2(NUM_TRACE_LINES)-1:0]r_last, c_last;	// which entry it was
 		reg			     r_last_changed;
 
+		wire terminate = |((trace_in_will_trap)&trace_in_valid) || (write_meta&& |c_meta_push_pop) ;
+
 		always @(posedge clk) begin
 			r_last <= c_last;	
-			r_last_valid <= (reset || r_invalidate || flush || |((trace_in_will_terminate|trace_in_will_trap)&trace_in_valid) || match[c_last] ? 0 : c_last_valid);
-			r_last_changed <= reset || r_invalidate || flush  || |((trace_in_will_terminate|trace_in_will_trap)&trace_in_valid) || match[c_last] ? 0 :
+			r_last_valid <= (reset || r_invalidate || flush || terminate ? 0 : c_last_valid);
+			r_last_changed <= reset || r_invalidate || flush  || terminate ? 0 :
 						      (c_last_valid != r_last_valid || c_last != r_last) && !c_waiting_valid[0] ? 1 :
 							  r_last_changed && r_last_valid[0] && trace_in_valid[0]&~ignore_valid[0] ? 0: r_last_changed;
 		end
@@ -501,11 +507,12 @@ debug=1;
 						write_meta = ! |match_waiting;
 						write_meta_update = 0;
 
-						c_last_valid = 0;
-//						if (! |match_waiting) begin
-//							c_last = r_next_use;
-//							c_last_valid = trace_write_strobe;
-//						end
+						if (! |match_waiting) begin
+							c_last = r_next_use;
+							c_last_valid = trace_write_strobe;
+						end else begin
+							c_last_valid = 0;
+						end
 
 						c_waiting_valid = 0;
 						c_waiting_pc = 'bx;
@@ -528,10 +535,12 @@ debug=2;
 						write_meta = ! |match_waiting;
 						write_meta_update = 0;
 
-						//if (! |match_waiting) begin
-						c_last = r_next_use;
-						c_last_valid = trace_write_strobe;
-						//end
+						if (! |match_waiting) begin
+							c_last = r_next_use;
+							c_last_valid = trace_write_strobe;
+						end else begin
+							c_last_valid = 0;
+						end
 
 						c_waiting_valid = l1b_c_waiting_valid;
 						c_waiting = l1b_c_waiting;

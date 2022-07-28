@@ -79,7 +79,7 @@ public:
 		}
 		if ((m_tickcount%10000)==0){fflush(stdout);}
 	}
-	virtual void start(bool pipe_trace, const char **file, uint64_t *addr, int load_count, unsigned long limit, unsigned long start, bool boot)
+	virtual void start(bool pipe_trace, bool pipe_trace_enable, const char **file, uint64_t *addr, int load_count, unsigned long limit, unsigned long start, bool boot)
 	{
 		FILE *f;
 		int i;
@@ -134,6 +134,7 @@ public:
 		//m_core->clkX4 = 0; m_core->clkX4_phase = 1;
 		m_core->cpu_id = 0;
 		m_core->simd_enable = (pipe_trace?1:0);
+		m_core->simd_trace_enable = (pipe_trace_enable?1:0);
 		m_core->ireset = 1;
 		m_core->eval();
 		m_tickcount=10;
@@ -165,7 +166,7 @@ double sc_time_stamp()
 int
 main(int argc, char **argv)
 {
-	bool pipe_trace=0,trace=0;
+	bool pipe_trace=0, pipe_trace_enable=1, trace=0;
 	int load_ind = 0;
 	const char *load[32] = {0};
 	uint64_t addr[32]={0};
@@ -193,6 +194,8 @@ main(int argc, char **argv)
 			boot = 1;
 		if (!strcmp(argv[i], "-p"))
 			pipe_trace = 1;
+		if (!strcmp(argv[i], "-T"))
+			pipe_trace_enable = 1-pipe_trace_enable;
 		if (!strcmp(argv[i], "-a") && i < (argc-1)) {
 			i++;
 			next_addr = strtol(argv[i], 0, 0);
@@ -221,7 +224,7 @@ main(int argc, char **argv)
 	}
 		
 	// Tick the clock until we are done
-	tb->start(pipe_trace, &load[0], &addr[0], load_ind, limit, log_start, boot);
+	tb->start(pipe_trace, pipe_trace_enable, &load[0], &addr[0], load_ind, limit, log_start, boot);
 	while(!tb->done()) {
 		tb->tick();
 	}

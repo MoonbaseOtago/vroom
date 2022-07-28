@@ -77,6 +77,11 @@ int main(int argc, char ** argv)
 	printf("		real_rs1 = 'bx;\n");
 	printf("		real_rs2 = 'bx;\n");
 	printf("		real_rs3 = 'bx;\n");
+	printf("`ifdef RENAME_OPT\n");
+	printf("		commit_rs1 = 'bx;\n");
+	printf("		commit_rs2 = 'bx;\n");
+	printf("		commit_rs3 = 'bx;\n");
+	printf("`endif\n");
 	printf("		rs1 = 'bx;\n");
 	printf("		rs2 = 'bx;\n");
 	printf("		rs3 = 'bx;\n");
@@ -113,6 +118,11 @@ int main(int argc, char ** argv)
 		printf("			real_rs1 = real_rs1_rename[%d];\n",i);
 		printf("			real_rs2 = real_rs2_rename[%d];\n",i);
 		printf("			real_rs3 = real_rs3_rename[%d];\n",i);
+		printf("`ifdef RENAME_OPT\n");
+		printf("			commit_rs1 = commit_rs1_rename[%d];\n",i);
+		printf("			commit_rs2 = commit_rs2_rename[%d];\n",i);
+		printf("			commit_rs3 = commit_rs3_rename[%d];\n",i);
+		printf("`endif\n");
 		printf("			control = control_rename[%d];\n",i);
 		printf("			unit_type = unit_type_rename[%d];\n",i);
 		printf("			branch_token = branch_token_rename[%d];\n",i);

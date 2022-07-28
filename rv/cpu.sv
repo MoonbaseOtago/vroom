@@ -915,6 +915,17 @@ assign gl_type_dec[H] = unit_type_dec[0];
 `endif
 
 			wire	[LNCOMMIT-1: 0]map_rd_rename[0:2*NDEC-1];
+`ifdef RENAME_OPT
+			wire  [2*NDEC-1:0]map_is_0_rename;
+			wire  [2*NDEC-1:0]map_is_move_rename;
+			wire	 [RA-1: 0]map_is_move_reg_rename[0:2*NDEC-1];
+			wire	    [4: 0]map_is_reg[0:2*NDEC-1];
+
+wire  [2*NDEC-1:0]map_is_0=map_is_0_rename&will_be_valid_rename;
+wire  [2*NDEC-1:0]map_is_move=map_is_move_rename&will_be_valid_rename;
+wire [31:1]sb_is_reg; // for debug
+wire [31:1]sb_is_0; // for debug
+`endif
 			wire	[ 4: 0]all_rd_rename[0:2*NDEC-1];
 			wire	[2*NDEC-1:0]all_makes_rd_rename;
 `ifdef FP
@@ -923,6 +934,11 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire	[RA-1:0]rs1_rename[0:2*NDEC-1];
 			wire	[RA-1:0]rs2_rename[0:2*NDEC-1];
 			wire	[RA-1:0]rs3_rename[0:2*NDEC-1];
+`ifdef RENAME_OPT
+			wire	[RA-1:0]commit_rs1_rename[0:2*NDEC-1];
+			wire	[RA-1:0]commit_rs2_rename[0:2*NDEC-1];
+			wire	[RA-1:0]commit_rs3_rename[0:2*NDEC-1];
+`endif
 			wire	[ 4:0]real_rs1_rename[0:2*NDEC-1];
 			wire	[ 4:0]real_rs2_rename[0:2*NDEC-1];
 			wire	[ 4:0]real_rs3_rename[0:2*NDEC-1];
@@ -949,11 +965,20 @@ assign gl_type_dec[H] = unit_type_dec[0];
 			wire    [RA-1:0]scoreboard_latest_rename_fp[0:31];
 `endif
 			wire    [RA-1:0]scoreboard_latest_rename[0:31];
+`ifdef RENAME_OPT
+			wire    [RA-1:0]scoreboard_latest_commit[0:31];
+`endif
 			if (NHART == 1) begin
 				assign   scoreboard_latest_rename[0] = 0; 
+`ifdef RENAME_OPT
+				assign   scoreboard_latest_commit[0] = 0; 
+`endif
 			end else begin
 				wire	[LNHART-1:0]tt=H;
 				assign   scoreboard_latest_rename[0] = {1'b0, tt, {RA-LNHART-1{1'b0}}};
+`ifdef RENAME_OPT
+				assign   scoreboard_latest_commit[0] = {1'b0, tt, {RA-LNHART-1{1'b0}}};
+`endif
 			end
 assign gl_valid_rename[H] = valid_rename;
 assign gl_type_rename[H] = unit_type_rename[0];
@@ -969,6 +994,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg    [CNTRL_SIZE-1:0]control;
 				reg 	[RV-1:1]pc, pc_dest;
 				reg    [RA-1:0]renamed_rs1, renamed_rs2, renamed_rs3;
+`ifdef RENAME_OPT
+				reg    [RA-1:0]renamed_commit_rs1, renamed_commit_rs2, renamed_commit_rs3;
+`endif
 				reg			local1, local2, local3;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
 				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
@@ -983,6 +1011,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
 `include "mk2_16.inc"
 				end 
 
+`ifdef RENAME_OPT
+				assign map_is_move_reg_rename[D] = scoreboard_latest_rename[map_is_reg[D]];
+`endif
 
 			
 				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
@@ -1009,6 +1040,14 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.renamed_rs1(renamed_rs1),
 					.renamed_rs2(renamed_rs2),
 					.renamed_rs3(renamed_rs3),
+`ifdef RENAME_OPT
+					.renamed_commit_rs1(renamed_commit_rs1),
+					.renamed_commit_rs2(renamed_commit_rs2),
+					.renamed_commit_rs3(renamed_commit_rs3),
+					.renamed_commit_rs1_out(commit_rs1_rename[D]),
+					.renamed_commit_rs2_out(commit_rs2_rename[D]),
+					.renamed_commit_rs3_out(commit_rs3_rename[D]),
+`endif
 					.local1(local1),
 					.local2(local2),
 					.local3(local3),
@@ -1033,6 +1072,12 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.next_makes_rd(all_makes_rd_rename[D]),
 `ifdef FP
 					.next_rd_fp(all_rd_fp_rename[D]),
+`endif
+`ifdef RENAME_OPT
+					.next_is_0(map_is_0_rename[D]),
+					.next_is_move(map_is_move_rename[D]),
+					.next_is_move_reg(map_is_reg[D]),
+					.commit_completed(commit_completed[H]),
 `endif
 
                 	.real_rs1_out(real_rs1_rename[D]),
@@ -1110,10 +1155,17 @@ end
 `include "mk3_16.inc"
 				end 
 
+
 				scoreboard #(.RV(RV), .HART(H), .RA(RA), .ADDR(R), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))score_board(.reset(reset), .clk(clk),
 
 					.rename_result(rename_result),
 					.rename_valid(rename_match_valid),
+`ifdef RENAME_OPT
+					.rename_is_0(1'b0),
+					.rename_is_move(1'b0),
+					.rename_is_move_reg('bx),
+					.commit_completed({{NCOMMIT{1'b0}}}),
+`endif
 					.rename_reloading(rename_reloading[H]),
 					.rename_stall(rename_stall[H]),
 	
@@ -1139,8 +1191,13 @@ end
 `endif
 				end
 			
-				reg	rename_match_valid;
+				reg					rename_match_valid;
 				reg   [LNCOMMIT-1:0]rename_result;
+`ifdef RENAME_OPT
+				reg					rename_is_0;
+				reg					rename_is_move;
+				reg        [RA-1: 0]rename_is_move_reg;
+`endif
 				wire [2*NDEC-1:0]rename_match;
 				if (NDEC == 2) begin
 `include "mk3_4.inc"
@@ -1156,6 +1213,17 @@ end
 
 					.rename_result(rename_result),
 					.rename_valid(rename_match_valid),
+`ifdef RENAME_OPT
+					.rename_is_0(rename_is_0),
+					.rename_is_move(rename_is_move),
+					.rename_is_move_reg(rename_is_move_reg),
+					.commit_completed(commit_completed[H]),
+
+					.sb_is_0(sb_is_0[R]),	// debug
+					.sb_is_reg(sb_is_reg[R]),	// debug
+
+					.scoreboard_latest_commit(scoreboard_latest_commit[R]),
+`endif
 					.rename_reloading(rename_reloading[H]),
 					.rename_stall(rename_stall[H]),
 	
@@ -1259,6 +1327,11 @@ end
 				reg xload;
 				reg [4:0]real_rd;
 				reg [4:0]real_rs1, real_rs2, real_rs3;
+`ifdef RENAME_OPT
+				reg	[RA-1:0]commit_rs1;
+				reg	[RA-1:0]commit_rs2;
+				reg	[RA-1:0]commit_rs3;
+`endif
 				reg [RA-1:0]rs1, rs2, rs3;
 				reg [31:0]immed;
 				reg   short, start;
@@ -1315,6 +1388,11 @@ end
 					.real_rs1(real_rs1),
 					.real_rs2(real_rs2),
 					.real_rs3(real_rs3),
+`ifdef RENAME_OPT
+					.commit_rs1(commit_rs1),
+					.commit_rs2(commit_rs2),
+					.commit_rs3(commit_rs3),
+`endif
         			.rd(real_rd),
         			.immed(immed),
 					.short(short),
@@ -1367,7 +1445,7 @@ end
 					.commit_update_short_pc(commit_update_short_pc[C]),
 					.commit_br(commit_br[0][H]),
 
-					.completed(commit_completed[H]),
+					.commit_completed(commit_completed[H]),
 					.commit_done(commit_done[H]),
 					.commit_done_out(commit_done[H][C]),
 					.commit_ended(commit_ended[H][C]),

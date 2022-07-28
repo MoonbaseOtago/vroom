@@ -293,7 +293,6 @@ int main(int argc, char ** argv)
 	for (k = num_retire-2; k >= 1; k--) printf(k>i?"?":k==i?"0":"1"); printf(": begin\n");
 	printf("				l3_write_strobe = {trace_in_valid[%d:0]&~ignore_valid[%d:0], %d'b0};\n", num_retire-i-1, num_retire-i-1, i);
 	printf("				l3_write_data = {cx[%d*BUNDLE_SIZE-1:0], {BUNDLE_SIZE*%d{1'bx}}};\n", num_retire-i, i);	
-	printf("				l3_c_waiting_valid = {%d'b0, trace_in_valid[NRETIRE-1:%d]&~ignore_valid[NRETIRE-1:%d]};\n", num_retire-i, num_retire-i, num_retire-i);
 	printf("				l3_c_waiting = {{BUNDLE_SIZE*%d{1'bx}}, cx[NRETIRE*BUNDLE_SIZE-1:%d*BUNDLE_SIZE]};\n", i, num_retire-i);	
 	printf("				l3_c_waiting_pc = trace_in_pc[%d];\n", num_retire-i);	
 	if (i == (num_retire-1)) {
@@ -319,12 +318,14 @@ int main(int argc, char ** argv)
 	printf("				%d'b", i);
 	for (k = num_retire-1; k >= (num_retire-i); k--) printf(k>j?"?":k==j?"0":"1"); printf(": begin\n");
 	if (j == (num_retire-i)) {
+	printf("						l3_c_waiting_valid = 0;\n");
 	printf("						l3_c_waiting_next = 'bx;\n");
 	printf("						l3_c_waiting_push_pop = 'bx;\n");
 	printf("						l3_c_waiting_ret_addr = 'bx;\n");
 	printf("						l3_c_waiting_ret_addr_short = 'bx;\n");
 	printf("						l3_c_waiting_offset = 'bx;\n");
 	} else {
+	printf("						l3_c_waiting_valid = {%d'b0, trace_in_valid[%d:%d]};\n", num_retire-(((j-1)-(num_retire-i))+1), j-1, num_retire-i);
 	printf("						l3_c_waiting_next = trace_in_next[%d];\n", j-1);
 	printf("						l3_c_waiting_push_pop = trace_in_push_pop[%d];\n", j-1);
 	printf("						l3_c_waiting_ret_addr = trace_in_pc[%d];\n", j-1);
@@ -407,7 +408,7 @@ int main(int argc, char ** argv)
 	for (j = num_retire-1; j >= (i); j--) printf("will_terminate[%d]%s",j,j!=i?",":"};\n");
 	printf("		trace_in_short_ins = {");
 	if (i != 0) printf("%d'bx, ", i);
-	for (j = num_retire-1; j >= (i); j--) printf("trace_in.b[%d].start%s",j,j!=i?",":"};\n");
+	for (j = num_retire-1; j >= (i); j--) printf("trace_in.b[%d].short_ins%s",j,j!=i?",":"};\n");
 	printf("	    end\n");
 	}
 	printf("    	endcase\n");

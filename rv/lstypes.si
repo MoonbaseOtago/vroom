@@ -99,10 +99,10 @@ endinterface
 interface ST_DATA #(parameter RV=64, NSTORE=2, LNCOMMIT=5, NHART=1, LNHART=0);
 	typedef struct packed { // store data
     	bit [(NHART==1?0:LNHART-1):0]hart;
-		bit  [LNCOMMIT-1:0]rd;
-		bit enable;
+		bit            [LNCOMMIT-1:0]rd;
+		bit							 enable;
 `ifdef FP
-		bit			fp;
+		bit						     fp;
 `endif
 	} ST_REQ;
 	typedef struct packed { // store data

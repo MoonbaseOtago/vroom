@@ -510,35 +510,6 @@ err:
 		printf("	endcase\n");
 #ifdef NOTDEF
 		first = 1;
-		printf("`ifdef FP\n");
-		printf("	assign q_fp[%d] = (", i);
-		for (j = 0; j < (nload); j++) {
-			char *cp = (j < nload?"r_load_fp":"r_store_fp");
-			if (j != (nload-1)) {
-				printf("xallocate[%d][%d]?%s[%d]:", i,j,cp,j < nload?j:j-nload);
-			} else {
-				printf("%s[%d]", cp, j < nload?j:j-nload);
-			}
-		}
-		printf(");\n");
-		printf("`endif\n");
-#endif
-		printf("`ifdef FP\n");
-		printf("	always @(*)\n");
-		printf("	casez (xallocate[%d]) // synthesis full_case parallel_case\n", i);
-		printf("	%d'b",nload+nstore);
-		for (j=0; j < (nload+nstore); j++) printf("0");
-		printf(": q_fp[%d] = 'bx;\n", i);
-		for (j = 0; j < (nload+nstore); j++) {
-			char *cp = (j < nload?"r_load_fp":"r_store_fp");
-			printf("	%d'b",nload+nstore);
-			for (k=(nload+nstore)-1; k >= 0; k--) printf(j==k?"1":"?");
-			printf(": q_fp[%d] = %s[%d];\n", i, cp, j < nload?j:j-nload);
-		}
-		printf("	endcase\n");
-		printf("`endif\n");
-#ifdef NOTDEF
-		first = 1;
 		printf("	assign q_rd[%d] = (", i);
 		for (j = 0; j < (nload+nstore); j++) {
 			char *cp = (j < nload?"r_load_rd":"r_store_rd");

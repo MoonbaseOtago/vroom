@@ -48,7 +48,15 @@ module alu_ctrl(
 `endif
 `ifdef COMBINED_BRANCH
 `ifdef FP
+`ifdef NALU4
+`include "alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc"
+`else
+`ifdef NALU3
+`include "alu_ctrl_hdr_4_1_32_3_1_0_1_1.inc"
+`else
 `include "alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc"
+`endif
+`endif
 `else
 `ifdef NALU4
 `include "alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc"
@@ -95,7 +103,12 @@ module alu_ctrl(
 `ifdef NALU3
 		end else
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_2_1_0_1_1.inc"
+`include "alu_ctrl_core_4_1_32_3_1_0_1_1.inc"
+`endif
+`ifdef NALU4
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin
+`include "alu_ctrl_core_4_1_32_4_1_0_1_1.inc"
 `endif
 		end
 `endif

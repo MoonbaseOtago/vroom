@@ -55,6 +55,8 @@ generate_sched(const char *name, int nunit, int numhart, int ncommit)
 		if (numhart > 1) {
 			printf("		reg [LNHART-1:0]%s_hart%d;\n", name, j);
 			printf("		assign %s_hart_%d = %s_hart%d;\n", name, j, name, j);
+		} else {
+			printf("		assign %s_hart_%d = 0;\n", name, j);
 		}
 		printf("		assign %s_addr_%d = %s_out%d;\n", name, j, name, j);
 		printf("		assign %s_enable_%d =  %s_ready%d;\n", name, j, name, j);
@@ -282,29 +284,25 @@ err:
 		}
 		for (i = 0; i < nalu; i++) {
 			printf("		output [LNCOMMIT-1:0]alu_addr_%d, \n", i);
-			if (numhart > 1)
-				printf("		output [LNHART-1:0]alu_hart_%d, \n", i);
+			printf("		output [LNHART-1:0]alu_hart_%d, \n", i);
 			printf("		output            alu_enable_%d, \n", i);
 			printf("\n");
 		}
 		for (i = 0; i < nfpu; i++) {
 			printf("		output [LNCOMMIT-1:0]fpu_addr_%d, \n", i);
-			if (numhart > 1)
-				printf("		output [LNHART-1:0]fpu_hart_%d, \n", i);
+			printf("		output [LNHART-1:0]fpu_hart_%d, \n", i);
 			printf("		output            fpu_enable_%d, \n", i);
 			printf("\n");
 		}
 		for (i = 0; i < nshift; i++) {
 			printf("		output [LNCOMMIT-1:0]shift_addr_%d, \n", i);
-			if (numhart > 1)
-				printf("		output [LNHART-1:0]shift_hart_%d, \n", i);
+			printf("		output [LNHART-1:0]shift_hart_%d, \n", i);
 			printf("		output            shift_enable_%d, \n", i);
 			printf("\n");
 		}
 		for (i = 0; i < nmul; i++) {
 			printf("		output [LNCOMMIT-1:0]mul_addr_%d, \n", i);
-			if (numhart > 1)
-				printf("		output [LNHART-1:0]mul_hart_%d, \n", i);
+			printf("		output [LNHART-1:0]mul_hart_%d, \n", i);
 			printf("		output            mul_enable_%d, \n", i);
 			printf("\n");
 		}
@@ -371,32 +369,28 @@ err:
 		}
 		for (i = 0; i < nalu; i++) {
 			printf("		.alu_addr_%d(alu_sched[%d]), \n", i, j);
-			if (numhart > 1)
-				printf("		.alu_hart_%d(hart_sched[%d]), \n", i, j);
+			printf("		.alu_hart_%d(hart_sched[%d]), \n", i, j);
 			printf("		.alu_enable_%d(enable_sched[%d]), \n", i, j);
 			printf("\n");
 			j++;
 		}
 		for (i = 0; i < nshift; i++) {
 			printf("		.shift_addr_%d(alu_sched[%d]), \n", i, j);
-			if (numhart > 1)
-				printf("		.shift_hart_%d(hart_sched[%d]), \n", i, j);
+			printf("		.shift_hart_%d(hart_sched[%d]), \n", i, j);
 			printf("		.shift_enable_%d(enable_sched[%d]), \n", i, j);
 			printf("\n");
 			j++;
 		}
 		for (i = 0; i < nmul; i++) {
 			printf("		.mul_addr_%d(alu_sched[%d]), \n", i, j);
-			if (numhart > 1)
-				printf("		.mul_hart_%d(hart_sched[%d]), \n", i, j);
+			printf("		.mul_hart_%d(hart_sched[%d]), \n", i, j);
 			printf("		.mul_enable_%d(enable_sched[%d]), \n", i, j);
 			printf("\n");
 			j++;
 		}
 		for (i = 0; i < nfpu; i++) {
 			printf("		.fpu_addr_%d(alu_sched[%d]), \n", i, j);
-			if (numhart > 1)
-				printf("		.fpu_hart_%d(hart_sched[%d]), \n", i, j);
+			printf("		.fpu_hart_%d(hart_sched[%d]), \n", i, j);
 			printf("		.fpu_enable_%d(enable_sched[%d]), \n", i, j);
 			printf("\n");
 			j++;
@@ -414,26 +408,6 @@ err:
 			printf("		.csr_addr_%d(local_alu_sched[%d][%d]), \n", i, j, i);
 			printf("		.csr_enable_%d(local_enable_sched[%d][%d]), \n", i, j, i);
 			j++;
-		}
-		printf("		.dummy(1'b1));\n");
-		if (numhart == 1) {
-			j = 0;
-			for (i = 0; i < nalu; i++) {
-				printf("		assign hart_sched[%d] = 0;\n", j);
-				j++;
-			}
-			for (i = 0; i < nshift; i++) {
-				printf("		assign hart_sched[%d] = 0;\n", j);
-				j++;
-			}
-			for (i = 0; i < nmul; i++) {
-				printf("		assign hart_sched[%d] = 0;\n", j);
-				j++;
-			}
-			for (i = 0; i < nfpu; i++) {
-				printf("		assign hart_sched[%d] = 0;\n", j);
-				j++;
-			}
 		}
 		break;
 	}

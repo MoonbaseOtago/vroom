@@ -164,13 +164,13 @@ err:
 		printf("	reg [RV-1:0]r_commit_reg[0:NCOMMIT-1];\n");
 		printf("`endif\n");
 		for (i = 0; i < numtransferports; i++) {
-			printf("	reg [RV-1:0]transfer_reg_%d;\n", i);
-			printf("	reg [4:0]transfer_write_addr_%d;\n", i);
+			printf("	reg [RV-1:0]r_transfer_reg_%d;\n", i);
+			printf("	reg [4:0]r_transfer_write_addr_%d;\n", i);
 			printf("`ifdef FP\n");
-			printf("	reg      transfer_write_fp_%d;\n", i);
+			printf("	reg      r_transfer_write_fp_%d;\n", i);
 			printf("`endif\n");
 		}
-		printf("	reg [%d:0]transfer_pending;\n", numtransferports-1);
+		printf("	reg [%d:0]r_transfer_pending;\n", numtransferports-1);
 		printf("	wire [%d:0]transfer_pending_ok;\n",numtransferports-1);
 
 		
@@ -215,28 +215,28 @@ err:
 			printf("		endcase\n");
 			printf("	end \n");
 			printf("	always @(posedge clk) \n");
-			printf("		transfer_reg_%d <= tr_%d;\n",i,i);
+			printf("		r_transfer_reg_%d <= tr_%d;\n",i,i);
 			printf("`else\n");
 			printf("	always @(posedge clk) \n");
-			printf("		transfer_reg_%d <= r_commit_reg[transfer_source_addr%d];\n",i,i);
+			printf("		r_transfer_reg_%d <= r_commit_reg[transfer_source_addr%d];\n",i,i);
 			printf("`endif\n");
 			printf("	always @(posedge clk) \n");
-			printf("		transfer_write_addr_%d <= transfer_dest_addr%d;\n",i,i);
+			printf("		r_transfer_write_addr_%d <= transfer_dest_addr%d;\n",i,i);
 			printf("`ifdef FP\n");
 			printf("	always @(posedge clk) \n");
-			printf("		transfer_write_fp_%d <= transfer_dest_fp%d;\n", i,i);
+			printf("		r_transfer_write_fp_%d <= transfer_dest_fp%d;\n", i,i);
 			printf("	always @(posedge clk) \n");
 			printf("		if (transfer_enable%d && !reset && (transfer_dest_fp%d||transfer_dest_addr%d!=0)) begin\n", i,i,i);
-			printf("			transfer_pending[%d] <= 1;\n",i);
+			printf("			r_transfer_pending[%d] <= 1;\n",i);
 			printf("		end else begin\n");
-			printf("			transfer_pending[%d] <= 0;\n",i);
+			printf("			r_transfer_pending[%d] <= 0;\n",i);
 			printf("		end \n");
 			printf("`else\n");
 			printf("	always @(posedge clk) \n");
 			printf("		if (transfer_enable%d && !reset && transfer_dest_addr%d!=0) begin\n", i, i);
-			printf("			transfer_pending[%d] <= 1;\n",i);
+			printf("			r_transfer_pending[%d] <= 1;\n",i);
 			printf("		end else begin\n");
-			printf("			transfer_pending[%d] <= 0;\n",i);
+			printf("			r_transfer_pending[%d] <= 0;\n",i);
 			printf("		end \n");
 			printf("`endif\n");
 			printf("`ifndef VSYNTH\n");
@@ -246,22 +246,22 @@ err:
 			printf("`else\n");
 			printf("	if (transfer_pending_ok[%d])\n",i);
 			printf("`endif\n");
-			printf("		r_real_reg[transfer_write_addr_%d] <= transfer_reg_%d;\n",i,i);
+			printf("		r_real_reg[r_transfer_write_addr_%d] <= r_transfer_reg_%d;\n",i,i);
 			printf("`endif\n");
-			printf("	assign transfer_pending_ok[%d] = (transfer_pending[%d]\n",i,i);
+			printf("	assign transfer_pending_ok[%d] = (r_transfer_pending[%d]\n",i,i);
 			for (j=i+1;j < numtransferports; j++) {
-				printf(" && !(transfer_pending[%d] && transfer_write_addr_%d == transfer_write_addr_%d \n", j, j, i);
 				printf("`ifdef FP\n");
-				printf(" && (transfer_dest_fp%d == transfer_dest_fp%d) \n", j, i);
+				printf("			&& !(r_transfer_pending[%d] && transfer_dest_fp%d==transfer_dest_fp%d && r_transfer_write_addr_%d == r_transfer_write_addr_%d)\n", j, i, j, i, j);
+				printf("`else\n");
+				printf("			&& !(r_transfer_pending[%d] && r_transfer_write_addr_%d == r_transfer_write_addr_%d)\n", j, j, i);
 				printf("`endif\n");
-				printf(")\n");
 			}
 			printf(");\n");
 		}
 		printf("`ifdef FP\n");
 		printf("	wire [%d:0]fp_transfer = {",numtransferports-1);
 		for (j = numtransferports-1; j >= 0; j--) 
-			printf("transfer_write_fp_%d%s",j,j>0?",":"};\n");
+			printf("r_transfer_write_fp_%d%s",j,j>0?",":"};\n");
 		printf("`endif\n");
 				
 		printf("`ifdef VSYNTH\n");
@@ -269,7 +269,7 @@ err:
 			printf("	reg	[RV-1:0]tvr_%d;\n", i);
 			printf("	wire [%d:0]rwp_%d = {", numtransferports-1, i);
 			for (j = numtransferports-1; j >= 0; j--) 
-				printf("transfer_pending[%d]&(transfer_write_addr_%d==%d)%s ",j,j,i,j>0?",":"");
+				printf("r_transfer_pending[%d]&(r_transfer_write_addr_%d==%d)%s ",j,j,i,j>0?",":"");
 			printf("};\n");
 			printf("	always @(*) begin\n");
 			printf("		tvr_%d = 'bx;\n", i);
@@ -277,7 +277,7 @@ err:
 			for (j = numtransferports-1; j >= 0; j--) {
 				printf("		%d'b", numtransferports);
 				for (k = numtransferports-1;k >=0; k--) printf(j==k?"1":"?");
-				printf(": tvr_%d = transfer_reg_%d;\n",i,j);
+				printf(": tvr_%d = r_transfer_reg_%d;\n",i,j);
 			}
 			printf("		endcase\n");
 			printf("	end\n");
@@ -295,7 +295,7 @@ err:
 		printf("	reg	[RV-1:0]tvr_%d;\n", i);
 		printf("	wire [%d:0]rwp_%d = {", numtransferports-1, i);
 		for (j = numtransferports-1; j >= 0; j--) 
-			printf("transfer_pending[%d]&(transfer_write_addr_%d==%d)%s ",j,j,i,j>0?",":"");
+			printf("r_transfer_pending[%d]&(r_transfer_write_addr_%d==%d)%s ",j,j,i,j>0?",":"");
 		printf("};\n");
 		printf("	always @(*) begin\n");
 		printf("		tvr_%d = 'bx;\n", i);
@@ -303,7 +303,7 @@ err:
 		for (j = numtransferports-1; j >= 0; j--) {
 			printf("		%d'b", numtransferports);
 			for (k = numtransferports-1;k >=0; k--) printf(j==k?"1":"?");
-			printf(": tvr_%d = transfer_reg_%d;\n",i,j);
+			printf(": tvr_%d = r_transfer_reg_%d;\n",i,j);
 		}
 		printf("		endcase\n");
 		printf("	end\n");
@@ -364,13 +364,13 @@ err:
 			printf("	always @(*) begin\n");
 			printf("`ifdef FP\n");
 			printf("		casez ({");
-			for (j = 0; j < numtransferports; j++) printf("transfer_pending_ok[%d]&~transfer_write_fp_%d&(transfer_write_addr_%d==read_addr%d[4:0]), ", j, j, j, i);
+			for (j = 0; j < numtransferports; j++) printf("transfer_pending_ok[%d]&~r_transfer_write_fp_%d&(r_transfer_write_addr_%d==read_addr%d[4:0]), ", j, j, j, i);
 			for (j = 0; j < (numglobalwriteports); j++) printf("write_enable%d&~write_fp%d&(write_addr%d==read_addr%d[LNCOMMIT-1:0]), ", j,j, j, i);
 			for (j = numglobalwriteports; j < (numglobalwriteports+numlocalwriteports); j++) printf("write_enable%d&~write_fp%d&(write_addr%d==read_addr%d[LNCOMMIT-1:0]), ", j, j, j, i);
 			printf("read_enable%d, read_addr%d[RA-1]}) // synthesis full_case parallel_case\n",i,i);
 			printf("`else\n");
 			printf("		casez ({");
-			for (j = 0; j < numtransferports; j++) printf("transfer_pending_ok[%d]&(transfer_write_addr_%d==read_addr%d[4:0]), ", j, j, i);
+			for (j = 0; j < numtransferports; j++) printf("transfer_pending_ok[%d]&(r_transfer_write_addr_%d==read_addr%d[4:0]), ", j, j, i);
 			for (j = 0; j < (numglobalwriteports); j++) printf("write_enable%d&(write_addr%d==read_addr%d[LNCOMMIT-1:0]), ", j, j, i);
 			for (j = numglobalwriteports; j < (numglobalwriteports+numlocalwriteports); j++) printf("write_enable%d&(write_addr%d==read_addr%d[LNCOMMIT-1:0]), ", j, j, i);
 			printf("read_enable%d, read_addr%d[RA-1]}) // synthesis full_case parallel_case\n",i,i);
@@ -385,7 +385,7 @@ err:
 				for (k = 0; k < numtransferports; k++)printf(j==k?"1":"?");
 				printf("_");
 				for (k = 0; k < (numglobalwriteports+numlocalwriteports); k++) printf("?");
-				printf("_10: out%d = transfer_reg_%d;\n", i, j);
+				printf("_10: out%d = r_transfer_reg_%d;\n", i, j);
 			}
 
 			printf("`ifdef VSYNTH\n");
@@ -440,9 +440,9 @@ err:
 		for (i = 0; i < (numfpureadports); i++) {
 			printf("	always @(*) begin\n");
 			printf("		casez ({");
-			for (j = 0; j < numtransferports; j++) printf("transfer_pending_ok[%d]&transfer_write_fp_%d&(transfer_write_addr_%d==read_addr%d[4:0]), ", j, j, j, i);
-			for (j = 0; j < (numglobalwriteports); j++) printf("write_enable%d&write_fp%d&(write_addr%d==read_addr%d[LNCOMMIT-1:0]), ", j,j, j, i);
-			for (j = numglobalwriteports; j < (numglobalwriteports+numlocalwriteports); j++) printf("write_enable%d&write_fp%d&(write_addr%d==read_addr%d[LNCOMMIT-1:0]), ", j, j, j, i);
+			for (j = 0; j < numtransferports; j++) printf("transfer_pending_ok[%d]&r_transfer_write_fp_%d&(r_transfer_write_addr_%d==fpu_read_addr%d[4:0]), ", j, j, j, i);
+			for (j = 0; j < (numglobalwriteports); j++) printf("write_enable%d&write_fp%d&(write_addr%d==fpu_read_addr%d[LNCOMMIT-1:0]), ", j,j, j, i);
+			for (j = numglobalwriteports; j < (numglobalwriteports+numlocalwriteports); j++) printf("write_enable%d&write_fp%d&(write_addr%d==fpu_read_addr%d[LNCOMMIT-1:0]), ", j, j, j, i);
 			printf("fpu_read_enable%d, fpu_read_addr%d[RA-1]}) // synthesis full_case parallel_case\n",i,i);
 			printf("		%d'b",2+numtransferports+(numlocalwriteports+numglobalwriteports));
 			for (j = 0; j < numtransferports; j++) printf("?");
@@ -454,7 +454,7 @@ err:
 				for (k = 0; k < numtransferports; k++)printf(j==k?"1":"?");
 				printf("_");
 				for (k = 0; k < (numglobalwriteports+numlocalwriteports); k++) printf("?");
-				printf("_10: fpu_out%d = transfer_reg_%d;\n", i, j);
+				printf("_10: fpu_out%d = r_transfer_reg_%d;\n", i, j);
 			}
 
 			printf("`ifdef VSYNTH\n");

@@ -191,7 +191,7 @@ int main(int argc, char ** argv)
 		for (j = i-1; j >= 0; j--)printf("all_rd_fp_rename[%d]==rs2_fp%s",j,j>0?",":"};\n");
 		printf("`else\n");
 		printf("		wire [%d:0]fpmatch2 = %d'b", i-1,i);
-		for (j = i-1; j >= 0; j--)printf("1");printf(";");
+		for (j = i-1; j >= 0; j--)printf("1");printf(";\n");
 		printf("`endif\n");
 		printf("		wire [%d:0]mk2 = fpmatch2&{", i-1);
 		for (j = i-1; j >= 0; j--) 
@@ -275,7 +275,7 @@ int main(int argc, char ** argv)
 		for (j = i-1; j >= 0; j--)printf("all_rd_fp_rename[%d]==rs3_fp%s",j,j>0?",":"};\n");
 		printf("`else\n");
 		printf("		wire [%d:0]fpmatch3 = %d'b", i-1,i);
-		for (j = i-1; j >= 0; j--)printf("1");printf(";");
+		for (j = i-1; j >= 0; j--)printf("1");printf(";\n");
 		printf("`endif\n");
 		printf("		wire [%d:0]mk3 = fpmatch3&{", i-1);
 		for (j = i-1; j >= 0; j--) 
@@ -376,10 +376,12 @@ int main(int argc, char ** argv)
         printf("		makes_d = 1'bx;\n");
         printf("		needs_s2 = 1'bx;\n");
         printf("		needs_s3 = 1'bx;\n");
+	printf("`ifdef FP\n");
         printf("		rd_fp = 1'bx;\n");
         printf("		rs1_fp = 1'bx;\n");
         printf("		rs2_fp = 1'bx;\n");
         printf("		rs3_fp = 1'bx;\n");
+	printf("`endif\n");
         printf("		branch_token = 'bx;\n");
         printf("		branch_token_ret = 'bx;\n");
         printf("		short = 'bx;\n");
@@ -418,7 +420,7 @@ int main(int argc, char ** argv)
         for (i = 0; i < B; i++) {
                 printf("		%d'b", B);
                 for (j = B-1; j >= 0; j--) printf(i==j?"1":"?");
-                printf(": begin d = rd_dec[%d]; s1 = rs1_dec[%d]; needs_s2 = needs_rs2_dec[%d];needs_s3 = needs_rs3_dec[%d];s2 = rs2_dec[%d]; s3 = rs3_dec[%d];makes_d = makes_rd_dec[%d]; short = short_dec[%d]; start = start_dec[%d]; immed = immed_dec[%d]; control=control_dec[%d]; unit_type=unit_type_dec[%d];pc=pc_dec[%d]; rd_fp = rd_fp_dec[%d]; rs1_fp = rs1_fp_dec[%d]; rs2_fp = rs2_fp_dec[%d]; rs3_fp = rs3_fp_dec[%d]; ",  i, i, i,i,i,i,i,i,i,i,i,i,i,i,i,i,i);
+                printf(": begin d = rd_dec[%d]; s1 = rs1_dec[%d]; needs_s2 = needs_rs2_dec[%d];needs_s3 = needs_rs3_dec[%d];s2 = rs2_dec[%d]; s3 = rs3_dec[%d];makes_d = makes_rd_dec[%d]; short = short_dec[%d]; start = start_dec[%d]; immed = immed_dec[%d]; control=control_dec[%d]; unit_type=unit_type_dec[%d];pc=pc_dec[%d];\n`ifdef FP\nrd_fp = rd_fp_dec[%d]; rs1_fp = rs1_fp_dec[%d]; rs2_fp = rs2_fp_dec[%d]; rs3_fp = rs3_fp_dec[%d];\n`endif\n",  i, i, i,i,i,i,i,i,i,i,i,i,i,i,i,i,i);
 		if (i > 0) {
 			printf(" branch_token = dec_branch_token; branch_token_ret = dec_branch_token_ret; end\n");
 		} else {

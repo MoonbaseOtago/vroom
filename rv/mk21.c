@@ -222,9 +222,6 @@ int main(int argc, char ** argv)
 	printf("                	c_c_makes_rd[H][C]= r_c_makes_rd[H][C];\n");
 	printf("                	c_c_block[H][C]   = r_c_block[H][C];\n");
 	printf("                	c_c_amo[H][C]     = r_c_amo[H][C];\n");
-	printf("`ifdef FP\n");
-	printf("                	c_c_fp[H][C]      = r_c_fp[H][C];\n");
-	printf("`endif\n");
 	printf("                	c_c_fd[H][C]      = r_c_fd[H][C];\n");
 	printf("                	c_c_soft_hazard[H][C]= r_c_soft_hazard[H][C]&~hazard_gone[H]&~inhibit_hazard[H][C]&~commit_kill[H];\n");
 	printf("                	c_c_hard_hazard[H][C]= r_c_hard_hazard[H][C]&~hazard_gone[H]&~commit_kill[H];\n");
@@ -249,9 +246,6 @@ int main(int argc, char ** argv)
 	printf("                                c_c_control[H][C] = r_addr_control[%d];\n", l);
 	printf("                                c_c_aq_rl[H][C]   = r_addr_aq_rl[%d];\n", l);
 	printf("                                c_c_makes_rd[H][C]= r_addr_makes_rd[%d];\n", l);
-	printf("`ifdef FP\n");
-	printf("                                c_c_fp[H][C]      = addr_fp[%d];\n", l);
-	printf("`endif\n");
 	printf("                                c_c_fd[H][C]      = addr_fd[%d];\n", l);
 	printf("                                c_c_block[H][C]   = addr_blocks[%d];\n", l);
 	printf("                                c_c_amo[H][C]     = r_addr_amo[%d];\n", l);

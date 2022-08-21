@@ -1034,6 +1034,7 @@ module decode(input clk,
 					f_load = 1;
 					f_amo = 0;
 					makes_rd = rd != 0;
+					rd_fp = 1;
 					case (ins[14:12])   // synthesis full_case parallel_case
 					3'b010: begin		// flw
 								lsize = 2;
@@ -2131,6 +2132,7 @@ module decode(input clk,
 					f_amo = 0;
 					needs_rs2 = 1;
 					makes_rd = 0;
+					rs2_fp = 1;
 					case (ins[14:12])  // synthesis full_case parallel_case
 					3'b010: begin		// fsw
 								lsize = 2;
@@ -2243,7 +2245,7 @@ module decode(input clk,
 `endif
 				 end
 		5'b10100:begin	// fp
-					makes_rd = 0;
+					makes_rd = 1;
 					f_fp = 1;
 					f_fp_op = 4'bx;
 					f_fpm = 0;
@@ -2277,6 +2279,7 @@ module decode(input clk,
 								end
 					5'b00100:	begin	// fsgn*.*
 									f_fp_op = 5;	// fsgn*
+									rs2_fp = 1;
 									trap = ins[14] | ins[26] | (ins[13:12]==2'h3);
 								end
 					5'b00101:	begin	// fmin/max.*
@@ -2285,7 +2288,6 @@ module decode(input clk,
 									trap = ins[14:13]!=0 || ins[26];
 								end
 					5'b01000:	begin	// fcvt.sd/ds
-									rs2_fp = 1;
 									needs_rs2 = 0;
 									f_fp_op = 7;			// fcvt.s.d/d.s 
 									trap = trap || rs2[4:1]!=0 || (rs2[0]&ins[25]) || (~rs2[0]&~ins[25]);
@@ -2298,7 +2300,7 @@ module decode(input clk,
 								end
 					5'b11000:	begin	// fcvt.w
 									needs_rs2 = 0;
-									rs1_fp = 0;
+									rd_fp = 0;
 									case (rs2[1:0])// synthesis full_case parallel_case
 									0: f_fp_op = 8;			// fcvt.w.*
 									1: f_fp_op = 9;			// fcvt.wu.*
@@ -2306,11 +2308,11 @@ module decode(input clk,
 									3: f_fp_op = 11;		// fcvt.lu.*
 									default:f_fp_op = 4'bx;
 									endcase
-									trap = trap || rs2[4:2]!=0;
+									trap = trap || rs2[4:2]!=0 || (rv32&&rs2[1]);
 								end
 					5'b11010:	begin	// fcvt.s
-									rs1_fp = 0;
 									needs_rs2 = 0;
+									rs1_fp = 0;
 									case (rs2[1:0])// synthesis full_case parallel_case
 									0: f_fp_op = 8;			// fcvt.*.w
 									1: f_fp_op = 9;			// fcvt.*.wu
@@ -2318,16 +2320,21 @@ module decode(input clk,
 									3: f_fp_op = 11;		// fcvt.*.lu
 									default:f_fp_op = 4'bx;
 									endcase
-									trap = trap || rs2[4:2]!=0;
+									trap = trap || rs2[4:2]!=0 || (rv32&&rs2[1]);
 								end
-					5'b11100:	begin	// fclass
+					5'b11100:	begin	// fclass/fmv.x.*
 									rd_fp = 0;
 									needs_rs2 = 0;
-									f_fp_op = 13;		// fclass.*
-									trap = trap || rs2[4:1] != 0 || (rs2[0] == f_fp_sz[0]) || ins[14:12] != 3'b001;
+									trap = trap || rs2[4:0] != 0;
+									case (ins[14:12]) // synthesis full_case parallel_case
+									3'b000: f_fp_op = 14;		// fmv.x.*
+									3'b001: f_fp_op = 13;		// fclass.*
+									default:trap = 1;
+									endcase
 								end
 					5'b11110:	begin	// fmv
 									f_fp_op = 14;	// fmv.*.x
+									rs1_fp = 0;
 									needs_rs2 = 0;
 									trap = trap || rs2 != 0 || ins[14:12] != 0;
 								end
@@ -2583,6 +2590,7 @@ module decode(input clk,
 	output   lsgn;
 	output makes_rd, needs_rs2, f_add, f_addw, f_xor, f_and, f_or, f_slt, f_sltu, f_inv, f_sl, f_sr, in_pc; 
 	output sub_push, sub_pop;
+	output rs2_fp, rd_fp;
 	begin
 		rd = 5'bx;
 		rs1 = 5'bx;
@@ -2615,6 +2623,8 @@ module decode(input clk,
 		sub_push = 0;
 		sub_pop = 0;
 		imm = 32'bx;
+		rs2_fp = 0;
+		rd_fp = 0;
 		case (ins[1:0]) // synthesis full_case parallel_case
 		2'b00:	begin	// compressed C0
 					rd = {2'b01, ins[4:2]};
@@ -2642,6 +2652,7 @@ module decode(input clk,
 							lf = 1;
 							lsize = 3;
 							lsgn = 0;
+							rd_fp = 1;
 `ifndef FP
 							trap = 1;
 `endif
@@ -2662,6 +2673,7 @@ module decode(input clk,
 								lf = 1;
 								lsize = 2;
 								lsgn = 0;
+								rd_fp = 1;
 `ifndef FP
 								trap = 1;
 `endif
@@ -2683,6 +2695,7 @@ module decode(input clk,
 `endif
 							f_store = 1;
 							needs_rs2 = 1;
+							rs2_fp = 1;
 							imm = {24'b0,ins[6:5],ins[12:10],3'b0};
 							lf = 1;
 							lsize = 3;
@@ -2703,6 +2716,7 @@ module decode(input clk,
 `endif
 								f_store = 1;
 								needs_rs2 = 1;
+								rs2_fp = 1;
 								imm = {25'b0,ins[5],ins[12:10],ins[6],2'b0};
 								lf = 1;
 								lsize = 2;
@@ -2868,6 +2882,7 @@ module decode(input clk,
 						lf = 1;
 						lsize = 3;
 						lsgn = 0;
+						rd_fp = 1;
 					end
 				3'b010:	begin	// c.lwsp
 						imm = {24'b0,ins[3:2],ins[12],ins[6:4], 2'b00};
@@ -2885,6 +2900,7 @@ module decode(input clk,
 							lf = 1;
 							lsize = 2;
 							lsgn = 0;
+							rd_fp = 1;
 						end else begin	// c.ldsp
 							imm = {23'b0,ins[4:2],ins[12],ins[6:5], 3'b00};
 							f_load = 1;
@@ -2936,6 +2952,7 @@ module decode(input clk,
 						imm = {22'b0,ins[9:7],ins[12:10], 3'b00};
 						f_store = 1;
 						needs_rs2 = 1;
+						rs2_fp = 1;
 						rs1 = 2;
 						lf = 1;
 						lsize = 3;
@@ -2955,6 +2972,7 @@ module decode(input clk,
 							imm = {22'b0,ins[8:7],ins[12:9], 2'b00};
 							f_store = 1;
 							needs_rs2 = 1;
+							rs2_fp = 1;
 							rs1 = 2;
 							lf = 1;
 							lsize = 2;
@@ -3014,8 +3032,8 @@ module decode(input clk,
 					c_lsgn_2,
 					c_makes_rd_2, c_needs_rs2_2, c_add_2, c_addw_2, c_xor_2, c_and_2, c_or_2, c_slt_2, c_sltu_2,
 					c_inv_2, c_sl_2, c_sr_2, c_in_pc_2, 
-					c_sub_push_2, c_sub_pop_2);
-				c_rs1_fp_2 = 0; c_rs2_fp_2 = 0; c_rs3_fp_2 = 0; c_rd_fp_2 = 0;
+					c_sub_push_2, c_sub_pop_2, c_rs2_fp_2, c_rd_fp_2);
+				c_rs1_fp_2 = 0; c_rs3_fp_2 = 0; 
 				c_mul_2 = 0; c_div_2 = 0;
 				c_sgn_2 = 2'bxx;
 				c_inc2_2 = 1;
@@ -3072,8 +3090,8 @@ module decode(input clk,
 				c_lsgn_1,
 				c_makes_rd_1, c_needs_rs2_1, c_add_1, c_addw_1, c_xor_1, c_and_1, c_or_1, c_slt_1, c_sltu_1,
 				c_inv_1, c_sl_1, c_sr_1, c_in_pc_1,
-				c_sub_push_1, c_sub_pop_1);
-			c_rs1_fp_1 = 0; c_rs2_fp_1 = 0; c_rs3_fp_1 = 0; c_rd_fp_1 = 0;
+				c_sub_push_1, c_sub_pop_1, c_rs2_fp_1, c_rd_fp_1);
+			c_rs1_fp_1 = 0; c_rs3_fp_1 = 0; 
 			c_rs3_1 = 5'bx;
 			c_needs_rs3_1 = 0;
 			c_bsh_1 = 0;
@@ -3096,8 +3114,8 @@ module decode(input clk,
 					c_lsgn_2,
 					c_makes_rd_2, c_needs_rs2_2, c_add_2, c_addw_2, c_xor_2, c_and_2, c_or_2, c_slt_2, c_sltu_2,
 					c_inv_2, c_sl_2, c_sr_2, c_in_pc_2, 
-					c_sub_push_2, c_sub_pop_2);
-				c_rs1_fp_2 = 0; c_rs2_fp_2 = 0; c_rs3_fp_2 = 0; c_rd_fp_2 = 0;
+					c_sub_push_2, c_sub_pop_2, c_rs2_fp_2, c_rd_fp_2);
+				c_rs1_fp_2 = 0; c_rs3_fp_2 = 0; 
 				c_mul_2 = 0; c_div_2 = 0;
 				c_sgn_2 = 2'bxx;
 				c_inc2_2 = 1;

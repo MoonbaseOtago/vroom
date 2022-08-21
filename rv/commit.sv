@@ -504,6 +504,7 @@ module commit(input clk,
 	reg	r_commit_store_req, c_commit_store_req;
 	reg r_busy, c_busy;
 	reg r_busy2, c_busy2;
+	reg r_busy3, c_busy3;
 	reg r_read, c_read;
 	reg r_read_d, c_read_d;
 	reg r_vm_stall, c_vm_stall;
@@ -572,6 +573,7 @@ module commit(input clk,
 		c_load_trap = r_load_trap;
 		c_control = r_control;
 		c_busy2 = r_busy2;
+		c_busy3 = r_busy3;
 		c_unit_type = r_unit_type;
 		c_vm_stall = r_vm_stall;
 		c_br_ok = r_br_ok;
@@ -587,8 +589,9 @@ module commit(input clk,
 			c_read_d = 0;
 			c_commit_req = 0;
 			c_busy = 0;
-			c_completed = 0;
 			c_busy2 = 0;
+			c_busy3 = 0;
+			c_completed = 0;
 			c_commit_store_req = 0;
 			c_load_trap = 0;
 			c_vm_stall = 0;
@@ -606,6 +609,7 @@ module commit(input clk,
 			c_addr_done = 0;
 			c_busy = 0;
 			c_busy2 = 0;
+			c_busy3 = 0;
 			c_valid = 1;
 			c_read = 0;
 			c_read_d = 0;
@@ -623,6 +627,7 @@ module commit(input clk,
 				if (schedule) begin
 					c_busy = 1;
 					c_busy2 = 0;
+					c_busy3 = 0;
 					c_completed = 1;
 				end else
 				if (r_busy && !r_busy2) begin
@@ -630,6 +635,7 @@ module commit(input clk,
 				end else begin
 					c_busy = 0;
 					c_busy2 = 0;
+					c_busy3 = 0;
 					if (r_busy && r_busy2) begin
 						if (r_makes_rd) begin
 							c_commit_req = 1;
@@ -647,6 +653,51 @@ module commit(input clk,
 			case (r_unit_type) // synthesis full_case parallel_case
 `ifdef FP
 			5:		begin
+						if (schedule) begin
+							case (r_control)	// synthesis full_case parallel_case
+							5'b1_????,
+							5'b0_0010:	begin		// 3 clocks
+											c_busy = 0;
+											c_busy2 = 1;
+											c_busy3 = 1;
+										end
+							5'b0_000?:	begin		// 2 clock
+											c_busy = 1;
+											c_busy2 = 0;
+											c_busy2 = 0;
+										end
+							5'b0_0011,
+							5'b0_0100:	begin		// N clocks
+										end
+							default:	begin		// 1 clock
+											c_busy = 1;
+											c_busy2 = 0;
+											c_busy3 = 1;
+											c_completed = 1;
+										end
+							endcase
+						end else
+						case ({r_busy, r_busy2, r_busy3}) // synthesis full_case parallel_case
+						3'b011: begin   c_busy = 1; c_busy2 = 0; c_busy3 = 0; end
+						3'b100: begin   c_busy = 1; c_busy2 = 0; c_busy3 = 1; end
+						3'b101: begin   c_busy = 1; c_busy2 = 1; c_busy3 = 0; end
+						default:
+							begin
+									c_busy = 0;
+									c_busy2 = 0;
+									if (r_busy && r_busy2) begin
+										if (r_makes_rd) begin
+											c_commit_req = 1;
+										end else begin
+											c_done = 1;
+										end
+									end
+							end
+						endcase
+						if (r_makes_rd&&commit_ack[ADDR]) begin
+							c_commit_req = 0;
+							c_done = 1;
+						end
 					end
 `endif
 			0,1,7,6: begin		// 1 clock
@@ -999,6 +1050,7 @@ module commit(input clk,
 		r_ready_addr <= !reset&r_valid&((addr_ready|r_force_fetch)|r_ready_addr);
 		r_busy <= c_busy&!commit_kill;
 		r_busy2 <= c_busy2&!commit_kill;
+		r_busy3 <= c_busy3&!commit_kill;
 		r_read <= c_read;
 		r_read_d <= c_read_d;
 		r_wfi_pause <= c_wfi_pause;

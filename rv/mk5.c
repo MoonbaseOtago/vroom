@@ -92,6 +92,12 @@ int main(int argc, char ** argv)
 	printf("		short = 'bx;\n");
 	printf("		branch_token = 'bx;\n");
 	printf("		branch_token_ret = 'bx;\n");
+	printf("`ifdef FP\n");
+	printf("		rd_fp = 1'bx;\n");
+	printf("		rs1_fp = 1'bx;\n");
+	printf("		rs2_fp = 1'bx;\n");
+	printf("		rs3_fp = 1'bx;\n");
+	printf("`endif\n");
 	printf("		casez ({");
 	for (i = 0; i < B; i++)
 		printf("(rd_rename[%d]==C)&valid_rename[%d]%s", i, i, (i==(B-1))?"":",");
@@ -105,10 +111,12 @@ int main(int argc, char ** argv)
 		printf("			makes_rd = makes_rd_rename[%d];\n",i);
 		printf("			needs_rs2 = needs_rs2_rename[%d];\n",i);
 		printf("			needs_rs3 = needs_rs3_rename[%d];\n",i);
+		printf("`ifdef FP\n");
 		printf("			rd_fp = rd_fp_rename[%d];\n",i);
 		printf("			rs1_fp = rs1_fp_rename[%d];\n",i);
 		printf("			rs2_fp = rs2_fp_rename[%d];\n",i);
 		printf("			rs3_fp = rs3_fp_rename[%d];\n",i);
+		printf("`endif\n");
 		printf("			pc_rn = pc_rename[%d];\n",i);
 		printf("			pc_dest_rn = pc_dest_rename[%d];\n",i);
 		printf("			real_rd = rd_real_rename[%d];\n",i);

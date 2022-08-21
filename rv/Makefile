@@ -88,7 +88,7 @@ XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
 
 FPU = fp_add.sv fp_mul.sv fp.sv 
-FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc
+FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc
 
 
 VSYNTH1 = +define+VSYNTH +define+VSYNTH2 $(OPT_FLAG_1)
@@ -127,21 +127,25 @@ MX23 = mk23_8.inc
 #MXREG = rfile_13_3_6_2_8_32_1.sv 
 #MXREG = rfile_15_3_7_2_8_32_1.sv
 #MXREG = rfile_19_3_8_2_8_32_2.sv
-MXREGX= rfile_15_3_6_2_8_32_2.sv
-FMXREG = rfile_14_3_7_2_8_32_4.sv # rfile_16_3_8_2_8_32_4.sv
+MXREGX = rfile_15_3_6_2_8_32_2.sv
+FMXREG = rfile_22_1_10_1_8_32_7.sv
+#FMXREG = rfile_14_3_7_2_8_32_4.sv # rfile_16_3_8_2_8_32_4.sv
 #MXREG = rfile_16_3_7_2_8_32.sv
 MXREGINC =  rfile_16_3_7_2_4_32_1.inc rfile_16_3_7_2_8_32_1.inc rfile_13_3_6_2_4_32_1.inc rfile_13_3_6_2_8_32_1.inc \
 	    rfile_16_3_7_2_4_32_4.inc rfile_16_3_7_2_8_32_4.inc rfile_13_3_6_2_4_32_4.inc rfile_13_3_6_2_8_32_4.inc \
-	   rfile_14_3_7_2_4_32_4.inc rfile_14_3_7_2_4_32_1.inc rfile_14_3_7_2_8_32_4.inc \
+	   rfile_14_3_7_2_4_32_4.inc rfile_14_3_7_2_4_32_1.inc rfile_14_3_7_2_8_32_4.inc rfile_16_3_8_2_8_32_4.inc \
 	  rfile_15_3_7_2_4_32_1.inc rfile_15_3_7_2_8_32_1.inc rfile_15_3_6_2_8_32_2.inc rfile_15_3_6_2_4_32_2.inc \
-		rfile_19_3_8_2_8_32_2.inc  rfile_19_1_8_1_8_32_2.inc rfile_21_1_9_1_8_32_4.inc rfile_23_1_10_1_8_32_4.inc
+		rfile_19_3_8_2_8_32_2.inc  rfile_19_1_8_1_8_32_2.inc rfile_21_1_9_1_8_32_4.inc rfile_23_1_10_1_8_32_4.inc \
+	rfile_22_1_10_1_8_32_7.inc rfile_22_1_10_1_8_32_7.inc rfile_24_1_11_1_8_32_7.inc rfile_20_1_9_1_8_32_7.inc rfile_20_1_9_1_4_32_7.inc
 		
 MXCTRL = alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc  alu_ctrl_core_4_1_32_2_1_1_1_0.inc  alu_ctrl_inst_4_1_32_2_1_1_1_0.inc   alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc \
 	alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc alu_ctrl_core_4_1_32_2_1_1_1_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_1.inc alu_ctrl_inst_4_1_32_3_1_1_1_0.inc alu_ctrl_core_4_1_32_3_1_1_1_0.inc \
 	alu_ctrl_inst_4_1_32_2_1_0_1_1.inc alu_ctrl_inst_4_1_32_3_1_0_1_0.inc alu_ctrl_inst_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_core_4_1_32_2_1_0_1_1.inc alu_ctrl_core_4_1_32_3_1_0_1_0.inc alu_ctrl_core_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc \
-	alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc alu_ctrl_core_4_1_32_4_1_0_1_0.inc alu_ctrl_inst_4_1_32_4_1_0_1_0.inc
+	alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc alu_ctrl_core_4_1_32_4_1_0_1_0.inc alu_ctrl_inst_4_1_32_4_1_0_1_0.inc \
+	alu_ctrl_inst_4_1_32_3_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_1.inc alu_ctrl_core_4_1_32_3_1_0_1_1.inc \
+	alu_ctrl_inst_4_1_32_4_1_0_1_1.inc alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc alu_ctrl_core_4_1_32_4_1_0_1_1.inc
 MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX11) $(MX12) $(MX13) $(MX14) $(MX15) $(MX16) $(MX17) $(MX19) $(MX20) $(MX21) $(MX22) $(MX23) $(MXREG) $(MXREGINC) $(MXCTRL) $(MXREGX)
 
 all:	svv
@@ -226,6 +230,21 @@ alu_ctrl_core_4_1_32_2_1_1_1_0.inc:	mkctrl
 alu_ctrl_inst_4_1_32_2_1_1_1_0.inc:	mkctrl
 	./mkctrl -inst 4 1 32 2 1 1 1 0 >$@
 
+alu_ctrl_hdr_4_1_32_3_1_0_1_1.inc:	mkctrl
+	./mkctrl -hdr 4 1 32 3 1 0 1 1 >$@
+alu_ctrl_core_4_1_32_3_1_0_1_1.inc:	mkctrl
+	./mkctrl -core 4 1 32 3 1 0 1 1 >$@
+alu_ctrl_inst_4_1_32_3_1_0_1_1.inc:	mkctrl
+	./mkctrl -inst 4 1 32 3 1 0 1 1 >$@
+
+alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc:	mkctrl
+	./mkctrl -hdr 4 1 32 4 1 0 1 1 >$@
+alu_ctrl_core_4_1_32_4_1_0_1_1.inc:	mkctrl
+	./mkctrl -core 4 1 32 4 1 0 1 1 >$@
+alu_ctrl_inst_4_1_32_4_1_0_1_1.inc:	mkctrl
+	./mkctrl -inst 4 1 32 4 1 0 1 1 >$@
+
+
 alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 3 1 1 1 0 >$@
 alu_ctrl_core_4_1_32_3_1_1_1_0.inc:	mkctrl
@@ -274,6 +293,11 @@ rfile_16_3_7_2_4_32_4.inc:	rfile
 	./rfile -inc 16 3 7 2 4 32 4 >$@
 rfile_16_3_7_2_8_32_4.inc:	rfile
 	./rfile -inc 16 3 7 2 8 32 4 >$@
+
+rfile_16_3_8_2_8_32_4.sv:	rfile
+	./rfile 16 3 8 2 8 32 4 >$@
+rfile_16_3_8_2_8_32_4.inc:	rfile
+	./rfile -inc 16 3 8 2 8 32 4 >$@
 
 rfile_13_3_6_2_4_32_1.sv:	rfile
 	./rfile 13 3 6 2 4 32 1 >$@
@@ -324,6 +348,26 @@ rfile_23_1_10_1_8_32_4.sv:	rfile
 	./rfile      23 1 10 1 8 32 4 >$@
 rfile_23_1_10_1_8_32_4.inc:	rfile
 	./rfile -inc 23 1 10 1 8 32 4 >$@
+
+rfile_20_1_9_1_4_32_7.sv:	rfile
+	./rfile      20 1 9 1 4 32 7 >$@
+rfile_20_1_9_1_4_32_7.inc:	rfile
+	./rfile -inc 20 1 9 1 4 32 7 >$@
+
+rfile_20_1_9_1_8_32_7.sv:	rfile
+	./rfile      20 1 9 1 8 32 7 >$@
+rfile_20_1_9_1_8_32_7.inc:	rfile
+	./rfile -inc 20 1 9 1 8 32 7 >$@
+
+rfile_22_1_10_1_8_32_7.sv:	rfile
+	./rfile      22 1 10 1 8 32 7 >$@
+rfile_22_1_10_1_8_32_7.inc:	rfile
+	./rfile -inc 22 1 10 1 8 32 7 >$@
+
+rfile_24_1_11_1_8_32_7.sv:	rfile
+	./rfile      24 1 11 1 8 32 7 >$@
+rfile_24_1_11_1_8_32_7.inc:	rfile
+	./rfile -inc 24 1 11 1 8 32 7 >$@
 
 rfile_12_3_5_2_4_32_1.sv:	rfile
 	./rfile 12 3 5 2 4 32 1 >$@
@@ -646,6 +690,11 @@ mkf6:	mkf6.c
 mkf6.inc:	mkf6
 	./mkf6 >$@
 
+mkf7:	mkf7.c
+	gcc -o mkf7 mkf7.c
+mkf7.inc:	mkf7
+	./mkf7 >$@
+
 fp_add_test_32.txt:	timesoftfloat32
 	./timesoftfloat32 -nearesteven float32_add > fp_add_test_32.txt
 	./timesoftfloat32 -nearesteven float32_sub >> fp_add_test_32.txt
@@ -759,6 +808,12 @@ fs.img: fs.part linux/linux/vmlinux makefs.sh
 	dd if=/dev/zero bs=2M count=1000 > fs.img
 	sfdisk fs.img < fs.part
 	sh makefs.sh
+
+fp.bin:	fptest/fp.S  link.ld
+	@riscv64-unknown-linux-gnu-gcc -c fptest/fp.S -march=rv64imafdc -o fptest/fp.o
+	@riscv64-unknown-linux-gnu-ld -N -e start -Ttext-segment=0 -N -static fptest/fp.o -o fptest/fp.elf -Tlink.ld
+	@riscv64-unknown-linux-gnu-objcopy -O binary fptest/fp.elf fp.bin 
+	@riscv64-unknown-linux-gnu-objdump -d fptest/fp.elf >fp.dump
 
 
 t:	t.S link.ld

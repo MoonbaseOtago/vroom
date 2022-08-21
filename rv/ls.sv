@@ -286,10 +286,6 @@ module load_store(
 
 	reg [NCOMMIT-1:0]r_c_valid[0:NHART-1];
 	reg [NCOMMIT-1:0]c_c_valid[0:NHART-1];
-`ifdef FP
-	reg [NCOMMIT-1:0]r_c_fp[0:NHART-1];
-	reg [NCOMMIT-1:0]c_c_fp[0:NHART-1];
-`endif
 	reg [NCOMMIT-1:0]r_c_load[0:NHART-1];
 	reg [NCOMMIT-1:0]c_c_load[0:NHART-1];
 	reg [NCOMMIT-1:0]r_c_fence[0:NHART-1];
@@ -340,9 +336,6 @@ module load_store(
 	reg [NLOAD-1:0]r_load_sc;
 	reg [NLOAD-1:0]r_load_sc_okv;
 	reg [NLOAD-1:0]r_load_amo;
-`ifdef FP
-	reg [NLOAD-1:0]r_load_fp;
-`endif
 	reg [NLOAD-1:0]r_load_makes_rd;
 	reg [NLOAD-1:0]r_load_queued, load_queued;
 	reg  [NLOAD-1:0]load_allocate;
@@ -355,9 +348,6 @@ module load_store(
 	reg [(NHART==1?0:LNHART-1):0]r_load_res_hart[0:NLOAD-1];
 	reg [LNCOMMIT-1:0]r_load_res_rd[0:NLOAD-1];
 	reg [NLOAD-1:0]r_load_res_makes_rd;
-`ifdef FP
-	reg [NLOAD-1:0]r_load_res_fp;
-`endif
 	reg [NLOAD-1:0]r_load_res_done;
 	reg [RV-1:0]load_snoop_result[0:NLOAD-1];
 	wire [NLDSTQ-1:0]load_snoop_hit_mask[0:NLOAD-1];
@@ -375,9 +365,6 @@ module load_store(
 	reg [NSTORE-1:0]r_store_enable;
 	reg [(NHART==1?0:LNHART-1):0]r_store_hart[0:NLOAD-1];
 	reg[LNCOMMIT-1:0]r_store_rd[0:NSTORE-1];
-`ifdef FP
-	reg [NSTORE-1:0]r_store_fp, c_store_fp;
-`endif
 	reg [NSTORE-1:0]r_store_io, c_store_io;
 	reg [NSTORE-1:0]r_store_fence, c_store_fence;
 	reg [NSTORE-1:0]r_store_makes_rd, c_store_makes_rd;
@@ -438,9 +425,6 @@ wire [RV-1:0]dc_rd_data_0=dc_rd_data[0];
 
 	wire [RV-1:0]load_snoop_data[0:NLDSTQ-1];
 	wire [LNCOMMIT-1:0]wq_rd[0:NLDSTQ-1];
-`ifdef FP
-	wire [NLDSTQ-1:0]wq_fp;
-`endif
 	wire [NLDSTQ-1:0]wq_makes_rd;
 	wire [(NHART==1?0:LNHART-1):0]wq_hart[0:NLDSTQ-1];
 	wire [3:0]wq_control[0:NLDSTQ-1];
@@ -510,9 +494,6 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
     reg  [(NHART==1?0:LNHART-1):0]q_hart[0:NLDSTQ-1];
     reg  [2:0]q_control[0:NLDSTQ-1];
     reg  [LNCOMMIT-1:0]q_rd[0:NLDSTQ-1];
-`ifdef FP
-    reg  [NLDSTQ-1:0]q_fp;
-`endif
     reg  [1:0]q_aq_rl[0:NLDSTQ-1];
     wire [1:0]q_fd[0:NLDSTQ-1];
     reg  [NLDSTQ-1:0]q_hazard[0:NLDSTQ-1];
@@ -1017,9 +998,6 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				r_c_mask[H][C]      <= c_c_mask[H][C];
 				r_c_fd[H][C]	    <= c_c_fd[H][C];
 				r_c_amo[H][C]	    <= c_c_amo[H][C];
-`ifdef FP
-				r_c_fp[H][C]	    <= c_c_fp[H][C];
-`endif
 			end
 
 		end 
@@ -1036,13 +1014,12 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				end
 				assign ld_wb.wb[L].hart = res;
 			end
+`ifdef FP
+			assign ld_wb.wb[L].fp = r_load_control[L][3];
+`endif
 			assign ld_wb.wb[L].result = r_load_res_data[L];
 			assign ld_wb.wb[L].rd = r_load_res_rd[L];
 			assign ld_wb.wb[L].makes_rd = r_load_res_makes_rd[L];
-`ifdef FP
-			assign ld_wb.wb[L].fp = r_load_res_fp[L];
-`endif
-
 			assign dc_load.req[L].addr = r_load_paddr[L][NPHYS-1:$clog2(RV/8)];
 
 			assign load_snoop.req[L].addr = r_load_paddr[L][NPHYS-1:$clog2(RV/8)];
@@ -1183,9 +1160,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					if (!load_queued[L]) begin
 						r_load_rd[L] <= load_rd[L];
 						r_load_makes_rd[L] <= c_c_makes_rd[load_hart[L]][load_rd[L]];
-`ifdef FP
-						r_load_fp[L] <= c_c_fp[load_hart[L]][load_rd[L]];
-`endif
 						r_load_paddr[L] <= c_c_paddr[load_hart[L]][load_rd[L]];
 						r_load_mask[L] <= c_c_mask[load_hart[L]][load_rd[L]];
 						r_load_sc[L] <= 0;
@@ -1196,9 +1170,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 						r_load_control[L] <= c_c_control[load_hart[L]][load_rd[L]];
 					end else begin
 						r_load_rd[L] <= wq_rd[load_qindex[L]];
-`ifdef FP
-						r_load_fp[L] <= wq_fp[load_qindex[L]];
-`endif
 						r_load_amo[L] <= write_mem_amo[load_qindex[L]][0] && !wq_control[load_qindex[L]][3]  && (write_mem_amo[load_qindex[L]][2:1] != 2'b11);
 						r_load_makes_rd[L] <= wq_makes_rd[load_qindex[L]];
 						r_load_sc[L] <= write_mem_sc[load_qindex[L]];
@@ -1234,11 +1205,11 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 		for (S = 0; S < NSTORE; S=S+1) begin : store
 			
 			assign st.req[S].enable = store_enable[S];
+`ifdef FP
+			assign st.req[S].fp = c_store_control[S][3];
+`endif
 			assign st.req[S].rd = store_rd[S];
 			assign st.req[S].hart = store_hart[S];
-`ifdef FP
-			assign st.req[S].fp = store_fp[S];
-`endif
 
 			always @(*) begin
 				
@@ -1248,9 +1219,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 				c_store_amo[S] = r_store_amo[S] ;
 				c_store_fence[S] = r_store_fence[S];
 				c_store_makes_rd[S] = r_store_makes_rd[S];
-`ifdef FP
-				c_store_fp[S] = r_store_fp[S];
-`endif
 				c_store_fd[S] = r_store_fd[S];
 				c_store_aq_rl[S] = r_store_aq_rl[S];
 				if (store_enable[S]) begin
@@ -1258,9 +1226,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					c_store_control[S] = c_c_control[store_hart[S]][store_rd[S]];
 					c_store_io[S] = c_c_io[store_hart[S]][store_rd[S]];
 					c_store_fence[S] = c_c_fence[store_hart[S]][store_rd[S]];
-`ifdef FP
-					c_store_fp[S] = c_c_fp[store_hart[S]][store_rd[S]];
-`endif
 					c_store_fd[S] = c_c_fd[store_hart[S]][store_rd[S]];
 					c_store_amo[S] = c_c_amo[store_hart[S]][store_rd[S]];
 					c_store_aq_rl[S] = c_c_aq_rl[store_hart[S]][store_rd[S]];
@@ -1274,9 +1239,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 				if (store_enable[S]) begin
 					r_store_rd[S] <= store_rd[S];
 				end
-`ifdef FP
-				r_store_fp[S] <= c_store_fp[S];
-`endif
 				r_store_io[S] <= c_store_io[S];
 				r_store_paddr[S] <= c_store_paddr[S];
 				r_store_control[S] <= c_store_control[S];
@@ -1300,7 +1262,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 `ifdef FP
 					casez ({r_store_control[S][3], r_store_control[S][1:0]})  // synthesis full_case parallel_case
 					3'b1_?1: store_data[S] = st.ack[S].fp;
-					3'b1_?0: store_data[S] = {st.ack[S].fp,st.ack[S].fp}
+					3'b1_?0: store_data[S] = {st.ack[S].fp[31:0],st.ack[S].fp[31:0]};
 					3'b0_11: store_data[S] = st.ack[S].data;
 					3'b0_10: store_data[S] = {st.ack[S].data[31:0],st.ack[S].data[31:0]};
 					3'b0_01: store_data[S] = {st.ack[S].data[15:0],st.ack[S].data[15:0],st.ack[S].data[15:0],st.ack[S].data[15:0]};
@@ -1466,9 +1428,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					.aq_rl(q_aq_rl[I]),
 					.fd(q_fd[I]),
 					.rd(q_rd[I]),
-`ifdef FP
-					.fp(q_fp[I]),
-`endif
 					.makes_rd(q_makes_rd[I]),
 					.hazard(q_hazard[I]),
 					.all_store_mem(store_mem_hit),
@@ -1538,9 +1497,6 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					.write_must_invalidate(dc_wr_hit_must_invalidate[0]),
 					.write_wait(dc_wr_wait[0]),
 					.wq_rd(wq_rd[I]),
-`ifdef FP
-					.wq_fp(wq_fp[I]),
-`endif
 					.wq_makes_rd(wq_makes_rd[I]),
 					.wq_hart(wq_hart[I]),
 					.wq_control(wq_control[I]),
@@ -2122,9 +2078,6 @@ module ldstq(
 	output			  write_sc,
 	output			  write_sc_okv,
 	output [LNCOMMIT-1:0]wq_rd,
-`ifdef FP
-	output			wq_fp,
-`endif
 	output		wq_makes_rd,
 	output [(NHART==1?0:LNHART-1):0]wq_hart,
 	output [3:0]wq_control,
@@ -2204,10 +2157,6 @@ module ldstq(
 	reg    [1:0]r_fd, c_fd;	// fence data bits 24:23
 	reg  [LNCOMMIT-1:0]r_rd, c_rd;
 	assign		wq_rd = r_rd;
-`ifdef FP
-	reg         r_fp, c_fp;	
-	assign		wq_fp = r_fp;
-`endif
 	reg			r_makes_rd, c_makes_rd;
 	assign		wq_makes_rd = r_makes_rd;
 	reg 		r_commit, c_commit;
@@ -2397,9 +2346,6 @@ module ldstq(
 		c_mask = r_mask;
 		//c_commit = r_commit;
 		c_rd = r_rd;
-`ifdef FP
-		c_fp = r_fp;
-`endif
 		c_aq_rl = r_aq_rl;
 		c_fd = r_fd;
 		c_makes_rd = r_makes_rd;
@@ -2449,9 +2395,6 @@ module ldstq(
 			c_mask = mask;
 			c_cache_miss = cache_miss && !line_busy;
 			c_rd = rd;
-`ifdef FP
-			c_fp = fp;
-`endif
 			c_aq_rl = aq_rl;
 			c_fd = fd;
 			c_amo = amo;
@@ -2794,9 +2737,6 @@ module ldstq(
 		r_control <= c_control;
 		r_amo <= c_amo;
 		r_rd <= c_rd;
-`ifdef FP
-		r_fp <= c_fp;
-`endif
 		r_aq_rl <= c_aq_rl;
 		r_fd <= c_fd;
 		r_killed <= (c_killed&&!free_out)||(r_commit&&write_done);

@@ -289,10 +289,12 @@ module rename(
 		input    [31: 0]immed,
 		input           needs_rs2,
 		input           needs_rs3,
+`ifdef FP
 		input			rd_fp,
 		input			rs1_fp,
 		input			rs2_fp,
 		input			rs3_fp,
+`endif
 		input           makes_rd,
 		input			start,
 		input			short,
@@ -338,10 +340,12 @@ module rename(
 		output           needs_rs2_out,
 		output           needs_rs3_out,
 		output           makes_rd_out,
+`ifdef FP
 		output			 rd_fp_out,
 		output			 rs1_fp_out,
 		output			 rs2_fp_out,
 		output			 rs3_fp_out,
+`endif
 		output			 start_out,
 		output			 short_out,
 		output [CNTRL_SIZE-1:0]control_out,
@@ -461,10 +465,12 @@ module rename(
 	reg           r_makes_rd_out;
 	reg           r_start_out;
 	reg           r_short_out;
+`ifdef FP
 	reg			  r_rd_fp_out;
 	reg			  r_rs1_fp_out;
 	reg			  r_rs2_fp_out;
 	reg			  r_rs3_fp_out;
+`endif
 	reg [CNTRL_SIZE-1:0]r_control_out;
 	reg  [3:0]r_unit_type_out;
 	reg   [VA_SZ-1:1]r_pc_out;
@@ -477,10 +483,12 @@ module rename(
 	assign  immed_out = r_immed_out;
 	assign  needs_rs2_out = r_needs_rs2_out;
 	assign  needs_rs3_out = r_needs_rs3_out;
+`ifdef FP
 	assign	rd_fp_out = r_rd_fp_out;
 	assign	rs1_fp_out = r_rs1_fp_out;
 	assign	rs2_fp_out = r_rs2_fp_out;
 	assign	rs3_fp_out = r_rs3_fp_out;
+`endif
 	assign  makes_rd_out = r_makes_rd_out;
 	assign  start_out = r_start_out;
 	assign  short_out = r_short_out;
@@ -571,10 +579,12 @@ module rename(
 			r_makes_rd_out <= 1;
 			r_short_out <= 0;
 			r_start_out <= 0;
+`ifdef FP
 			r_rd_fp_out <= 0;
 			r_rs1_fp_out <= 0;
 			r_rs2_fp_out <= 0;
 			r_rs3_fp_out <= 0;
+`endif
 			r_control_out <= (rv32?{1'bx, 1'b0, 1'b0, 1'b0, 2'b10} :{1'bx, 1'b0, 1'b0, 1'b0, 2'b11});
 			r_unit_type_out <= 3;
 			r_pc_out <= commit_trap_br[VA_SZ-1:1];
@@ -593,10 +603,12 @@ module rename(
 			r_renamed_commit_rs2_out <= {1'b0, {RA-1{'bx}}};
 			r_renamed_commit_rs3_out <= {1'b0, {RA-1{'bx}}};
 `endif
+`ifdef FP
 			r_rd_fp_out <= 0;
 			r_rs1_fp_out <= 0;
 			r_rs2_fp_out <= 0;
 			r_rs3_fp_out <= 0;
+`endif
 			r_rs1_out <= {1'b1, commit_trap_br_addr+1'b1};
 			r_rs2_out <= 0;
 			r_rs3_out <= 0;
@@ -639,10 +651,12 @@ module rename(
 		r_makes_rd_out <= makes_rd;
 		r_short_out <= short;
 		r_start_out <= start;
+`ifdef FP
 		r_rd_fp_out <= rd_fp;
 		r_rs1_fp_out <= rs1_fp;
 		r_rs2_fp_out <= rs2_fp;
 		r_rs3_fp_out <= rs3_fp;
+`endif
 		r_control_out <= control;
 		r_unit_type_out <= unit_type;
 		r_pc_out <= pc;

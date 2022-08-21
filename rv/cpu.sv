@@ -256,7 +256,7 @@ assign pmp[1].valid=0;
 	wire [127:0]icache_out[0:NHART-1];
 	wire    [NHART-1:0]irand;
 	wire			   frand;
-	wire    [NHART-1:0]rename_stall;
+	wire    [NHART-1:0]rename_stall;	// main HART stall
 	wire    [NHART-1:0]pc_stall;
 	wire    [NHART-1:0]fetch_ok;
 	wire	[NHART-1:0]fetch_fail;
@@ -296,7 +296,6 @@ assign pmp[1].valid=0;
 			.xxtrig(xxtrig),
 `endif
 			.pc_0(pc_pre_fetch[0][RV-1:BDEC]),
-			//.stall_0(rename_stall[0]), 
 			.stall_0(pc_stall[0]|commit_trap_br_enable[0]), 
 			.ok_0(fetch_ok[0]),
 			.okr_0(fetch_okr[0]),
@@ -950,10 +949,12 @@ wire [31:1]sb_is_0; // for debug
 			wire	      needs_rs2_rename[0:2*NDEC-1];
 			wire	      needs_rs3_rename[0:2*NDEC-1];
 			wire	      makes_rd_rename[0:2*NDEC-1];
+`ifdef FP
 			wire	      rd_fp_rename[0:2*NDEC-1];
 			wire	      rs1_fp_rename[0:2*NDEC-1];
 			wire	      rs2_fp_rename[0:2*NDEC-1];
 			wire	      rs3_fp_rename[0:2*NDEC-1];
+`endif
 			wire    [3:0]unit_type_rename[0:2*NDEC-1];
 			wire    [CNTRL_SIZE-1:0]control_rename[0:2*NDEC-1];
 			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename[0:2*NDEC-1];
@@ -967,6 +968,9 @@ wire [31:1]sb_is_0; // for debug
 			wire    [RA-1:0]scoreboard_latest_rename[0:31];
 `ifdef RENAME_OPT
 			wire    [RA-1:0]scoreboard_latest_commit[0:31];
+`ifdef FP
+			wire    [RA-1:0]scoreboard_latest_commit_fp[0:31];
+`endif
 `endif
 			if (NHART == 1) begin
 				assign   scoreboard_latest_rename[0] = 0; 
@@ -988,7 +992,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg [4:0]s1, s2, s3, d;
 				reg      makes_d, needs_s2, needs_s3;
 				reg      short, start;
+`ifdef FP
 				reg		 rd_fp, rs1_fp, rs2_fp, rs3_fp;
+`endif
 				reg	[31:0]immed;
 				reg    [3:0]unit_type;
 				reg    [CNTRL_SIZE-1:0]control;
@@ -1028,10 +1034,12 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.start(start),
                 	.needs_rs2(needs_s2),
                 	.needs_rs3(needs_s3),
+`ifdef FP
 					.rd_fp(rd_fp),
 					.rs1_fp(rs1_fp),
 					.rs2_fp(rs2_fp),
 					.rs3_fp(rs3_fp),
+`endif
                 	.makes_rd(makes_d),
                 	.control(control),
                 	.unit_type(unit_type),
@@ -1093,10 +1101,12 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.start_out(start_rename[D]),
                 	.needs_rs2_out(needs_rs2_rename[D]),
                 	.needs_rs3_out(needs_rs3_rename[D]),
+`ifdef FP
 					.rd_fp_out(rd_fp_rename[D]),
 					.rs1_fp_out(rs1_fp_rename[D]),
 					.rs2_fp_out(rs2_fp_rename[D]),
 					.rs3_fp_out(rs3_fp_rename[D]),
+`endif
                 	.makes_rd_out(makes_rd_rename[D]),
                 	.control_out(control_rename[D]),
                 	.unit_type_out(unit_type_rename[D]),
@@ -1144,6 +1154,11 @@ end
 
 				reg	rename_match_valid;
 				reg   [LNCOMMIT-1:0]rename_result;
+`ifdef RENAME_OPT
+				reg					rename_is_0;
+				reg					rename_is_move;
+				reg        [RA-1: 0]rename_is_move_reg;
+`endif
 				wire [2*NDEC-1:0]rename_match;
 				if (NDEC == 2) begin
 `include "mk3_4.inc"
@@ -1162,9 +1177,10 @@ end
 					.rename_valid(rename_match_valid),
 `ifdef RENAME_OPT
 					.rename_is_0(1'b0),
-					.rename_is_move(1'b0),
+					.rename_is_move(1'b0),	
 					.rename_is_move_reg('bx),
 					.commit_completed({{NCOMMIT{1'b0}}}),
+					.scoreboard_latest_commit(scoreboard_latest_commit_fp[R]),
 `endif
 					.rename_reloading(rename_reloading[H]),
 					.rename_stall(rename_stall[H]),
@@ -1336,7 +1352,9 @@ end
 				reg [31:0]immed;
 				reg   short, start;
 				reg	  makes_rd, needs_rs2, needs_rs3;
+`ifdef FP
 				reg	  rd_fp, rs1_fp, rs2_fp, rs3_fp;
+`endif
 				reg [CNTRL_SIZE-1:0]control;
 				reg [3:0]unit_type;
 				reg 	[VA_SZ-1:1]pc_rn;
@@ -1760,7 +1778,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.res_makes_rd(reg_write_enable[NALU+S])
 				);
 `ifdef FP
-				assign reg_write_fp[NFPU+NALU+S] = 0;
+				assign reg_write_fp[NALU+S] = 0;
 `endif
 		end
 		for (A = 0; A < NADDR; A=A+1) begin: addr
@@ -1782,20 +1800,20 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 			assign reg_write_data[NMUL+NFPU+NSHIFT+NALU+L] = ld_wb.wb[L].result;
 			assign reg_write_addr[NMUL+NFPU+NSHIFT+NALU+L] = ld_wb.wb[L].rd;
 `ifdef FP
-			assign reg_write_enable[NMUL+NFPU+NSHIFT+NALU+L] = (ld_wb.wb[L].makes_rd && !ld_wb.wb[L].fp ? ld_wb.wb[L].hart:0);
-			assign reg_write_fp[NFPU+L] = (ld_wb.wb[L].makes_rd && ld_wb.wb[L].fp ? ld_wb.wb[L].hart:0);
+			assign reg_write_enable[NMUL+NFPU+NSHIFT+NALU+L] = (ld_wb.wb[L].makes_rd ? ld_wb.wb[L].hart:0);
+			assign reg_write_fp[NMUL+NFPU+NSHIFT+NALU+L] = ld_wb.wb[L].fp;
 `else
 			assign reg_write_enable[NMUL+NFPU+NSHIFT+NALU+L] = (ld_wb.wb[L].makes_rd ? ld_wb.wb[L].hart:0);
 `endif
 		end
 		for (S = 0; S < NSTORE; S=S+1) begin: store
-			assign reg_read_addr[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S] = rs2_commit[st_data.req[S].rd][st_data.req[S].hart];
+			assign reg_read_addr[2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S] = rs2_commit[st_data.req[S].rd][st_data.req[S].hart];
 			always @(*) begin
-				reg_read_enable[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S] = 0;
+				reg_read_enable[2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S] = 0;
 `ifdef FP
-				reg_read_enable[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S][st_data.req[S].hart] = st_data.req[S].enable & ~st_data.req[S].fp;
+				reg_read_enable[2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S][st_data.req[S].hart] = st_data.req[S].enable & ~st_data.req[S].fp;
 `else
-				reg_read_enable[NFPU+2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S][st_data.req[S].hart] = st_data.req[S].enable;
+				reg_read_enable[2*NMUL+NFPU+NADDR+2*(NALU)+3*NSHIFT+S][st_data.req[S].hart] = st_data.req[S].enable;
 `endif
 			end
 `ifdef FP
@@ -1804,9 +1822,6 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				fpu_reg_read_enable[S] = 0;
 				fpu_reg_read_enable[S][st_data.req[S].hart] = st_data.req[S].enable & st_data.req[S].fp;
 			end
-`endif
-`ifdef FP
-			assign reg_write_fp[NMUL+NFPU+NSHIFT+NALU+NLOAD+S] = 0;
 `endif
 			assign st_data.ack[S].data = reg_read_data[2*NMUL+NFPU+NADDR+3*NSHIFT+2*(NALU)+S][st_data.req[S].hart];
 `ifdef FP
@@ -1974,22 +1989,22 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				reg_read_enable[3*NSHIFT+2*(NALU+NMUL)+F][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]& ~rs1_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f1 port
-			assign fpu_reg_read_addr[3*F+0] = rs1_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
+			assign fpu_reg_read_addr[NSTORE+3*F+0] = rs1_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				fpu_reg_read_enable[3*F+0] = 0;
-				fpu_reg_read_enable[3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]& rs1_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
+				fpu_reg_read_enable[NSTORE+3*F+0] = 0;
+				fpu_reg_read_enable[NSTORE+3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]&rs1_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f2 port
-			assign fpu_reg_read_addr[3*F+1] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
+			assign fpu_reg_read_addr[NSTORE+3*F+1] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				fpu_reg_read_enable[3*F+1] = 0;
-				fpu_reg_read_enable[3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]& rs2_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
+				fpu_reg_read_enable[NSTORE+3*F+1] = 0;
+				fpu_reg_read_enable[NSTORE+3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]&needs_rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f3 port
-			assign fpu_reg_read_addr[3*F+2] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
+			assign fpu_reg_read_addr[NSTORE+3*F+2] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
-				fpu_reg_read_enable[3*F+2] = 0;
-				fpu_reg_read_enable[3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F] & rs3_fp_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]];
+				fpu_reg_read_enable[NSTORE+3*F+2] = 0;
+				fpu_reg_read_enable[NSTORE+3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]&needs_rs3_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			end
 
 			fpu #(.RV(RV), .RA(RA), .ADDR(F), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))f(.reset(reset), .clk(clk), 
@@ -1998,10 +2013,11 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 `endif
 				.enable(enable_sched[NSHIFT+NALU+NMUL+F]),
 				.ir1(reg_read_data[3*NSHIFT+2*(NALU+NMUL)+F][hart_sched[NSHIFT+NALU+NMUL+F]]),
-				.fr1(fpu_reg_read_data[3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]]),
-				.fr2(fpu_reg_read_data[3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]]),
-				.fr3(fpu_reg_read_data[3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fr1(fpu_reg_read_data[NSTORE+3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fr2(fpu_reg_read_data[NSTORE+3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fr3(fpu_reg_read_data[NSTORE+3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]]),
 				.control(control_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.immed(immed_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]][16:12]),
 				.rd(alu_sched[NSHIFT+NALU+NMUL+F]),
 				.makes_rd(makes_rd_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]]),
 				.hart(hart_sched[NSHIFT+NALU+NMUL+F]),
@@ -2287,18 +2303,25 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 `endif
 
 `else	// fp
-			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==14 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 7 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r4
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==20 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 9 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 7) begin :r4
 				if (NUM_TRANSFER_PORTS == 4) begin :x4
-`include "rfile_14_3_7_2_4_32_4.inc"
+`include "rfile_20_1_9_1_4_32_7.inc"
 				end 
 				if (NUM_TRANSFER_PORTS == 8) begin :y4
-`include "rfile_14_3_7_2_8_32_4.inc"
+`include "rfile_20_1_9_1_8_32_7.inc"
 				end 
 `ifdef NALU3
 			end else
-			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==16 && NUM_LOCAL_READ_PORTS==3 && NUM_GLOBAL_WRITE_PORTS == 8 && NUM_LOCAL_WRITE_PORTS == 2 && NUM_GLOBAL_READ_FP_PORTS == 4) begin :r3
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==22 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 10 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 7) begin :r3
 				if (NUM_TRANSFER_PORTS == 8) begin :y4
-`include "rfile_16_3_8_2_8_32_4.inc"
+`include "rfile_22_1_10_1_8_32_7.inc"
+				end 
+`endif
+`ifdef NALU4
+			end else
+			if (NCOMMIT==32 && NUM_GLOBAL_READ_PORTS==24 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 11 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 7) begin :r3
+				if (NUM_TRANSFER_PORTS == 8) begin :y4
+`include "rfile_24_1_11_1_8_32_7.inc"
 				end 
 `endif
 			end
@@ -2316,8 +2339,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_0_1_0.inc"
+			.dummy(1'b0));
 `ifdef NALU4
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH==0) begin : alu_ctrl
@@ -2329,8 +2352,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_4_1_0_1_0.inc"
+			.dummy(1'b0));
 `endif
 `ifdef NALU3
 		end else
@@ -2343,8 +2366,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_3_1_0_1_0.inc"
+			.dummy(1'b0));
 `endif
 		end
 `ifdef FP
@@ -2357,8 +2380,36 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_0_1_1.inc"
+			.dummy(1'b0));
+`ifdef NALU3
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin : alu_ctrlf
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+`include "alu_ctrl_inst_4_1_32_3_1_0_1_1.inc"
+			.dummy(1'b0));
+`endif
+`ifdef NALU4
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin : alu_ctrlf
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+`ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+`endif
+`include "alu_ctrl_inst_4_1_32_4_1_0_1_1.inc"
+			.dummy(1'b0));
+`endif
 		end
 `endif
 
@@ -2375,8 +2426,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_0.inc"
+			.dummy(1'b0));
 `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH==1) begin : alu_ctrl
@@ -2388,8 +2439,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_3_1_1_1_0.inc"
+			.dummy(1'b0));
 `endif
 		end
 `ifdef FP
@@ -2402,8 +2453,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
 `endif
-			// note missing close ");" is missing (comes from the include file) on purpose here 
 `include "alu_ctrl_inst_4_1_32_2_1_1_1_1.inc"
+			.dummy(1'b0));
 		end
 `endif
 `endif

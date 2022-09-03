@@ -473,7 +473,7 @@ assign pmp[1].valid=0;
 	wire	[3:0]total_count_out_rename[0: NHART-1];	  //   registered count_out for perf monitoring
 
 `ifdef FP
-    wire    [NCOMMIT-1:0]fpu_ready_commit[0: NHART-1];
+    wire    [3:0]fpu_ready_commit[0: NHART-1][0:NCOMMIT-1];
 `endif
     wire    [NCOMMIT-1:0]alu_ready_commit[0: NHART-1];
     wire	[NCOMMIT-1:0]shift_ready_commit[0: NHART-1];

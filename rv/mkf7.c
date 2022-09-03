@@ -64,12 +64,12 @@ int main(int argc, char ** argv)
 	printf("//\n");
 
 	printf("		o = 0;\n");
-	printf("		u = 0;\n");
+	printf("		zz = 0;\n");
 	printf("		case (e) // synthesis full_case parallel_case\n");
 	printf("		default: begin\n");
 	printf("				t = 67'bx;\n");
 	printf("				o = e[10];\n");
-	printf("				u = !e[10];\n");
+	printf("				zz = !e[10];\n");
 	printf("			 end\n");
 	for (i = 63; i >= -3; i--) {
 	printf("		11'h%x:begin\n", i+0x3ff);

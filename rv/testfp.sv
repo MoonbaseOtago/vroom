@@ -32,18 +32,18 @@ module main;
 		if ($test$plusargs ("m")) begin
 			if ($test$plusargs ("d")) begin
 				sz = 1;
-				f = $fopen("fp_mul_test_64.txt", "r");
+				f = $fopen("fptest/fp_mul_test_64.txt", "r");
 			end else begin
 				sz = 0;
-				f = $fopen("fp_mul_test_32.txt", "r");
+				f = $fopen("fptest/fp_mul_test_32.txt", "r");
 			end
 		end else begin
 			if ($test$plusargs ("d")) begin
 				sz = 1;
-				f = $fopen("fp_add_test_64.txt", "r");
+				f = $fopen("fptest/fp_add_test_64.txt", "r");
 			end else begin
 				sz = 0;
-				f = $fopen("fp_add_test_32.txt", "r");
+				f = $fopen("fptest/fp_add_test_32.txt", "r");
 			end
 		end
 		forever begin
@@ -74,7 +74,7 @@ module main;
 			2: mul = 1;
 			default: begin sub = 1'bx; mul = 1'bx; end
 			endcase		
-			clk = 0; #5 clk = 1; #5
+			//clk = 0; #5 clk = 1; #5
 			clk = 0; #5 clk = 1; #5
 			if (mul) begin
 				clk = 0; #5 clk = 1; #5

@@ -239,7 +239,7 @@ module commit(input clk,
 	output       short_out,
 	output       start_out,
 `ifdef FP
-	output		 fpu_ready,
+	output	[3:0]fpu_ready,		// bits {div, 3 clocks, 2 clocks, 1 clock}
 `endif
 	output       needs_rs2_out,
 	output       needs_rs3_out,
@@ -522,7 +522,8 @@ module commit(input clk,
     assign commit_done_out = r_done;
 
 `ifdef FP
-	assign fpu_ready = ready&(r_unit_type==5)&r_valid&!r_read;
+	reg  [3:0]r_fpu_req, c_fpu_req;
+	assign fpu_ready = (ready&(r_unit_type==5)&r_valid&!r_read ? r_fpu_req: 4'b0);
 `endif
 `ifdef COMBINED_BRANCH
 	assign alu_ready = ready&(r_unit_type==0 || r_unit_type==6)&r_valid&!r_read;
@@ -567,6 +568,7 @@ module commit(input clk,
 		c_addr_done = r_addr_done;
 `ifdef FP
 		c_rd_fp = r_rd_fp;
+		c_fpu_req = r_fpu_req;
 `endif
 		c_wfi_pause = r_wfi_pause&&!csr_wfi_wake;
 		c_completed = r_completed&!commit_kill;
@@ -602,6 +604,14 @@ module commit(input clk,
 		if (load&!commit_kill) begin
 `ifdef FP
 			c_rd_fp = rd_fp&makes_rd;
+			casez (control[4:0])	// synthesis full_case parallel_case
+			5'b1_????,
+			5'b0_0010:	c_fpu_req = 4'b0100;		// 3 clocks
+			5'b0_000?:	c_fpu_req = 4'b0010;		// 2 clock
+			5'b0_0011,
+			5'b0_0100:	c_fpu_req = 4'b1000;		// N clocks
+			default:	c_fpu_req = 4'b0001;		// 1 clock
+			endcase
 `endif
 			c_short = short;
 			c_start = start;
@@ -654,22 +664,20 @@ module commit(input clk,
 `ifdef FP
 			5:		begin
 						if (schedule) begin
-							case (r_control)	// synthesis full_case parallel_case
-							5'b1_????,
-							5'b0_0010:	begin		// 3 clocks
+							casez (r_fpu_req)	// synthesis full_case parallel_case
+							4'b?1??:	begin		// 3 clocks
 											c_busy = 0;
 											c_busy2 = 1;
 											c_busy3 = 1;
 										end
-							5'b0_000?:	begin		// 2 clock
+							4'b??1?:	begin		// 2 clock
 											c_busy = 1;
 											c_busy2 = 0;
 											c_busy2 = 0;
 										end
-							5'b0_0011,
-							5'b0_0100:	begin		// N clocks
+							4'b1???:	begin		// N clocks
 										end
-							default:	begin		// 1 clock
+							4'b???1:	begin		// 1 clock
 											c_busy = 1;
 											c_busy2 = 0;
 											c_busy3 = 1;
@@ -1065,6 +1073,7 @@ module commit(input clk,
 		r_unit_type <= c_unit_type;
 `ifdef FP
 		r_rd_fp <= c_rd_fp;
+		r_fpu_req <= c_fpu_req;
 `endif
 		if (load&!commit_kill) begin
 			r_force_fetch <= force_fetch;

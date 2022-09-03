@@ -44,7 +44,7 @@ int popcount(int x)
 }
 
 void
-generate_sched(const char *name, int nunit, int numhart, int ncommit)
+generate_sched(const char *name, int nunit, int numhart, int ncommit, int seperate)
 {
 	int i, j, k, l, m, n, first;
 
@@ -72,14 +72,28 @@ generate_sched(const char *name, int nunit, int numhart, int ncommit)
 		printf("                %s_out%d = 'bx;\n", name, l);
 		if (numhart > 1)
 		printf("                %s_hart%d = 'bx;\n", name, l);
+		if (seperate) {
+		printf("                c_%s_sched_state_%d = {1'b0, r_%s_sched_state_%d[2]};\n", name, l, name, l);
+		}
         printf("                casez ({");
-		if (numhart == 1) {
-			printf("%s_r%d[%d:%d]", name, 0, ncommit-1, l);
-		} else
-		for (i=ncommit*numhart-1;i >= l; i--) {
-			int h = i%numhart;
-			int b = i / numhart;
-			printf("%s_r%d[%d]%s", name, h,b,(i==l?"":","));
+		if (seperate) {
+			if (numhart == 1) {
+				printf("%s_r%d_%c%d[%d:%d]", name, 0, seperate, l, ncommit-1, l);
+			} else
+			for (i=ncommit*numhart-1;i >= l; i--) {
+				int h = i%numhart;
+				int b = i / numhart;
+				printf("%s_r%d_%c%d[%d]%s", name, h, seperate, l,b,(i==l?"":","));
+			}
+		} else {
+			if (numhart == 1) {
+				printf("%s_r%d[%d:%d]", name, 0, ncommit-1, l);
+			} else
+			for (i=ncommit*numhart-1;i >= l; i--) {
+				int h = i%numhart;
+				int b = i / numhart;
+				printf("%s_r%d[%d]%s", name, h,b,(i==l?"":","));
+			}
 		}
 		printf("}");
         for (j=0; j < l; j++) printf("&~%s_inh[%d][NCOMMIT-1:%d]", name, j, l);
@@ -94,6 +108,9 @@ generate_sched(const char *name, int nunit, int numhart, int ncommit)
         printf("                                                                %s_hart%d = %d;\n", name, l, j%numhart);
         if (l != (nunit-1))
         printf("                                                                %s_inh[%d][%d] = 1;\n", name, l, j);
+		if (seperate) {
+		printf("																c_%s_sched_state_%d = {1'b0, r_%s_sched_state_%d[2]}|%s_tsize[%d][%s_out%d];\n", name, l, name, l, name, j%numhart, name, l);
+		}
         printf("                                                        end\n");
         }
         printf("                %d'b", ncommit*numhart-l);
@@ -272,8 +289,10 @@ err:
 		for (i = 0; i < numhart; i++) {
 			printf("		input [LNCOMMIT-1:0]start_commit_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]alu_ready_%d, \n", i);
-			if (nfpu)
-				printf("		input [NCOMMIT-1:0]fpu_ready_%d, \n", i);
+			if (nfpu) {
+				for (j = 0; j < ncommit; j++)
+				printf("		input [3:0]fpu_ready_%d_%d, \n", i, j);
+			}
 			printf("		input [NCOMMIT-1:0]shift_ready_%d, \n", i);
 			printf("`ifndef COMBINED_BRANCH\n");
 			printf("		input [NCOMMIT-1:0]branch_ready_%d, \n", i);
@@ -322,14 +341,27 @@ err:
 		break;
 	case 1:
 		j = 0;
+		if (nfpu) {
+			printf("	wire [2:1]fpu_tsize[0:NHART-1][0:NCOMMIT-1];\n");
+		}
 		for (i = 0; i < numhart; i++) {
 			printf("		wire [LNCOMMIT-1:0]sh%d = start_commit_%d;\n", i, i);
 			printf("		wire [NCOMMIT-1:0]mul_r_%d = mul_ready_%d|(|divide_busy?0:div_ready_%d);\n",i,i,i); // FIXME - need better solution for multiple multipliers
 			printf("		wire [NCOMMIT-1:0]alu_r%d, shift_r%d, mul_r%d;\n", i,i,i);
-			if (nfpu)
-				printf("		wire [NCOMMIT-1:0]fpu_r%d;\n", i);
-			if (nfpu)
-				printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))fpu_%d(.in(fpu_ready_%d), .r(sh%d), .out(fpu_r%d));\n", i, i, i, i);
+			if (nfpu) {
+				for (k = 0; k < ncommit; k++)
+				printf("	assign fpu_tsize[%d][%d] = fpu_ready_%d_%d[2:1];\n", i, k, i, k);
+				for (j = 0; j < nfpu; j++) {
+					printf("		reg [2:1]r_fpu_sched_state_%d, c_fpu_sched_state_%d;\n", j, j);
+					printf("		always @(posedge clk) r_fpu_sched_state_%d <= (reset?2'b0:c_fpu_sched_state_%d);\n", j, j);
+					printf("		wire [3:0]fp_ok_%d = {2'b11, ~r_fpu_sched_state_%d[2:1]};\n", j, j);
+					printf("		wire [NCOMMIT-1:0]fpu_r%d_f%d;\n", i, j);
+					printf("		wire [NCOMMIT-1:0]fpu_ready_%d_f%d;\n", i, j);
+					for (k = 0; k < ncommit; k++)
+					printf("		assign fpu_ready_%d_f%d[%d] = |(fpu_ready_%d_%d&fp_ok_%d);\n", i, j, k, i, k, j);
+					printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))fpu_%d_f%d(.in(fpu_ready_%d_f%d), .r(sh%d), .out(fpu_r%d_f%d));\n", i, j, i, j, i, i, j);
+				}
+			}
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))alu_%d(.in(alu_ready_%d), .r(sh%d), .out(alu_r%d));\n", i, i, i, i);
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))sh_%d(.in(shift_ready_%d), .r(sh%d), .out(shift_r%d));\n", i, i, i, i);
 			printf("`ifndef COMBINED_BRANCH\n");
@@ -338,11 +370,11 @@ err:
 			printf("`endif\n");
 			printf("		rot #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))mul_%d(.in(mul_r_%d), .r(sh%d), .out(mul_r%d));\n", i, i, i, i);
 		}
-		generate_sched("alu", nalu, numhart, ncommit);
+		generate_sched("alu", nalu, numhart, ncommit, 0);
 		if (nfpu)
-			generate_sched("fpu", nfpu, numhart, ncommit);
-		generate_sched("shift", nshift, numhart, ncommit);
-		generate_sched("mul", nmul, numhart, ncommit);
+			generate_sched("fpu", nfpu, numhart, ncommit, 'f');
+		generate_sched("shift", nshift, numhart, ncommit, 0);
+		generate_sched("mul", nmul, numhart, ncommit, 0);
 		for (j = 0; j < numhart; j++) {
 			printf("`ifndef COMBINED_BRANCH\n");
 			local_generate_sched("branch", nbranch, j, ncommit);
@@ -356,8 +388,10 @@ err:
 		printf("		.divide_busy(divide_busy), \n");
 		for (i = 0; i < numhart; i++) {
 			printf("		.start_commit_%d(current_start[%d]), \n", i, i);
-			if (nfpu)
-				printf("		.fpu_ready_%d(fpu_ready_commit[%d]), \n", i, i);
+			if (nfpu) {
+				for (k = 0; k < ncommit; k++)
+				printf("		.fpu_ready_%d_%d(fpu_ready_commit[%d][%d]),\n", i, k, i, k);
+			}
 			printf("		.alu_ready_%d(alu_ready_commit[%d]), \n", i, i);
 			printf("		.shift_ready_%d(shift_ready_commit[%d]), \n", i, i);
 			printf("`ifndef COMBINED_BRANCH\n");

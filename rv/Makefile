@@ -88,7 +88,7 @@ XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
 
 FPU = fp_add.sv fp_mul.sv fp.sv 
-FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc
+FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc mkf8.inc
 
 
 VSYNTH1 = +define+VSYNTH +define+VSYNTH2 $(OPT_FLAG_1)
@@ -695,46 +695,51 @@ mkf7:	mkf7.c
 mkf7.inc:	mkf7
 	./mkf7 >$@
 
-fp_add_test_32.txt:	timesoftfloat32
-	./timesoftfloat32 -nearesteven float32_add > fp_add_test_32.txt
-	./timesoftfloat32 -nearesteven float32_sub >> fp_add_test_32.txt
-	./timesoftfloat32 -tozero float32_add >> fp_add_test_32.txt
-	./timesoftfloat32 -tozero float32_sub >> fp_add_test_32.txt
-	./timesoftfloat32 -up float32_add >> fp_add_test_32.txt
-	./timesoftfloat32 -up float32_sub >> fp_add_test_32.txt
-	./timesoftfloat32 -down float32_add >> fp_add_test_32.txt
-	./timesoftfloat32 -down float32_sub >> fp_add_test_32.txt
+mkf8:	mkf8.c
+	gcc -o mkf8 mkf8.c
+mkf8.inc:	mkf8
+	./mkf8 >$@
 
-fp_add_test_64.txt:	timesoftfloat32
-	./timesoftfloat32 -nearesteven float64_add > fp_add_test_64.txt
-	./timesoftfloat32 -nearesteven float64_sub >> fp_add_test_64.txt
-	./timesoftfloat32 -tozero float64_add >> fp_add_test_64.txt
-	./timesoftfloat32 -tozero float64_sub >> fp_add_test_64.txt
-	./timesoftfloat32 -up float64_add >> fp_add_test_64.txt
-	./timesoftfloat32 -up float64_sub >> fp_add_test_64.txt
-	./timesoftfloat32 -down float64_add >> fp_add_test_64.txt
-	./timesoftfloat32 -down float64_sub >> fp_add_test_64.txt
+fptest/fp_add_test_32.txt:	fptest/timesoftfloat32
+	fptest/timesoftfloat32 -nearesteven float32_add > fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -nearesteven float32_sub >> fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -tozero float32_add >> fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -tozero float32_sub >> fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -up float32_add >> fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -up float32_sub >> fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -down float32_add >> fptest/fp_add_test_32.txt
+	fptest/timesoftfloat32 -down float32_sub >> fptest/fp_add_test_32.txt
 
-fp_mul_test_32.txt:     timesoftfloat32
-	./timesoftfloat32 -nearesteven float32_mul > fp_mul_test_32.txt
-	./timesoftfloat32 -tozero float32_mul >> fp_mul_test_32.txt
-	./timesoftfloat32 -up float32_mul >> fp_mul_test_32.txt
-	./timesoftfloat32 -down float32_mul >> fp_mul_test_32.txt
+fptest/fp_add_test_64.txt:	fptest/timesoftfloat32
+	fptest/timesoftfloat32 -nearesteven float64_add > fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -nearesteven float64_sub >> fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -tozero float64_add >> fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -tozero float64_sub >> fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -up float64_add >> fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -up float64_sub >> fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -down float64_add >> fptest/fp_add_test_64.txt
+	fptest/timesoftfloat32 -down float64_sub >> fptest/fp_add_test_64.txt
 
-fp_mul_test_64.txt:     timesoftfloat32
-	./timesoftfloat32 -nearesteven float64_mul > fp_mul_test_64.txt
-	./timesoftfloat32 -tozero float64_mul >> fp_mul_test_64.txt
-	./timesoftfloat32 -up float64_mul >> fp_mul_test_64.txt
-	./timesoftfloat32 -down float64_mul >> fp_mul_test_64.txt
+fptest/fp_mul_test_32.txt:     fptest/timesoftfloat32
+	fptest/timesoftfloat32 -nearesteven float32_mul > fptest/fp_mul_test_32.txt
+	fptest/timesoftfloat32 -tozero float32_mul >> fptest/fp_mul_test_32.txt
+	fptest/timesoftfloat32 -up float32_mul >> fptest/fp_mul_test_32.txt
+	fptest/timesoftfloat32 -down float32_mul >> fptest/fp_mul_test_32.txt
 
-#	./timesoftfloat32 -nearesteven float32_div >> testcases.txt 
-#	./timesoftfloat32 -nearesteven float32_sqrt >> testcases.txt 
-#	./timesoftfloat32 -tozero float32_div >> testcases.txt 
-#	./timesoftfloat32 -tozero float32_sqrt >> testcases.txt 
-#	./timesoftfloat32 -up float32_div >> testcases.txt 
-#	./timesoftfloat32 -up float32_sqrt >> testcases.txt 
-#	./timesoftfloat32 -down float32_div >> testcases.txt 
-#	./timesoftfloat32 -down float32_sqrt >> testcases.txt
+fptest/fp_mul_test_64.txt:     fptest/timesoftfloat32
+	fptest/timesoftfloat32 -nearesteven float64_mul > fptest/fp_mul_test_64.txt
+	fptest/timesoftfloat32 -tozero float64_mul >> fptest/fp_mul_test_64.txt
+	fptest/timesoftfloat32 -up float64_mul >> fptest/fp_mul_test_64.txt
+	fptest/timesoftfloat32 -down float64_mul >> fptest/fp_mul_test_64.txt
+
+#	fptest/timesoftfloat32 -nearesteven float32_div >> testcases.txt 
+#	fptest/timesoftfloat32 -nearesteven float32_sqrt >> testcases.txt 
+#	fptest/timesoftfloat32 -tozero float32_div >> testcases.txt 
+#	fptest/timesoftfloat32 -tozero float32_sqrt >> testcases.txt 
+#	fptest/timesoftfloat32 -up float32_div >> testcases.txt 
+#	fptest/timesoftfloat32 -up float32_sqrt >> testcases.txt 
+#	fptest/timesoftfloat32 -down float32_div >> testcases.txt 
+#	fptest/timesoftfloat32 -down float32_sqrt >> testcases.txt
 
 
 
@@ -785,16 +790,16 @@ sv.dtb:	sv.dts
 fpt:	testfp.sv fp_add.sv mkf1.inc mkf2.inc fp_mul.sv mkf3.inc
 	iverilog testfp.sv fp_add.sv fp_mul.sv -g 2005-sv -o fpt
 
-fpadd32:	fpt fp_add_test_32.txt
+fpadd32:	fpt fptest/fp_add_test_32.txt
 	./fpt +s
 
-fpadd64:	fpt fp_add_test_64.txt
+fpadd64:	fpt fptest/fp_add_test_64.txt
 	./fpt +d
 
-fpmul32:	fpt fp_mul_test_32.txt
+fpmul32:	fpt fptest/fp_mul_test_32.txt
 	./fpt +s +m
 
-fpmul64:	fpt fp_mul_test_64.txt
+fpmul64:	fpt fptest/fp_mul_test_64.txt
 	./fpt +d +m
 
 make_image:	make_image.c

@@ -93,13 +93,13 @@ int main(int argc, char ** argv)
         printf("			if (r_b_sz) begin\n");
         printf("				mantissa_z = {mantissa_y[56:2], |mantissa_y[1:0]};\n");
         printf("			end else begin\n");
-        printf("				mantissa_z = {mantissa_y[56:31], |mantissa_y[30:29], 29'bz};\n");
+        printf("				mantissa_z = {mantissa_y[56:31], |mantissa_y[30:29], 29'bx};\n");
         printf("			end \n");
         printf("		end else begin\n");
         printf("			if (r_b_sz) begin\n");
         printf("				case (shl) // synthesis full_case parallel_case\n");
         printf("		      		0: mantissa_z = mantissa_y[55:0];\n");
-	for (i = 1; i < 55; i++) 
+	for (i = 1; i < 56; i++) 
         printf("		      		%d: mantissa_z = {mantissa_y[%d:0], %d'b0};\n",i,55-i,i);
         printf("		      		default: mantissa_z = 0;\n");
         printf("	      			endcase\n");
@@ -107,7 +107,7 @@ int main(int argc, char ** argv)
         printf("				case (shl) // synthesis full_case parallel_case\n");
 
         printf("		      		0: mantissa_z = {mantissa_y[55:29], 29'bx};\n");
-	for (i = 1; i < 26; i++) 
+	for (i = 1; i < 27; i++) 
         printf("		      		%d: mantissa_z = {mantissa_y[%d:29], %d'b0, 29'bx};\n",i,55-i,i);
         printf("		      		default: mantissa_z = {27'b0, 29'bx};\n");
         printf("	      			endcase\n");

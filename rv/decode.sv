@@ -2266,6 +2266,7 @@ module decode(input clk,
 									f_fp_op = 1;	// fsub
 								end
 					5'b00010:	begin	// fmul.*
+									rs2_fp = 1;
 									f_fp_op = 2;	// fmul
 								end
 					5'b00011:	begin	// fdiv.*

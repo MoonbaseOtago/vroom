@@ -23,19 +23,26 @@ module fp_add_sub(input reset, input clk,
 		input [2:0]rnd,
 		input [RV-1:0]in_1,
 		input [RV-1:0]in_2,
+		input [LNCOMMIT-1:0]rd,
+		input [(NHART==1?0:LNHART-1):0]hart,
 		output valid,
 		output exception,
-		output [RV-1:0]res
+		output [RV-1:0]res,
+		output [LNCOMMIT-1:0]rd_out,
+		output [(NHART==1?0:LNHART-1):0]hart_out
 	);
 	parameter RV=64;
+	parameter LNCOMMIT=6;
+	parameter NHART=1;
+	parameter LNHART=1;
 
-	reg [1:0]r_start;
-	assign valid = r_start[1];
+	reg r_start;
+	assign valid = r_start;
 	always @(posedge clk)
 	if (reset) begin
 		r_start <= 0;
 	end else begin
-		r_start <= {r_start[0], start};
+		r_start <= start;
 	end
 
 	wire is_nan_1 = (!sz ? (in_1[63:32]!=~32'b0) || ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0)) : ((in_1[62:52] == 11'h7ff) && (in_1[51:0] != 0)));
@@ -114,6 +121,7 @@ module fp_add_sub(input reset, input clk,
 		end
 	end
 
+`ifdef NOTDEF
 	reg [56:0]r_a_mantissa_1, r_a_mantissa_2;
 	reg		  r_a_cin, r_a_exception, r_a_nan, r_a_infinity, r_a_infinity_sign;
 	reg [10:0]r_a_exponent;
@@ -134,37 +142,43 @@ module fp_add_sub(input reset, input clk,
 		r_a_exponent <= exponent_x;
 		r_a_rnd <= rnd;
 	end
+`endif
 		
 
 	reg [57:0]c_mantissa_x;
 	always @(*) 
-	if (r_a_sz) begin
-		c_mantissa_x = {r_a_mantissa_1[56], r_a_mantissa_1} + {r_a_mantissa_2[56], r_a_mantissa_2} + {57'b0, r_a_cin};
+	if (sz) begin
+		c_mantissa_x = {c_a_mantissa_1[56], c_a_mantissa_1} + {c_a_mantissa_2[56], c_a_mantissa_2} + {57'b0, cin};
 	end else begin
-		c_mantissa_x = {{r_a_mantissa_1[56], r_a_mantissa_1[56:29]} + {r_a_mantissa_2[56], r_a_mantissa_2[56:29]} + {27'b0, r_a_cin}, 29'bx};
+		c_mantissa_x = {{c_a_mantissa_1[56], c_a_mantissa_1[56:29]} + {c_a_mantissa_2[56], c_a_mantissa_2[56:29]} + {27'b0, cin}, 29'bx};
 	end
 
-	wire c_sign = r_a_signx | c_mantissa_x[57];
+	wire c_sign = sign_x | c_mantissa_x[57];
 
 	reg [57:0]r_b_mantissa;
 	reg		  r_b_sz, r_b_exception, r_b_nan, r_b_infinity, r_b_infinity_sign, r_b_sign;
 	reg [10:0]r_b_exponent;
 	reg  [2:0]r_b_rnd;
+	reg [LNCOMMIT-1:0]r_b_rd;
+	assign rd_out = r_b_rd;
+	reg  [(NHART==1?0:LNHART-1):0]r_b_hart;
+	assign hart_out=r_b_hart;
 	
 	always @(posedge clk) begin
 		r_b_mantissa <= c_mantissa_x;
-		r_b_sz <= r_a_sz;
-        r_b_exception <= r_a_exception;
-        r_b_nan <= r_a_nan;
-        r_b_infinity <= r_a_infinity;
-        r_b_infinity_sign <= r_a_infinity_sign;
+		r_b_sz <= sz;
+        r_b_exception <= exception;
+        r_b_nan <= nan;
+        r_b_infinity <= infinity;
+        r_b_infinity_sign <= infinity_sign;
         r_b_sign <= c_sign;
-		r_b_exponent <= r_a_exponent;
-		r_b_rnd <= r_a_rnd;
+		r_b_exponent <= exponent_x;
+		r_b_rnd <= rnd;
+		r_b_rd <= rd;
 	end
 
-	wire [56:0]mantissa_y = (sz? (r_b_mantissa[57]? -r_b_mantissa[56:0]:r_b_mantissa[56:0]) :
-								({r_b_mantissa[57]? -r_b_mantissa[56:29]:r_b_mantissa[56:29], 29'bx}));
+	wire [56:0]mantissa_y = (r_b_sz? (r_b_mantissa[57]? -r_b_mantissa[56:0]:r_b_mantissa[56:0]) :
+								    ({r_b_mantissa[57]? -r_b_mantissa[56:29]:r_b_mantissa[56:29], 29'bx}));
 	
 	reg [5:0]shl_x;
 	reg [5:0]shl;
@@ -172,6 +186,7 @@ module fp_add_sub(input reset, input clk,
 	reg		 shr;
 	reg [55:0]mantissa_z;
 	// renorm - shr/shl_x give us how to move
+
 `include "mkf2.inc"	
 
 	// but we need to adjust the exponent too 

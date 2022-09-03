@@ -26,19 +26,39 @@ module fp_mul(input reset, input clk,
 		input fmuladd,	// muladd
 		input fmulsub,
 		input fmulsign,
+        input [LNCOMMIT-1:0]rd,
+        input [(NHART==1?0:LNHART-1):0]hart,
 		output exception,
 		output valid,
-		output [RV-1:0]res
+		output [RV-1:0]res,
+		output [LNCOMMIT-1:0]rd_out,
+        output [(NHART==1?0:LNHART-1):0]hart_out
 	);
 	parameter RV=64;
+	parameter LNCOMMIT=6;
+	parameter NHART=1;
+	parameter LNHART=1;
 
-	reg [2:0]r_start;
-	assign valid = r_start[2];
+	reg [1:0]r_start;
+	assign valid = r_start[1];
 	always @(posedge clk)
 	if (reset) begin
 		r_start <= 0;
 	end else begin
-		r_start <= {r_start[1:0], start};
+		r_start <= {r_start[0], start};
+	end
+	
+	reg [4:0]r_b_rd;
+	reg [4:0]r_c_rd;
+	reg [(NHART==1?0:LNHART-1):0]r_b_hart;
+	reg [(NHART==1?0:LNHART-1):0]r_c_hart;
+	assign rd_out = r_c_rd;
+	assign hart_out = r_c_hart;
+	always @ (posedge clk) begin
+		r_b_rd <= rd;
+		r_c_rd <= r_b_rd;
+		r_b_hart <= hart;
+		r_c_hart <= r_b_hart;
 	end
 		
 
@@ -60,7 +80,7 @@ module fp_mul(input reset, input clk,
 	assign exception = is_nan_1&is_nan_signalling_1 || is_nan_2&is_nan_signalling_2 || fmuladd&is_nan_3&is_nan_signalling_3;
 	wire nan = is_nan_1 || is_nan_2 || (is_infinity_1&&is_infinity_2&&sign_1!=sign_2) || fmuladd&is_nan_3;
 	wire infinity = is_infinity_1 || is_infinity_2 || fmuladd&is_infinity_3;
-	wire infinity_sign = (is_infinity_1&sign_1) || (is_infinity_2&sign_2);
+	wire infinity_sign = (is_infinity_1&sign_1)^(is_infinity_2&sign_2);
 
 	assign sign = sign_1^sign_2^(fmuladd&fmulsign);
 
@@ -89,6 +109,7 @@ module fp_mul(input reset, input clk,
 	wire [7:0]e32_2 = in_2[30:23];
 	wire [7:0]e32_s = exp_sum[10:3];
 
+`ifdef NOTDEF
 	reg r_a_sign;
 	reg [11:0]r_a_exp_sum;
 	reg [52:0]r_a_mantissa_1, r_a_mantissa_2;
@@ -110,6 +131,7 @@ module fp_mul(input reset, input clk,
 		r_a_infinity <= infinity;
 		r_a_infinity_sign <= infinity_sign;
 	end
+`endif
 
 	// here we have a 2-clock 53-bit unsigned multiplier
 	// actual instances will replace it with an appropriate macro bock
@@ -123,15 +145,15 @@ module fp_mul(input reset, input clk,
 	reg r_b_infinity;
 	reg r_b_infinity_sign;
 	always @(posedge clk) begin
-		r_b_sign <= r_a_sign;
-		r_b_exp_sum <= r_a_exp_sum;
-		r_b_mantissa <= {53'b0,r_a_mantissa_1}*{53'b0,r_a_mantissa_2};
-		r_b_nan <= r_a_nan;
-		r_b_sz <= r_a_sz;
-		r_b_rnd <= r_a_rnd;
-		r_b_exception <= r_a_exception;
-		r_b_infinity <= r_a_infinity;
-		r_b_infinity_sign <= r_a_infinity_sign;
+		r_b_sign <= sign;
+		r_b_exp_sum <= exp_sum;
+		r_b_mantissa <= {53'b0,mantissa_1}*{53'b0,mantissa_2};
+		r_b_nan <= nan;
+		r_b_sz <= sz;
+		r_b_rnd <= rnd;
+		r_b_exception <= exception;
+		r_b_infinity <= infinity;
+		r_b_infinity_sign <= infinity_sign;
 	end
 
 

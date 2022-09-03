@@ -1408,6 +1408,9 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 			endcase
 		end
 
+		//
+		//	The load/store queue
+		//
 		for (I = 0; I < NLDSTQ; I=I+1) begin: sq
 			ldstq #(.RV(RV), .ADDR(I), .NHART(NHART), .NPHYS(NPHYS), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .LNHART(LNHART), .NLDSTQ(NLDSTQ), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .NSTORE(NSTORE), .TRANS_ID_SIZE(TRANS_ID_SIZE))s(.clk(clk), .reset(reset),
 `ifdef AWS_DEBUG
@@ -2229,6 +2232,7 @@ module ldstq(
 	assign write_sc_okv = c_store_cond_okv;
 	reg		r_fence, c_fence;
 	reg		r_load_acked, c_load_acked;
+	reg		r_load_next_ready, c_load_next_ready;
 	reg		r_last_load_acked, c_last_load_acked;
 	reg	[1:0]r_io_state, c_io_state;
 	reg		r_acked, c_acked;
@@ -2364,6 +2368,7 @@ module ldstq(
 		//write_mem_out = 0;
 		c_free = 0;
 		write_done = 0;
+		c_load_next_ready = r_load_next_ready;
 		c_send_cancel = r_send_cancel&!c_acked;
 		c_waiting_hazard = r_waiting_hazard;
 		c_waiting_memory = r_waiting_memory;
@@ -2383,6 +2388,7 @@ module ldstq(
 			c_addr = 56'bx;
 			c_io = 1'bx;
 			c_waiting_memory = 0;
+			c_load_next_ready = 0;
 		end else
 		if (allocate) begin
 			c_io_state = 0;
@@ -2411,6 +2417,7 @@ module ldstq(
 			c_hazard = hazard&~all_store_mem;
 			c_waiting_hazard = (hazard!=0 || amo[0]) && !fence;
 			c_waiting_memory = ((!c_waiting_hazard))&&cache_miss;
+			c_load_next_ready = load && !io && line_busy && dc_rdata_req && line_busy_trans==dc_rdata_trans; 
 			c_load_acked = 0;
 			c_tlb_inv_type = fence_type;
 			case (hart) // synthesis full_case parallel_case
@@ -2637,7 +2644,7 @@ module ldstq(
 								endcase
 							end
 						end else begin
-							casez ({r_last_load_acked, r_waiting_hazard, r_waiting_line_busy, r_waiting_memory, r_ack_waiting, r_send_cancel}) // synthesis full_case parallel_case
+							casez ({r_last_load_acked, r_waiting_hazard, r_waiting_line_busy, r_waiting_memory, r_load_next_ready|r_ack_waiting, r_send_cancel}) // synthesis full_case parallel_case
 							6'b1?????:begin
 										if (!load_ack_fail) begin
 											c_killed = 1;
@@ -2720,6 +2727,7 @@ module ldstq(
 	
 
 	always @(posedge clk) begin
+		r_load_next_ready <= c_load_next_ready && !load_ack;
 		r_tlb_invalidate <= !reset&&(tlb_invalidate||r_tlb_invalidate)&&r_valid;
 		r_tlb_inv_type <= c_tlb_inv_type;
 		r_ack_waiting <= c_ack_waiting;

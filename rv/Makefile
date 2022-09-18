@@ -1,7 +1,7 @@
-CC = riscv64-unknown-linux-gnu-gcc
-LD = riscv64-unknown-linux-gnu-ld
-OBJCOPY = riscv64-unknown-linux-gnu-objcopy
-OBJDUMP = riscv64-unknown-linux-gnu-objdump
+XCC = riscv64-unknown-linux-gnu-gcc
+XLD = riscv64-unknown-linux-gnu-ld
+XOBJCOPY = riscv64-unknown-linux-gnu-objcopy
+XOBJDUMP = riscv64-unknown-linux-gnu-objdump
 
 CPU = \
 	cpu.sv \
@@ -759,40 +759,40 @@ cvtbin:	cvtbin.c
 mk: x.bin
 
 boot0.sv:	boot0.s cvtbin
-	$(CC) -c boot0.s -march=rv64imac
-	$(LD) -N -o boot0.elf -e start -Ttext-segment=0 -N -static boot0.o -Tlink.ld
-	$(OBJCOPY) -O binary boot0.elf boot0.bin
+	$(XCC) -c boot0.s -march=rv64imac
+	$(XLD) -N -o boot0.elf -e start -Ttext-segment=0 -N -static boot0.o -Tlink.ld
+	$(XOBJCOPY) -O binary boot0.elf boot0.bin
 	./cvtbin boot0.bin bootrom0 128 >boot0.sv
 
 boot1.sv:	boot1.s cvtbin
-	$(CC) -c boot1.s -march=rv64imac
-	$(LD) -N -o boot1.elf -e start -Ttext-segment=0 -N -static boot1.o -Tlink.ld
-	$(OBJCOPY) -O binary boot1.elf boot1.bin
+	$(XCC) -c boot1.s -march=rv64imac
+	$(XLD) -N -o boot1.elf -e start -Ttext-segment=0 -N -static boot1.o -Tlink.ld
+	$(XOBJCOPY) -O binary boot1.elf boot1.bin
 	./cvtbin boot1.bin bootrom1 128 >boot1.sv
 
 dtbrom.sv:	sv.dtb cvtbin
 	./cvtbin sv.dtb dtbrom 64 >dtbrom.sv
 
 cache_test:	cache.s
-	$(CC) -c cache.s -march=rv64im
-	$(LD) -N -o x -e start -Ttext-segment=0 -N -static cache.o -Tlink.ld
-	$(OBJCOPY) -O binary x x.bin
-	$(OBJDUMP) -d x >x.lst
+	$(XCC) -c cache.s -march=rv64im
+	$(XLD) -N -o x -e start -Ttext-segment=0 -N -static cache.o -Tlink.ld
+	$(XOBJCOPY) -O binary x x.bin
+	$(XOBJDUMP) -d x >x.lst
 
 
 x.bin:	x.s
-	$(CC) -c x.s -march=rv64im
-	$(LD) -N -o x -e start -Ttext-segment=0 -N -static x.o -Tlink.ld
-	$(OBJCOPY) -O binary x x.bin
-	$(OBJDUMP) -d x >x.lst
+	$(XCC) -c x.s -march=rv64im
+	$(XLD) -N -o x -e start -Ttext-segment=0 -N -static x.o -Tlink.ld
+	$(XOBJCOPY) -O binary x x.bin
+	$(XOBJDUMP) -d x >x.lst
 
 bbl.bin: linux/riscv-pk/build/bbl
-	$(OBJCOPY) -O binary linux/riscv-pk/build/bbl bbl.bin
-	$(OBJDUMP) -d linux/riscv-pk/build/bbl >bbl.lst
+	$(XOBJCOPY) -O binary linux/riscv-pk/build/bbl bbl.bin
+	$(XOBJDUMP) -d linux/riscv-pk/build/bbl >bbl.lst
 
 opensbi.bin: linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf
-	$(OBJCOPY) -O binary linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf opensbi.bin
-	$(OBJDUMP) -d linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf >opensbi.lst
+	$(XOBJCOPY) -O binary linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf opensbi.bin
+	$(XOBJDUMP) -d linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf >opensbi.lst
 
 sv.dtb:	sv.dts
 	~/dtc -I dts sv.dts -o sv.dtb
@@ -825,17 +825,17 @@ fs.img: fs.part linux/linux/vmlinux makefs.sh
 	sh makefs.sh
 
 fp.bin:	fptest/fp.S  link.ld
-	@$(CC) -c fptest/fp.S -march=rv64imafdc -o fptest/fp.o
-	@$(LD) -N -e start -Ttext-segment=0 -N -static fptest/fp.o -o fptest/fp.elf -Tlink.ld
-	@$(OBJCOPY) -O binary fptest/fp.elf fp.bin 
-	@$(OBJDUMP) -d fptest/fp.elf >fp.dump
+	@$(XCC) -c fptest/fp.S -march=rv64imafdc -o fptest/fp.o
+	@$(XLD) -N -e start -Ttext-segment=0 -N -static fptest/fp.o -o fptest/fp.elf -Tlink.ld
+	@$(XOBJCOPY) -O binary fptest/fp.elf fp.bin 
+	@$(XOBJDUMP) -d fptest/fp.elf >fp.dump
 
 
 t:	t.S link.ld
-	@$(CC) -c $@.S -march=rv64imafdc -o $@.o
-	@$(LD) -N -e start -Ttext-segment=0 -N -static $@.o -o $@.elf -Tlink.ld
-	@$(OBJCOPY) -O binary $@.elf $@.bin 
-	@$(OBJDUMP) -d $@.elf >$@.dump
+	@$(XCC) -c $@.S -march=rv64imafdc -o $@.o
+	@$(XLD) -N -e start -Ttext-segment=0 -N -static $@.o -o $@.elf -Tlink.ld
+	@$(XOBJCOPY) -O binary $@.elf $@.bin 
+	@$(XOBJDUMP) -d $@.elf >$@.dump
 
 VLIST =  $(CPU) $(MXREG) 
 v2v:	$(CPU) $(MXA) $(INCLUDES) 

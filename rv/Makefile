@@ -1,3 +1,8 @@
+CC = riscv64-unknown-linux-gnu-gcc
+LD = riscv64-unknown-linux-gnu-ld
+OBJCOPY = riscv64-unknown-linux-gnu-objcopy
+OBJDUMP = riscv64-unknown-linux-gnu-objdump
+
 CPU = \
 	cpu.sv \
 	decode.sv \
@@ -88,7 +93,7 @@ XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
 
 FPU = fp_add.sv fp_mul.sv fp.sv 
-FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc mkf8.inc
+FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc mkf8.inc mkf9.inc
 
 
 VSYNTH1 = +define+VSYNTH +define+VSYNTH2 $(OPT_FLAG_1)
@@ -700,6 +705,11 @@ mkf8:	mkf8.c
 mkf8.inc:	mkf8
 	./mkf8 >$@
 
+mkf9:	mkf9.c
+	gcc -o mkf9 mkf9.c
+mkf9.inc:	mkf9
+	./mkf9 >$@
+
 fptest/fp_add_test_32.txt:	fptest/timesoftfloat32
 	fptest/timesoftfloat32 -nearesteven float32_add > fptest/fp_add_test_32.txt
 	fptest/timesoftfloat32 -nearesteven float32_sub >> fptest/fp_add_test_32.txt
@@ -749,45 +759,45 @@ cvtbin:	cvtbin.c
 mk: x.bin
 
 boot0.sv:	boot0.s cvtbin
-	riscv64-linux-gnu-gcc -c boot0.s -march=rv64imac
-	riscv64-linux-gnu-ld -N -o boot0.elf -e start -Ttext-segment=0 -N -static boot0.o -Tlink.ld
-	riscv64-linux-gnu-objcopy -O binary boot0.elf boot0.bin
+	$(CC) -c boot0.s -march=rv64imac
+	$(LD) -N -o boot0.elf -e start -Ttext-segment=0 -N -static boot0.o -Tlink.ld
+	$(OBJCOPY) -O binary boot0.elf boot0.bin
 	./cvtbin boot0.bin bootrom0 128 >boot0.sv
 
 boot1.sv:	boot1.s cvtbin
-	riscv64-linux-gnu-gcc -c boot1.s -march=rv64imac
-	riscv64-linux-gnu-ld -N -o boot1.elf -e start -Ttext-segment=0 -N -static boot1.o -Tlink.ld
-	riscv64-linux-gnu-objcopy -O binary boot1.elf boot1.bin
+	$(CC) -c boot1.s -march=rv64imac
+	$(LD) -N -o boot1.elf -e start -Ttext-segment=0 -N -static boot1.o -Tlink.ld
+	$(OBJCOPY) -O binary boot1.elf boot1.bin
 	./cvtbin boot1.bin bootrom1 128 >boot1.sv
 
 dtbrom.sv:	sv.dtb cvtbin
 	./cvtbin sv.dtb dtbrom 64 >dtbrom.sv
 
 cache_test:	cache.s
-	riscv64-linux-gnu-gcc -c cache.s -march=rv64im
-	riscv64-linux-gnu-ld -N -o x -e start -Ttext-segment=0 -N -static cache.o -Tlink.ld
-	riscv64-linux-gnu-objcopy -O binary x x.bin
-	riscv64-linux-gnu-objdump -d x >x.lst
+	$(CC) -c cache.s -march=rv64im
+	$(LD) -N -o x -e start -Ttext-segment=0 -N -static cache.o -Tlink.ld
+	$(OBJCOPY) -O binary x x.bin
+	$(OBJDUMP) -d x >x.lst
 
 
 x.bin:	x.s
-	riscv64-linux-gnu-gcc -c x.s -march=rv64im
-	riscv64-linux-gnu-ld -N -o x -e start -Ttext-segment=0 -N -static x.o -Tlink.ld
-	riscv64-linux-gnu-objcopy -O binary x x.bin
-	riscv64-linux-gnu-objdump -d x >x.lst
+	$(CC) -c x.s -march=rv64im
+	$(LD) -N -o x -e start -Ttext-segment=0 -N -static x.o -Tlink.ld
+	$(OBJCOPY) -O binary x x.bin
+	$(OBJDUMP) -d x >x.lst
 
 bbl.bin: linux/riscv-pk/build/bbl
-	riscv64-linux-gnu-objcopy -O binary linux/riscv-pk/build/bbl bbl.bin
-	riscv64-linux-gnu-objdump -d linux/riscv-pk/build/bbl >bbl.lst
+	$(OBJCOPY) -O binary linux/riscv-pk/build/bbl bbl.bin
+	$(OBJDUMP) -d linux/riscv-pk/build/bbl >bbl.lst
 
 opensbi.bin: linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf
-	riscv64-linux-gnu-objcopy -O binary linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf opensbi.bin
-	riscv64-linux-gnu-objdump -d linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf >opensbi.lst
+	$(OBJCOPY) -O binary linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf opensbi.bin
+	$(OBJDUMP) -d linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf >opensbi.lst
 
 sv.dtb:	sv.dts
 	~/dtc -I dts sv.dts -o sv.dtb
 
-fpt:	testfp.sv fp_add.sv mkf1.inc mkf2.inc fp_mul.sv mkf3.inc
+fpt:	testfp.sv fp_add.sv mkf1.inc mkf2.inc fp_mul.sv mkf3.inc mkf9.inc
 	iverilog testfp.sv fp_add.sv fp_mul.sv -g 2005-sv -o fpt
 
 fpadd32:	fpt fptest/fp_add_test_32.txt
@@ -815,17 +825,17 @@ fs.img: fs.part linux/linux/vmlinux makefs.sh
 	sh makefs.sh
 
 fp.bin:	fptest/fp.S  link.ld
-	@riscv64-unknown-linux-gnu-gcc -c fptest/fp.S -march=rv64imafdc -o fptest/fp.o
-	@riscv64-unknown-linux-gnu-ld -N -e start -Ttext-segment=0 -N -static fptest/fp.o -o fptest/fp.elf -Tlink.ld
-	@riscv64-unknown-linux-gnu-objcopy -O binary fptest/fp.elf fp.bin 
-	@riscv64-unknown-linux-gnu-objdump -d fptest/fp.elf >fp.dump
+	@$(CC) -c fptest/fp.S -march=rv64imafdc -o fptest/fp.o
+	@$(LD) -N -e start -Ttext-segment=0 -N -static fptest/fp.o -o fptest/fp.elf -Tlink.ld
+	@$(OBJCOPY) -O binary fptest/fp.elf fp.bin 
+	@$(OBJDUMP) -d fptest/fp.elf >fp.dump
 
 
 t:	t.S link.ld
-	@riscv64-linux-gnu-gcc -c $@.S -march=rv64imafdc -o $@.o
-	@riscv64-linux-gnu-ld -N -e start -Ttext-segment=0 -N -static $@.o -o $@.elf -Tlink.ld
-	@riscv64-linux-gnu-objcopy -O binary $@.elf $@.bin 
-	@riscv64-linux-gnu-objdump -d $@.elf >$@.dump
+	@$(CC) -c $@.S -march=rv64imafdc -o $@.o
+	@$(LD) -N -e start -Ttext-segment=0 -N -static $@.o -o $@.elf -Tlink.ld
+	@$(OBJCOPY) -O binary $@.elf $@.bin 
+	@$(OBJDUMP) -d $@.elf >$@.dump
 
 VLIST =  $(CPU) $(MXREG) 
 v2v:	$(CPU) $(MXA) $(INCLUDES) 

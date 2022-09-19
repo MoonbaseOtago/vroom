@@ -333,6 +333,7 @@ module load_store(
 	reg [NPHYS-1:0]r_load_paddr[0:NLOAD-1];
 	reg [NPHYS-1:0]c_load_paddr[0:NLOAD-1];
 	reg [NLOAD-1:0]r_load_io, c_load_io;
+	reg [NLOAD-1:0]r_load_fence, c_load_fence;
 	reg [NLOAD-1:0]r_load_sc;
 	reg [NLOAD-1:0]r_load_sc_okv;
 	reg [NLOAD-1:0]r_load_amo;
@@ -457,6 +458,7 @@ wire [RV-1:0]dc_rd_data_0=dc_rd_data[0];
 
 	wire [NPHYS-1:0]write_mem_addr[0:NLDSTQ-1];
 	wire [NLDSTQ-1:0]write_mem_io;
+	wire [NLDSTQ-1:0]write_mem_fence;
 	wire [RV-1:0]write_mem_data[0:NLDSTQ-1];
 	wire [(RV/8)-1:0]write_mem_mask[0:NLDSTQ-1];
 	reg  [5:0]write_mem_amo[0:NLDSTQ-1];
@@ -1135,14 +1137,17 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 			always @(*) begin
 					c_load_paddr[L] = r_load_paddr[L];
 					c_load_io[L] = r_load_io[L];
+					c_load_fence[L] = r_load_fence[L];
 					if (load_enable[L]) begin
 						if (!load_queued[L]) begin
 							c_load_io[L] =  c_c_io[load_hart[L]][load_rd[L]];
 ;
 							c_load_paddr[L] = c_c_paddr[load_hart[L]][load_rd[L]];
+							c_load_fence[L] = 0;
 						end else begin
 							c_load_io[L] = write_mem_io[load_qindex[L]];
 							c_load_paddr[L] = write_mem_addr[load_qindex[L]];
+							c_load_fence[L] = write_mem_fence[load_qindex[L]];
 						end
 					end
 					dc_rd_hart[L] = r_load_hart[L];
@@ -1183,9 +1188,10 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					end
 				end
 				r_load_io[L] <= c_load_io[L];
+				r_load_fence[L] <= c_load_fence[L];
 				r_load_paddr[L] <= c_load_paddr[L];
 
-				r_load_res_done[L] <= reset?0:(r_load_enable[L]&&!commit_kill[r_load_hart[L]][r_load_rd[L]]&&(r_load_queued[L]?(dc_load.ack[L].hit||r_load_io[L]):!load_allocate[L]));
+				r_load_res_done[L] <= reset?0:(r_load_enable[L]&&!commit_kill[r_load_hart[L]][r_load_rd[L]]&&(r_load_queued[L]?(dc_load.ack[L].hit||r_load_io[L]|r_load_fence[L]):!load_allocate[L]));
 				r_load_res_makes_rd[L] <= r_load_makes_rd[L];
 				r_load_res_rd[L] <= r_load_rd[L];
 				r_load_res_hart[L] <= r_load_hart[L];
@@ -1496,6 +1502,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					.write_amo(write_mem_amo[I]),
 					.write_addr(write_mem_addr[I]),
 					.write_io(write_mem_io[I]),
+					.write_fence(write_mem_fence[I]),
 					.write_ok_write(dc_wr_hit_ok_write[0]),
 					.write_must_invalidate(dc_wr_hit_must_invalidate[0]),
 					.write_wait(dc_wr_wait[0]),
@@ -2077,6 +2084,7 @@ module ldstq(
 	output [RV/8-1:0]write_mask,
 	output [NPHYS-1:0]write_addr,
 	output      write_io,
+	output      write_fence,
 	output [(NHART==1?0:LNHART-1):0]write_hart,
 	output			  write_sc,
 	output			  write_sc_okv,
@@ -2216,6 +2224,7 @@ module ldstq(
 	assign write_mask = r_mask;
 	assign write_addr = r_addr;
 	assign write_io = r_io;
+	assign write_fence = r_fence;
 	reg commit, killed, commitable;
 	reg r_free, c_free;
 	reg free_out;
@@ -2587,7 +2596,7 @@ module ldstq(
 							c_free = completed && r_valid && c_hazard == 0;
 						end else begin
                             c_load_acked = r_load_acked|load_ack;
-                            c_load_ready = r_control[2:0]!= 4;
+                            c_load_ready = r_control[2:0]!= 4 && !r_load_acked;
                             c_store_cond = r_control[2:0]!= 4;
                             c_free = (r_commit|((commit)&r_valid)) && c_hazard == 0;
 						end

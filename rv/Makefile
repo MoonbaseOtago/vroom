@@ -1,7 +1,9 @@
-XCC = riscv64-unknown-linux-gnu-gcc
-XLD = riscv64-unknown-linux-gnu-ld
-XOBJCOPY = riscv64-unknown-linux-gnu-objcopy
-XOBJDUMP = riscv64-unknown-linux-gnu-objdump
+XCC ?= riscv64-unknown-linux-gnu-gcc
+XLD ?= riscv64-unknown-linux-gnu-ld
+XOBJCOPY ?= riscv64-unknown-linux-gnu-objcopy
+XOBJDUMP ?= riscv64-unknown-linux-gnu-objdump
+XVERILATOR ?= /usr/local/bin/verilator
+XDTC ?= ~/dtc
 
 CPU = \
 	cpu.sv \
@@ -103,7 +105,7 @@ UART = rvuart.sv uart/raminfr.v uart/uart_receiver.v uart/uart_regs.v uart/uart_
 UART_DEF1 = +incdir+uart 
 UART_DEF2 = -Iuart 
 
-VERILATOR= /usr/local/bin/verilator --error-limit 10 -j 16 --timescale-override "1ns/1ns" --trace-max-array 64
+VERILATOR= $(XVERILATOR) --error-limit 10 -j 16 --timescale-override "1ns/1ns" --trace-max-array 64
 
 MX = mkinc4.inc mkinc8.inc mkinc16.inc
 MX2 = mk2_4.inc mk2_8.inc mk2_16.inc
@@ -795,7 +797,7 @@ opensbi.bin: linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf
 	$(XOBJDUMP) -d linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf >opensbi.lst
 
 sv.dtb:	sv.dts
-	~/dtc -I dts sv.dts -o sv.dtb
+	$(XDTC) -I dts sv.dts -o sv.dtb
 
 fpt:	testfp.sv fp_add.sv mkf1.inc mkf2.inc fp_mul.sv mkf3.inc mkf9.inc
 	iverilog testfp.sv fp_add.sv fp_mul.sv -g 2005-sv -o fpt

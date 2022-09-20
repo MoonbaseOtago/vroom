@@ -1044,6 +1044,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 			
 			reg [RV-1:0]data, data_out;
 			reg [(RV==64?2:1):0]addr_lo;
+
 			if (RV == 64) begin
 				always @(*) begin
 					casez ({r_load_io[L], r_load_queued[L], r_load_sc[L]}) // synthesis full_case parallel_case
@@ -2195,7 +2196,7 @@ module ldstq(
 			assign load_line_hit[L] = r_valid&&!r_killed&&!r_fence&&(load_snoop.req[L].addr[NPHYS-1:ACACHE_LINE_SIZE]==r_addr[NPHYS-1:ACACHE_LINE_SIZE]) && !load_snoop.req[L].io && !r_io;
 			assign load_match[L] = r_valid&&!r_killed&&r_store&&(load_snoop.req[L].addr[NPHYS-1:$clog2(RV/8)]==r_addr[NPHYS-1:$clog2(RV/8)]) && !load_snoop.req[L].io&& !r_io;
 			assign load_snoop.ack[L].hit[ADDR] = load_match[L]&&((load_snoop.req[L].mask&r_mask)!=0);
-			assign load_snoop.ack[L].hazard[ADDR] = load_match[L]&&(((load_snoop.req[L].mask&r_mask)!=load_snoop.req[L].mask&r_mask)||(r_amo[0])) ||
+			assign load_snoop.ack[L].hazard[ADDR] = load_match[L]&&(((load_snoop.req[L].mask&r_mask)!=load_snoop.req[L].mask)||(r_amo[0])) ||
 							fence_against_following_reads ||
 							(r_valid&&r_fence&&succ[1]&&!load_snoop.req[L].io)||
 							(r_valid&&r_fence&&succ[3]&&load_snoop.req[L].io)||

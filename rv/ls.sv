@@ -45,10 +45,14 @@ module load_store(
 	input 	[NCOMMIT-1:0]commit_kill_0,		// one per HART
 	input 	[NCOMMIT-1:0]commit_completed_0,	// one per HART
 	input 	[NCOMMIT-1:0]commit_commitable_0,	// one per HART
+	input 	[NCOMMIT-1:0]commit_ended_0,		// one per HART
+	input 	[NCOMMIT-1:0]commit_load_store_0,	// one per HART
 	//input 	[NCOMMIT-1:0]store_commit_1,	// one per HART
 	//input 	[NCOMMIT-1:0]commit_kill_1,		// one per HART
-	//input 	[NCOMMIT-1:0]commit_completed_1,	// one per HART
+	//input 	[NCOMMIT-1:0]commit_completed_1,// one per HART
 	//input 	[NCOMMIT-1:0]commit_commitable_1,// one per HART
+	//input 	[NCOMMIT-1:0]commit_ended_1,	// one per HART
+	//input 	[NCOMMIT-1:0]commit_load_store_1,	// one per HART
 
 	input [ 3: 0]cpu_mode_0,
 	input [ 3: 0]sup_vm_mode_0,
@@ -194,14 +198,20 @@ module load_store(
 	wire 	[NCOMMIT-1:0]commit_kill[0:NHART-1];	// one per HART
 	wire 	[NCOMMIT-1:0]commit_completed[0:NHART-1];	// one per HART
 	wire 	[NCOMMIT-1:0]commit_commitable[0:NHART-1];	// one per HART
+	wire 	[NCOMMIT-1:0]commit_ended[0:NHART-1];	// one per HART
+	wire 	[NCOMMIT-1:0]commit_load_store[0:NHART-1];	// one per HART
 	assign store_commit[0] = store_commit_0;
 	assign commit_kill[0] = commit_kill_0;
 	assign commit_completed[0] = commit_completed_0;
 	assign commit_commitable[0] = commit_commitable_0;
+	assign commit_ended[0] = commit_ended_0;
+	assign commit_load_store[0] = commit_load_store_0;
 	//assign store_commit[1] = store_commit_1;
 	//assign commit_kill[1] = commit_kill_1;
 	//assign commit_completed[1] = commit_completed_1;
 	//assign commit_commitable[1] = commit_commitable_1;
+	//assign commit_ended[1] = commit_ended_1;
+	//assign commit_load_store[1] = commit_load_store_1;
 
 	//
 	//	load:		unit_type == 3
@@ -286,6 +296,8 @@ module load_store(
 
 	reg [NCOMMIT-1:0]r_c_valid[0:NHART-1];
 	reg [NCOMMIT-1:0]c_c_valid[0:NHART-1];
+	reg [NCOMMIT-1:0]r_c_processed[0:NHART-1];
+	reg [NCOMMIT-1:0]c_c_processed[0:NHART-1];
 	reg [NCOMMIT-1:0]r_c_load[0:NHART-1];
 	reg [NCOMMIT-1:0]c_c_load[0:NHART-1];
 	reg [NCOMMIT-1:0]r_c_fence[0:NHART-1];
@@ -366,7 +378,7 @@ module load_store(
 	reg [NSTORE-1:0]r_store_enable;
 	reg [(NHART==1?0:LNHART-1):0]r_store_hart[0:NLOAD-1];
 	reg[LNCOMMIT-1:0]r_store_rd[0:NSTORE-1];
-	reg [NSTORE-1:0]r_store_io, c_store_io;
+	reg  [NSTORE-1:0]r_store_io, c_store_io;
 	reg [NSTORE-1:0]r_store_fence, c_store_fence;
 	reg [NSTORE-1:0]r_store_makes_rd, c_store_makes_rd;
 	reg       [4:0]r_store_amo[0:NSTORE-1];
@@ -899,7 +911,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				casez ({addr_fence[A], addr_aq_rl[1]}) // synthesis full_case parallel_case
 				2'b1?:	addr_blocks[A] = r_addr_immed[A][26:23];
 				2'b?1:	addr_blocks[A] = 4'b1111;
-				2'b00:	addr_blocks[A] = {addr_io[A], addr_io[A], 1'b0, 1'b0}; // IOs go in order
+				2'b00:	addr_blocks[A] = {r_addr_load[A]&addr_io[A], ~r_addr_load[A]&addr_io[A], r_addr_load[A]&~addr_io[A], ~r_addr_load[A]&~addr_io[A]}; // IOs go in order
 				endcase
 			end
 
@@ -924,6 +936,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 					assign hart_block[H]  = |(addr_isblocked[A]&r_c_block[H][C]); 
 				end
 
+				//wire hazard_valid = (r_addr_rd[A] >= ls_ready.current_start[addr_hart[A]] ? C >= ls_ready.current_start[addr_hart[A]] && C < r_addr_rd[A] : C >= ls_ready.current_start[addr_hart[A]] || C < r_addr_rd[A]);
 				wire hazard_valid = (r_addr_rd[A] >= ls_ready.current_start[addr_hart[A]] ? C >= ls_ready.current_start[addr_hart[A]] && C < r_addr_rd[A] : C >= ls_ready.current_start[addr_hart[A]] || C < r_addr_rd[A]);
 
 				assign addr_soft_hazard[A][C] = hazard_valid &&
@@ -933,7 +946,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 						     (ls_ready.store_addr_ready[addr_hart[A]][C]|ls_ready.store_addr_not_ready[addr_hart[A]][C]) ||
 					         (!r_addr_load[A]&&(ls_ready.load_addr_ready[addr_hart[A]][C]|ls_ready.load_addr_not_ready[addr_hart[A]][C])));	
 				assign addr_hard_hazard[A][C] = hazard_valid &&
-							(|h_hard || (r_c_valid[addr_hart[A]][C] && !commit_kill[addr_hart[A]][C] && !commit_completed[addr_hart[A]][C] && hart_block[addr_hart[A]]));
+							(|h_hard || (r_c_valid[addr_hart[A]][C] && !commit_kill[addr_hart[A]][C] && !commit_completed[addr_hart[A]][C] && hart_block[addr_hart[A]]) || (addr_fence[A]&& |r_addr_immed[A][30:27] && !c_c_processed[addr_hart[A]][C] && commit_load_store[addr_hart[A]][C]));
 			end
 
 `ifdef SIMD
@@ -985,8 +998,11 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 
 			assign hazard_gone[H][C] = done;
 
+			assign c_c_processed[H][C] = (r_c_processed[H][C] || (!r_c_valid[H][C]&c_c_valid[H][C])) && !commit_ended[H][C] && !commit_kill[H][C] && commit_load_store[H][C];
+
 			always @(posedge clk) begin
 				r_c_valid[H][C]	    <= c_c_valid[H][C]&&!done;
+				r_c_processed[H][C] <= reset ? 0 : c_c_processed[H][C];
 				r_c_load[H][C]	    <= c_c_load[H][C];
 				r_c_fence[H][C]	    <= c_c_fence[H][C];
 				r_c_io[H][C]	    <= c_c_io[H][C];
@@ -1141,12 +1157,11 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					c_load_fence[L] = r_load_fence[L];
 					if (load_enable[L]) begin
 						if (!load_queued[L]) begin
-							c_load_io[L] =  c_c_io[load_hart[L]][load_rd[L]];
-;
+							c_load_io[L]    =  c_c_io[load_hart[L]][load_rd[L]];
 							c_load_paddr[L] = c_c_paddr[load_hart[L]][load_rd[L]];
 							c_load_fence[L] = 0;
 						end else begin
-							c_load_io[L] = write_mem_io[load_qindex[L]];
+							c_load_io[L]    = write_mem_io[load_qindex[L]];
 							c_load_paddr[L] = write_mem_addr[load_qindex[L]];
 							c_load_fence[L] = write_mem_fence[load_qindex[L]];
 						end
@@ -1337,6 +1352,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 			assign store_snoop.req[S].mask = store_mask[S];
 			assign store_snoop.req[S].io = r_store_io[S];
 			assign store_snoop.req[S].addr = r_store_paddr[S][NPHYS-1:$clog2(RV/8)];
+			assign store_snoop.req[S].fence = r_store_control[S][5] && (r_store_control[S][2:0] <= 3);
 
 			assign store_hazard[S] = store_snoop.ack[S].hazard;
 			assign store_allocate[S] = r_store_enable[S]&!commit_kill[r_store_hart[S]][r_store_rd[S]];
@@ -2215,7 +2231,8 @@ module ldstq(
                             fence_against_following_reads || // ??
                             (r_valid&&r_fence&&succ[0]&&!store_snoop.req[S].io)||
                             (r_valid&&r_fence&&succ[2]&&store_snoop.req[S].io)||
-                            (r_valid && r_io && store_snoop.req[S].io);
+                            (r_valid && r_io && store_snoop.req[S].io) ||
+							(r_valid && store_snoop.req[S].fence);
 		end
 	endgenerate
 
@@ -2597,7 +2614,7 @@ module ldstq(
 							c_free = completed && r_valid && c_hazard == 0;
 						end else begin
                             c_load_acked = r_load_acked|load_ack;
-                            c_load_ready = r_control[2:0]!= 4 && !r_load_acked;
+                            c_load_ready = r_control[2:0]!= 4 && !r_load_acked && c_hazard == 0;
                             c_store_cond = r_control[2:0]!= 4;
                             c_free = (r_commit|((commit)&r_valid)) && c_hazard == 0;
 						end

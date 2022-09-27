@@ -1061,7 +1061,7 @@ module decode(input clk,
 									fence_type = 3;
 									needs_rs2 = 0;
 									makes_rd = 0;
-									imm = {ins[31],ins[27:20], 23'bx};
+									imm = {9'bx_1111_1111, 23'bx};
 							 end
 					default: trap = 1;
 					endcase
@@ -2433,7 +2433,7 @@ module decode(input clk,
 									fence_type = 0;
 									needs_rs2 = rs2!=0;
 									makes_rd = 0;
-									imm = 0;
+									imm = {9'bx_1111_1111, 23'bx};
 								end
 							22'b0010001_?????_?????_00000:begin // hfence.vvma
 									trap = tvm && cpu_mode[1];	// FIXME
@@ -2441,7 +2441,7 @@ module decode(input clk,
 									fence_type = 1;
 									needs_rs2 = rs2!=0;
 									makes_rd = 0;
-									imm = 0;
+									imm = {9'bx_1111_1111, 23'bx};
 								end
 							22'b0110001_?????_?????_00000:begin // hfence.gvma
 									trap = tvm && cpu_mode[1];	// FIXME
@@ -2449,7 +2449,7 @@ module decode(input clk,
 									fence_type = 2;
 									needs_rs2 = rs2!=0;
 									makes_rd = 0;
-									imm = 0;
+									imm = {9'bx_1111_1111, 23'bx};
 								end
 							default:	trap = 1;
 							endcase

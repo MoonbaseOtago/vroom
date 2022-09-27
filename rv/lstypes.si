@@ -146,6 +146,7 @@ interface STORE_SNOOP #(parameter NLDSTQ, parameter NPHYS=56, RV=64, NSTORE=2);
 		bit      [NPHYS-1:$clog2(RV/8)]addr;    // input address
 		bit                            io;      // input io
 		bit                  [RV/8-1:0]mask;    // input mask
+		bit							   fence;	// input fence
 	} STORE_SNOOP_REQ;
 
 	typedef struct packed { // store snoop interface

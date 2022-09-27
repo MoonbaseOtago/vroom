@@ -525,6 +525,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 
 	wire  [NCOMMIT-1:0]commit_completed[0:NHART-1];
 	wire  [NCOMMIT-1:0]commit_ended[0:NHART-1];
+	wire  [NCOMMIT-1:0]commit_load_store[0:NHART-1];
 	wire  [NCOMMIT-1:0]commit_ack[0:NHART-1];
 	wire  [NCOMMIT-1:0]commit_req[0:NHART-1];
 	wire  [NCOMMIT-1:0]commit_load[0:NHART-1];
@@ -1477,6 +1478,7 @@ end
 					.commit_commitable(commit_commitable[H][C]),
 					.commit_vm_stall(this_vm_stall),
 					.commit_vm_pause(this_vm_pause),
+					.commit_load_store(commit_load_store[H][C]),
 
 					.commit_vm_done(vm_ack.hart[H] && vm_ack.rd == C),
 					.commit_vm_done_fail(vm_ack.fail),
@@ -1862,10 +1864,14 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 			.commit_kill_0(commit_kill[0]),
 			.commit_completed_0(commit_completed[0]),
 			.commit_commitable_0(commit_commitable[0]),
+			.commit_ended_0(commit_ended[0]),
+			.commit_load_store_0(commit_load_store[0]),
 			//.store_commit_1(commit_store_ack[1]),
 			//.commit_kill_1(commit_kill[1]),
 			//.commit_completed_1(commit_completed[1]),
 			//.commit_commitable_1(commit_commitable[1]),
+			//.commit_ended_1(commit_ended[1]),
+			//.commit_load_store_1(commit_load_store[1]),
 
 
 			.ls_ready(ls_ready),

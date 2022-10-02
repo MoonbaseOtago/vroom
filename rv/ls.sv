@@ -46,13 +46,15 @@ module load_store(
 	input 	[NCOMMIT-1:0]commit_completed_0,	// one per HART
 	input 	[NCOMMIT-1:0]commit_commitable_0,	// one per HART
 	input 	[NCOMMIT-1:0]commit_ended_0,		// one per HART
-	input 	[NCOMMIT-1:0]commit_load_store_0,	// one per HART
+	input 	[NCOMMIT-1:0]commit_is_load_0,	// one per HART
+	input 	[NCOMMIT-1:0]commit_is_store_0,	// one per HART
 	//input 	[NCOMMIT-1:0]store_commit_1,	// one per HART
 	//input 	[NCOMMIT-1:0]commit_kill_1,		// one per HART
 	//input 	[NCOMMIT-1:0]commit_completed_1,// one per HART
 	//input 	[NCOMMIT-1:0]commit_commitable_1,// one per HART
 	//input 	[NCOMMIT-1:0]commit_ended_1,	// one per HART
-	//input 	[NCOMMIT-1:0]commit_load_store_1,	// one per HART
+	//input 	[NCOMMIT-1:0]commit_is_load_1,	// one per HART
+	//input 	[NCOMMIT-1:0]commit_is_store_1,	// one per HART
 
 	input [ 3: 0]cpu_mode_0,
 	input [ 3: 0]sup_vm_mode_0,
@@ -199,19 +201,22 @@ module load_store(
 	wire 	[NCOMMIT-1:0]commit_completed[0:NHART-1];	// one per HART
 	wire 	[NCOMMIT-1:0]commit_commitable[0:NHART-1];	// one per HART
 	wire 	[NCOMMIT-1:0]commit_ended[0:NHART-1];	// one per HART
-	wire 	[NCOMMIT-1:0]commit_load_store[0:NHART-1];	// one per HART
+	wire 	[NCOMMIT-1:0]commit_is_load[0:NHART-1];	// one per HART
+	wire 	[NCOMMIT-1:0]commit_is_store[0:NHART-1];	// one per HART
 	assign store_commit[0] = store_commit_0;
 	assign commit_kill[0] = commit_kill_0;
 	assign commit_completed[0] = commit_completed_0;
 	assign commit_commitable[0] = commit_commitable_0;
 	assign commit_ended[0] = commit_ended_0;
-	assign commit_load_store[0] = commit_load_store_0;
+	assign commit_is_load[0] = commit_is_load_0;
+	assign commit_is_store[0] = commit_is_store_0;
 	//assign store_commit[1] = store_commit_1;
 	//assign commit_kill[1] = commit_kill_1;
 	//assign commit_completed[1] = commit_completed_1;
 	//assign commit_commitable[1] = commit_commitable_1;
 	//assign commit_ended[1] = commit_ended_1;
-	//assign commit_load_store[1] = commit_load_store_1;
+	//assign commit_is_load[1] = commit_is_load_1;
+	//assign commit_is_store[1] = commit_is_store_1;
 
 	//
 	//	load:		unit_type == 3
@@ -287,8 +292,8 @@ module load_store(
 	reg [LNCOMMIT-1:0]addr_rd[0:NADDR-1];
 	reg  [NCOMMIT-1:0]addr_soft_hazard[0:NADDR-1];		// soft hazards are address based and might change when another address is resolved
 	reg  [NCOMMIT-1:0]addr_hard_hazard[0:NADDR-1];		// hard hazards are aq/rl or fence based and can't change 
-	reg          [3:0]addr_blocks[0:NADDR-1];
-	reg          [3:0]addr_isblocked[0:NADDR-1];
+	reg          [4:0]addr_blocks[0:NADDR-1];
+	reg          [4:0]addr_isblocked[0:NADDR-1];
 
 	//
 	//		active transaction DB
@@ -320,12 +325,20 @@ module load_store(
 	reg [NCOMMIT-1:0]c_c_soft_hazard[0:NHART-1][0:NCOMMIT-1];
 	reg [NCOMMIT-1:0]r_c_hard_hazard[0:NHART-1][0:NCOMMIT-1];
 	reg [NCOMMIT-1:0]c_c_hard_hazard[0:NHART-1][0:NCOMMIT-1];
-	reg         [3:0]r_c_block[0:NHART-1][0:NCOMMIT-1];
-	reg         [3:0]c_c_block[0:NHART-1][0:NCOMMIT-1];
+	reg         [4:0]r_c_block[0:NHART-1][0:NCOMMIT-1];
+	reg         [4:0]c_c_block[0:NHART-1][0:NCOMMIT-1];
 	reg         [1:0]r_c_fd[0:NHART-1][0:NCOMMIT-1];
 	reg         [1:0]c_c_fd[0:NHART-1][0:NCOMMIT-1];
 	reg [NCOMMIT-1:0]hazard_clear_load[0:NHART-1];
 	reg [NCOMMIT-1:0]hazard_clear_store[0:NHART-1];
+
+	wire [NCOMMIT-1:0]debug_soft_hazard;
+	wire [NCOMMIT-1:0]debug_hard_hazard;
+	for (C=0; C < NCOMMIT; C=C+1) begin
+		assign debug_soft_hazard[C] = r_c_valid[0][C]& |r_c_soft_hazard[0][C];
+		assign debug_hard_hazard[C] = r_c_valid[0][C]& |r_c_hard_hazard[0][C];
+	end
+	wire [NCOMMIT-1:0]debug_store_data_ready = ls_ready.store_data_ready[0];
 
 	//
 	//	load controller
@@ -900,10 +913,11 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 
 			always @(*) begin
 				casez ({addr_fence[A], addr_aq_rl[0]}) // synthesis full_case parallel_case
-				2'b1?:	addr_isblocked[A] = r_addr_immed[A][30:27];
-				2'b?1:	addr_isblocked[A] = 4'b1111;
-				2'b00:	addr_isblocked[A] = {addr_io[A]& r_addr_load[A],
-										     addr_io[A]&~r_addr_load[A],
+				2'b1?:	addr_isblocked[A] = {1'b1, r_addr_immed[A][30:27]};
+				2'b?1:	addr_isblocked[A] = 5'b1_1111;
+				2'b00:	addr_isblocked[A] = {1'b0, 
+											 addr_io[A]& r_addr_load[A],
+										     addr_io[A]&~r_addr_load[A], 
 									        ~addr_io[A]& r_addr_load[A],
 									        ~addr_io[A]&~r_addr_load[A]};
 				endcase
@@ -912,9 +926,13 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 			// this is what we block after us
 			always @(*) begin
 				casez ({addr_fence[A], addr_aq_rl[1]}) // synthesis full_case parallel_case
-				2'b1?:	addr_blocks[A] = r_addr_immed[A][26:23];
-				2'b?1:	addr_blocks[A] = 4'b1111;
-				2'b00:	addr_blocks[A] = {r_addr_load[A]&addr_io[A], ~r_addr_load[A]&addr_io[A], r_addr_load[A]&~addr_io[A], ~r_addr_load[A]&~addr_io[A]}; // IOs go in order
+				2'b1?:	addr_blocks[A] = {1'b1, r_addr_immed[A][26:23]};
+				2'b?1:	addr_blocks[A] = 5'b1_1111;
+				2'b00:	addr_blocks[A] = {1'b0,
+										  r_addr_load[A]& addr_io[A],
+										 ~r_addr_load[A]& addr_io[A], 
+										  r_addr_load[A]&~addr_io[A],
+										 ~r_addr_load[A]&~addr_io[A]}; 
 				endcase
 			end
 
@@ -929,17 +947,16 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 					assign h_soft[I] = r_addr_busy[I] &&  r_addr_rd[I] == C && !commit_kill[addr_hart[I]][C] && !commit_completed[addr_hart[I]][C] &&
                         ((!r_addr_load[A]||!r_addr_load[I])&&(addr_p[A][NPHYS-1:3]==addr_p[I][NPHYS-1:3]));
 					assign h_hard[I] = r_addr_busy[I] &&  r_addr_rd[I] == C && !commit_kill[addr_hart[I]][C] && !commit_completed[addr_hart[I]][C] &&
-                        (r_addr_aq_rl[A][0] || |(addr_isblocked[A]&addr_blocks[I]));
+                        (r_addr_aq_rl[A][0] || |(addr_isblocked[A][3:0]&addr_blocks[I][3:0]&{2'b11, addr_isblocked[A][4]|addr_blocks[I][4]?2'b11:2'b00}));
 				end
 
 
 				wire [NHART-1:0]hart_block;
 				for (H = 0; H < NHART; H=H+1) begin
 					assign addr_match_mask[H][C][A] = r_c_valid[H][C] && (r_c_paddr[H][C][NPHYS-1:3] == addr_p[A][NPHYS-1:3]) && |(r_c_mask[H][C]&addr_mask[A]);
-					assign hart_block[H]  = (|(addr_isblocked[A]&r_c_block[H][C]))&r_c_valid[H][C]; 
+					assign hart_block[H]  = (|(addr_isblocked[A][3:0]&r_c_block[H][C][3:0]&{2'b11, addr_isblocked[A][4]|r_c_block[H][C][4]?2'b11:2'b00}))&r_c_valid[H][C]; 
 				end
 
-				//wire hazard_valid = (r_addr_rd[A] >= ls_ready.current_start[addr_hart[A]] ? C >= ls_ready.current_start[addr_hart[A]] && C < r_addr_rd[A] : C >= ls_ready.current_start[addr_hart[A]] || C < r_addr_rd[A]);
 				wire hazard_valid = (r_addr_rd[A] >= ls_ready.current_start[addr_hart[A]] ? C >= ls_ready.current_start[addr_hart[A]] && C < r_addr_rd[A] : C >= ls_ready.current_start[addr_hart[A]] || C < r_addr_rd[A]);
 
 				assign addr_soft_hazard[A][C] = hazard_valid &&
@@ -949,7 +966,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 						     (ls_ready.store_addr_ready[addr_hart[A]][C]|ls_ready.store_addr_not_ready[addr_hart[A]][C]) ||
 					         (!r_addr_load[A]&&(ls_ready.load_addr_ready[addr_hart[A]][C]|ls_ready.load_addr_not_ready[addr_hart[A]][C])));	
 				assign addr_hard_hazard[A][C] = hazard_valid &&
-							(|h_hard || (r_c_valid[addr_hart[A]][C] && !commit_kill[addr_hart[A]][C] && !commit_completed[addr_hart[A]][C] && hart_block[addr_hart[A]]) || (addr_fence[A]&& |r_addr_immed[A][30:27] && !c_c_processed[addr_hart[A]][C] && commit_load_store[addr_hart[A]][C]));
+							(|h_hard || (r_c_valid[addr_hart[A]][C] && !commit_kill[addr_hart[A]][C] && !commit_completed[addr_hart[A]][C] && hart_block[addr_hart[A]]) || (addr_fence[A]&& |r_addr_immed[A][30:27] && !c_c_processed[addr_hart[A]][C] && (commit_is_load[addr_hart[A]][C] || commit_is_store[addr_hart[A]][C])));
 			end
 
 `ifdef SIMD
@@ -995,13 +1012,13 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 			wire done = |loading || |storing;
 
 			always @(*) begin
-				hazard_clear_load[H][C]  = c_c_valid[H][C]&~|c_c_soft_hazard[H][C]&~|c_c_hard_hazard[H][C]&c_c_load[H][C]&!done;
-				hazard_clear_store[H][C] = c_c_valid[H][C]&~|c_c_soft_hazard[H][C]&~|c_c_hard_hazard[H][C]&~c_c_load[H][C]&&ls_ready.store_data_ready[H][C]&!done;
+				hazard_clear_load[H][C]  = c_c_valid[H][C]&&(~|c_c_soft_hazard[H][C])&&(~|c_c_hard_hazard[H][C])&&c_c_load[H][C]&&!done;
+				hazard_clear_store[H][C] = c_c_valid[H][C]&&(~|c_c_soft_hazard[H][C])&&(~|c_c_hard_hazard[H][C])&&~c_c_load[H][C]&&ls_ready.store_data_ready[H][C]&&!done;
 			end
 
 			assign hazard_gone[H][C] = done;
 
-			assign c_c_processed[H][C] = (r_c_processed[H][C] || (!r_c_valid[H][C]&c_c_valid[H][C])) && commit_load_store[H][C];
+			assign c_c_processed[H][C] = (r_c_processed[H][C] || (!r_c_valid[H][C]&c_c_valid[H][C])) && (commit_is_load[H][C] || commit_is_store[H][C]);
 
 			always @(posedge clk) begin
 				r_c_valid[H][C]	    <= c_c_valid[H][C]&&!done;

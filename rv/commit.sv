@@ -286,7 +286,8 @@ module commit(input clk,
 
 	input	force_fetch,
 
-    output commit_load_store,
+    output commit_is_load,
+    output commit_is_store,
     output commit_branch,
     output commit_branch_ok,
     output  [VA_SZ-1:1]commit_update_pc,
@@ -514,7 +515,8 @@ module commit(input clk,
 	reg	  r_addr_done, c_addr_done;
 	reg	r_br_ok, c_br_ok;
 
-	assign commit_load_store = r_valid && (r_unit_type == 3 || r_unit_type == 4);
+	assign commit_is_load  = r_valid && (r_unit_type == 3);
+	assign commit_is_store = r_valid && (r_unit_type == 4);
 
 	wire lres_ready = commit_first|!r_control[4];
 	wire amod_ready = commit_first|(r_control[5:4]!=2'b01);

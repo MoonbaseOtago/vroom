@@ -606,31 +606,33 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				end
 			end
 
+			wire addr_is_fence = !r_addr_load[A] && r_addr_control[A][5] && !r_addr_control[A][2];
 			if (RV == 64) begin
 				always @(*) 
-					addr_v[A] = ls.req[A].r1+{{RV-32{r_addr_immed[A][31]}},r_addr_immed[A]};
+					addr_v[A] = ls.req[A].r1+(addr_is_fence?64'b0:{{RV-32{r_addr_immed[A][31]}},r_addr_immed[A]});
 				always @(*) begin
-					casez ({addr_mprv[3], dtlb.ack[A].valid, addr_sup_vm_mode}) // synthesis full_case parallel_case
-					6'b1_?_????, 
-					6'b0_0_???0, 
-					6'b0_?_???1:begin
+					casez ({addr_is_fence, addr_mprv[3], dtlb.ack[A].valid, addr_sup_vm_mode}) // synthesis full_case parallel_case
+					7'b1_?_?_????,
+					7'b0_1_?_????, 
+					7'b0_0_0_???0, 
+					7'b0_0_?_???1:begin
 									addr_p[A]  = addr_v[A][NPHYS-1:0];
 									addr_io[A] = addr_v[A][NPHYS-1];
 								end
-					6'b0_1_??1?:begin
+					7'b0_0_1_??1?:begin
 									addr_p[A]  = {dtlb.ack[A].paddr[NPHYS-1:22],
 												  dtlb.ack[A].is4mB?addr_v[A][21:12]:dtlb.ack[A].paddr[21:12],
 												  addr_v[A][11:0]};
 									addr_io[A] = dtlb.ack[A].paddr[NPHYS-1];
 								end
-					6'b0_1_?1??:begin
+					7'b0_0_1_?1??:begin
 									addr_p[A]  = {dtlb.ack[A].paddr[NPHYS-1:30],
 											  	  dtlb.ack[A].is1gB?addr_v[A][29:21]:dtlb.ack[A].paddr[29:21],
 												  dtlb.ack[A].is2mB?addr_v[A][20:12]:dtlb.ack[A].paddr[20:12],
 												  addr_v[A][11:0]};
 									addr_io[A] = dtlb.ack[A].paddr[NPHYS-1];
 								end
-					6'b0_1_1???:begin
+					7'b0_0_1_1???:begin
 									addr_p[A]  = {dtlb.ack[A].paddr[NPHYS-1:39],
 												  dtlb.ack[A].is512gB?addr_v[A][38:30]:dtlb.ack[A].paddr[38:30],
 												  dtlb.ack[A].is1gB?  addr_v[A][29:21]:dtlb.ack[A].paddr[29:21],
@@ -643,13 +645,14 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				end
 			end else begin
 				always @(*) 
-					addr_v[A] = ls.req[A].r1+r_addr_immed[A];
+					addr_v[A] = ls.req[A].r1+(addr_is_fence?32'b0:r_addr_immed[A]);
 				always @(*) begin
-					casez ({addr_mprv[3], dtlb.ack[A].valid, addr_sup_vm_mode[1:0]}) // synthesis full_case parallel_case
-					4'b1_?_??, 
-					4'b1_0_?1,
-					4'b0_?_?1: addr_p[A] = addr_v[A][NPHYS-1:0];
-					4'b0_1_1?: addr_p[A] = {dtlb.ack[A].paddr[NPHYS-1:22],
+					casez ({addr_is_fence, addr_mprv[3], dtlb.ack[A].valid, addr_sup_vm_mode[1:0]}) // synthesis full_case parallel_case
+					5'b1_?_?_??, 
+					5'b0_1_?_??, 
+					5'b0_1_0_?1,
+					5'b0_0_?_?1: addr_p[A] = addr_v[A][NPHYS-1:0];
+					5'b0_0_1_1?: addr_p[A] = {dtlb.ack[A].paddr[NPHYS-1:22],
 										    dtlb.ack[A].is4mB?addr_v[A][21:10]:dtlb.ack[A].paddr[21:10],
 										    addr_v[A][11:0]};
 					default:   addr_p[A] = 'bx; 
@@ -933,7 +936,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				wire [NHART-1:0]hart_block;
 				for (H = 0; H < NHART; H=H+1) begin
 					assign addr_match_mask[H][C][A] = r_c_valid[H][C] && (r_c_paddr[H][C][NPHYS-1:3] == addr_p[A][NPHYS-1:3]) && |(r_c_mask[H][C]&addr_mask[A]);
-					assign hart_block[H]  = |(addr_isblocked[A]&r_c_block[H][C]); 
+					assign hart_block[H]  = (|(addr_isblocked[A]&r_c_block[H][C]))&r_c_valid[H][C]; 
 				end
 
 				//wire hazard_valid = (r_addr_rd[A] >= ls_ready.current_start[addr_hart[A]] ? C >= ls_ready.current_start[addr_hart[A]] && C < r_addr_rd[A] : C >= ls_ready.current_start[addr_hart[A]] || C < r_addr_rd[A]);
@@ -998,11 +1001,11 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 
 			assign hazard_gone[H][C] = done;
 
-			assign c_c_processed[H][C] = (r_c_processed[H][C] || (!r_c_valid[H][C]&c_c_valid[H][C])) && !commit_ended[H][C] && !commit_kill[H][C] && commit_load_store[H][C];
+			assign c_c_processed[H][C] = (r_c_processed[H][C] || (!r_c_valid[H][C]&c_c_valid[H][C])) && commit_load_store[H][C];
 
 			always @(posedge clk) begin
 				r_c_valid[H][C]	    <= c_c_valid[H][C]&&!done;
-				r_c_processed[H][C] <= reset ? 0 : c_c_processed[H][C];
+				r_c_processed[H][C] <= reset ? 0 : c_c_processed[H][C] && !commit_ended[H][C] && !commit_kill[H][C];
 				r_c_load[H][C]	    <= c_c_load[H][C];
 				r_c_fence[H][C]	    <= c_c_fence[H][C];
 				r_c_io[H][C]	    <= c_c_io[H][C];

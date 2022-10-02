@@ -992,9 +992,9 @@ module commit(input clk,
 									endcase
 								end
 							end else
-							if (r_read_d && r_addr_done && (r_control[5:4]!=2'b01 || r_immed[28:27]==2'b11)) begin
+							if (r_read_d && r_addr_done && (r_control[5:4]!=2'b01 || r_immed[28:27]==2'b11)) begin  // everything not AMO, but also WC
 								c_commit_store_req = 1;
-								c_completed = 1;
+								c_completed = r_control[5:4]!=2'b01 || r_immed[28:27]!=2'b11;	// WC has a load as well
 								c_busy2 = 1;
 							end else
 							if (commit_load_done) begin 
@@ -1004,9 +1004,13 @@ module commit(input clk,
 								c_commit_req = r_makes_rd;
 							end
 						end else
-						if (r_read_d && r_addr_done && (r_control[5:4]!=2'b01 || r_immed[28:27]==2'b11) && !r_completed) begin
-							c_commit_store_req = 1;
+						if (commit_load_done&& r_control[5:4]==2'b01) begin 
+							c_commit_req = 1;
 							c_completed = 1;
+						end else
+						if (r_read_d && r_addr_done && (r_control[5:4]!=2'b01|| r_immed[28:27]==2'b11) && !r_completed) begin  // everything not AMO, but also WC
+							c_commit_store_req = 1;
+							c_completed = r_control[5:4]!=2'b01 || r_immed[28:27]!=2'b11;	// WC has a load as well
 							c_busy2 = 1;
 						end else
 						if (commit_store_ack) begin
@@ -1020,10 +1024,6 @@ module commit(input clk,
 								c_commit_req = 1;
 								c_completed = 1;
 							end
-						end else
-						if (commit_load_done&& r_control[5:4]==2'b01) begin 
-							c_commit_req = 1;
-							c_completed = 1;
 						end else
 						if (commit_ack[ADDR]) begin
 							c_commit_req = 0;

@@ -1102,36 +1102,45 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 							end
 					default:begin addr_lo = 3'bxxx;  data = 'bx; end
 					endcase
-					casez ({r_load_control[L][2:0], addr_lo}) // synthesis full_case parallel_case
-					6'b?_11_???: data_out = data;
-					6'b1_10_0??: data_out = {32'b0, data[31:0]};
-					6'b1_10_1??: data_out = {32'b0, data[63:32]};
-					6'b0_10_0??: data_out = {{32{data[31]}}, data[31:0]};
-					6'b0_10_1??: data_out = {{32{data[63]}}, data[63:32]};
-					6'b1_01_00?: data_out = {48'b0, data[15:0]};
-					6'b1_01_01?: data_out = {48'b0, data[31:16]};
-					6'b1_01_10?: data_out = {48'b0, data[47:32]};
-					6'b1_01_11?: data_out = {48'b0, data[63:48]};
-					6'b0_01_00?: data_out = {{48{data[15]}}, data[15:0]};
-					6'b0_01_01?: data_out = {{48{data[31]}}, data[31:16]};
-					6'b0_01_10?: data_out = {{48{data[47]}}, data[47:32]};
-					6'b0_01_11?: data_out = {{48{data[63]}}, data[63:48]};
-					6'b1_00_000: data_out = {56'b0, data[7:0]};
-					6'b1_00_001: data_out = {56'b0, data[15:8]};
-					6'b1_00_010: data_out = {56'b0, data[23:16]};
-					6'b1_00_011: data_out = {56'b0, data[31:24]};
-					6'b1_00_100: data_out = {56'b0, data[39:32]};
-					6'b1_00_101: data_out = {56'b0, data[47:40]};
-					6'b1_00_110: data_out = {56'b0, data[55:48]};
-					6'b1_00_111: data_out = {56'b0, data[63:56]};
-					6'b0_00_000: data_out = {{56{data[7]}}, data[7:0]};
-					6'b0_00_001: data_out = {{56{data[15]}}, data[15:8]};
-					6'b0_00_010: data_out = {{56{data[23]}}, data[23:16]};
-					6'b0_00_011: data_out = {{56{data[31]}}, data[31:24]};
-					6'b0_00_100: data_out = {{56{data[39]}}, data[39:32]};
-					6'b0_00_101: data_out = {{56{data[47]}}, data[47:40]};
-					6'b0_00_110: data_out = {{56{data[55]}}, data[55:48]};
-					6'b0_00_111: data_out = {{56{data[63]}}, data[63:56]};
+					casez ({r_load_control[L][3:0], addr_lo}) // synthesis full_case parallel_case
+`ifdef FP
+					7'b1_?_11_???: data_out = data;
+					7'b1_?_10_0??: data_out = {32'hffff_ffff, data[31:0]};
+					7'b1_?_10_1??: data_out = {32'hffff_ffff, data[63:32]};
+					7'b1_?_01_00?: data_out = {48'hffff_ffff_ffff, data[15:0]};
+					7'b1_?_01_01?: data_out = {48'hffff_ffff_ffff, data[31:16]};
+					7'b1_?_01_10?: data_out = {48'hffff_ffff_ffff, data[47:32]};
+					7'b1_?_01_11?: data_out = {48'hffff_ffff_ffff, data[63:48]};
+`endif
+					7'b0_?_11_???: data_out = data;
+					7'b0_1_10_0??: data_out = {32'b0, data[31:0]};
+					7'b0_1_10_1??: data_out = {32'b0, data[63:32]};
+					7'b0_0_10_0??: data_out = {{32{data[31]}}, data[31:0]};
+					7'b0_0_10_1??: data_out = {{32{data[63]}}, data[63:32]};
+					7'b0_1_01_00?: data_out = {48'b0, data[15:0]};
+					7'b0_1_01_01?: data_out = {48'b0, data[31:16]};
+					7'b0_1_01_10?: data_out = {48'b0, data[47:32]};
+					7'b0_1_01_11?: data_out = {48'b0, data[63:48]};
+					7'b0_0_01_00?: data_out = {{48{data[15]}}, data[15:0]};
+					7'b0_0_01_01?: data_out = {{48{data[31]}}, data[31:16]};
+					7'b0_0_01_10?: data_out = {{48{data[47]}}, data[47:32]};
+					7'b0_0_01_11?: data_out = {{48{data[63]}}, data[63:48]};
+					7'b0_1_00_000: data_out = {56'b0, data[7:0]};
+					7'b0_1_00_001: data_out = {56'b0, data[15:8]};
+					7'b0_1_00_010: data_out = {56'b0, data[23:16]};
+					7'b0_1_00_011: data_out = {56'b0, data[31:24]};
+					7'b0_1_00_100: data_out = {56'b0, data[39:32]};
+					7'b0_1_00_101: data_out = {56'b0, data[47:40]};
+					7'b0_1_00_110: data_out = {56'b0, data[55:48]};
+					7'b0_1_00_111: data_out = {56'b0, data[63:56]};
+					7'b0_0_00_000: data_out = {{56{data[7]}}, data[7:0]};
+					7'b0_0_00_001: data_out = {{56{data[15]}}, data[15:8]};
+					7'b0_0_00_010: data_out = {{56{data[23]}}, data[23:16]};
+					7'b0_0_00_011: data_out = {{56{data[31]}}, data[31:24]};
+					7'b0_0_00_100: data_out = {{56{data[39]}}, data[39:32]};
+					7'b0_0_00_101: data_out = {{56{data[47]}}, data[47:40]};
+					7'b0_0_00_110: data_out = {{56{data[55]}}, data[55:48]};
+					7'b0_0_00_111: data_out = {{56{data[63]}}, data[63:56]};
 					endcase
 				end
 			end else begin
@@ -1303,8 +1312,11 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 				always @(*) begin
 `ifdef FP
 					casez ({r_store_control[S][3], r_store_control[S][1:0]})  // synthesis full_case parallel_case
-					3'b1_?1: store_data[S] = st.ack[S].fp;
-					3'b1_?0: store_data[S] = {st.ack[S].fp[31:0],st.ack[S].fp[31:0]};
+`ifdef FP
+					3'b1_11: store_data[S] = st.ack[S].fp;
+					3'b1_10: store_data[S] = {st.ack[S].fp[31:0],st.ack[S].fp[31:0]};
+					3'b1_01: store_data[S] = {st.ack[S].fp[15:0],st.ack[S].fp[15:0],st.ack[S].fp[15:0],st.ack[S].fp[15:0]};
+`endif
 					3'b0_11: store_data[S] = st.ack[S].data;
 					3'b0_10: store_data[S] = {st.ack[S].data[31:0],st.ack[S].data[31:0]};
 					3'b0_01: store_data[S] = {st.ack[S].data[15:0],st.ack[S].data[15:0],st.ack[S].data[15:0],st.ack[S].data[15:0]};

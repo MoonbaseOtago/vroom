@@ -133,7 +133,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter NINTERRUPTS=20;
 	parameter CACHE_LINE_SIZE=64*8;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
-	parameter CNTRL_SIZE=6;
+	parameter CNTRL_SIZE=7;
 	parameter NDEC = 4; // number of decode stages
 	parameter LNDEC=2; // log number of decode stages
 	parameter NHART=1;	// number of hyperthreads

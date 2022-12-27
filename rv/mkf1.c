@@ -70,63 +70,107 @@ int main(int argc, char ** argv)
         printf("		shifted_mantissa_2 = 'bx;\n");
         printf("		casez ({exp_gt, exp_eq}) // synthesis full_case parallel_case\n");
         printf("		2'b1?:begin\n");
-        printf("		      	if (!sz) begin\n");
+        printf("		      	casez (sz) // synthesis full_case parallel_case\n");
+        printf("		      	2'b1?: begin\n");
+        printf("		      		case (exp_diff[10:6]) // synthesis full_case parallel_case\n");
+	for (i = 1; i < 13; i++) {
+	if (i <= 3) {
+        printf("		      		5'd%d:shifted_mantissa_2 = {%d'b0, mantissa_2[55:%d],42'bx};\n",i,i,42+i);
+	} else {
+        printf("		      		5'd%d:shifted_mantissa_2 = {%d'b0, mantissa_2[55:%d],|mantissa_2[%d:42],42'bx};\n",i,i,43+i,42+i);
+	}
+	}
+        printf("		      		default:shifted_mantissa_2 = {13'b0, |mantissa_2[55:42],42'bx};\n");
+        //printf("		      		5'd%d:shifted_mantissa_2 = {10'b0, |mantissa_2[55:42],42'bx};\n", i);
+        //printf("		      		default:shifted_mantissa_2 = {10'b1, 42'bx};\n");
+        printf("		      		endcase\n");
+        printf("		      	       end\n");
+        printf("		      	2'b00: begin\n");
         printf("		      		case (exp_diff[10:3]) // synthesis full_case parallel_case\n");
-	for (i = 1; i < 25; i++) {
+	for (i = 1; i < 26; i++) {
 	if (i <= 3) {
         printf("		      		8'd%d:shifted_mantissa_2 = {%d'b0, mantissa_2[55:%d],29'bx};\n",i,i,29+i);
 	} else {
         printf("		      		8'd%d:shifted_mantissa_2 = {%d'b0, mantissa_2[55:%d],|mantissa_2[%d:32],29'bx};\n",i,i,30+i,29+i);
 	}
 	}
-        printf("		      		default :shifted_mantissa_2 = {23'b0, |mantissa_2[55:32],29'bx};\n");
+        printf("		      		default:shifted_mantissa_2 = {26'b0, |mantissa_2[55:32], 29'bx};\n");
+        //printf("		      		8'd%d:shifted_mantissa_2 = {24'b0, 29'bx};\n", i);
+        //printf("		      		default :shifted_mantissa_2 = {23'b0, |mantissa_2[55:32],29'bx};\n");
         printf("		      		endcase\n");
-        printf("		      	end else begin\n");
+        printf("		      	       end\n");
+        printf("		      	2'b?1: begin\n");
         printf("		      		case (exp_diff) // synthesis full_case parallel_case\n");
-	for (i = 1; i < 54; i++) {
+	for (i = 1; i < 55; i++) {
 	if (i <= 3) {
         printf("		      		11'd%d:shifted_mantissa_2 = {%d'b0, mantissa_2[55:%d]};\n",i,i,i);
 	} else {
         printf("		      		11'd%d:shifted_mantissa_2 = {%d'b0, mantissa_2[55:%d],|mantissa_2[%d:3]};\n",i,i,1+i,i);
 	}
 	}
-        printf("		      		default :shifted_mantissa_2 = {53'b0, |mantissa_2[55:3]};\n");
+        printf("		      		default:shifted_mantissa_2 = {55'b0, |mantissa_2[55:3]};\n");
+        //printf("		      		11'd%d :shifted_mantissa_2 = {53'b0, |mantissa_2[55:3]};\n",i);
+        //printf("		      		default :shifted_mantissa_2 = 54'b0;\n");
         printf("		      		endcase\n");
-        printf("		      	end\n");
+        printf("		      	       end\n");
+        printf("		      	endcase\n");
         printf("		      	shifted_mantissa_1 = mantissa_1;\n");
-        printf("		      	exponent_x = exp_1;\n");
+        printf("		      	exponent_x = rexp_1;\n");
         printf("		      end\n");
         printf("		2'b00:begin\n");
-        printf("		      	if (!sz) begin\n");
+        printf("		      	casez (sz) // synthesis full_case parallel_case\n");
+        printf("		      	2'b1?: begin\n");
+        printf("		      		case (exp_diff[10:6]) // synthesis full_case parallel_case\n");
+	for (i = 1; i < 13; i++) {
+	if (i <= 3) {
+        printf("		      		5'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d],42'bx};\n",0x20-i,i,42+i);
+	} else {
+        printf("		      		5'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d],|mantissa_1[%d:42],42'bx};\n",0x20-i,i,43+i,42+i);
+	}
+	}
+        printf("		      		default:shifted_mantissa_1 = {13'b0, |mantissa_1[55:42],42'bx};\n");
+        //printf("		      		8'h%x:shifted_mantissa_1 = {10'b0, |mantissa_1[55:42],42'bx};\n", 0x100-i);
+        //printf("		      		default :shifted_mantissa_1 = {11'b0, 42'bx};\n");
+        printf("		      		endcase\n");
+        printf("		      	       end\n");
+        printf("		      	2'b00: begin\n");
         printf("		      		case (exp_diff[10:3]) // synthesis full_case parallel_case\n");
-	for (i = 1; i < 25; i++) {
+	for (i = 1; i < 26; i++) {
 	if (i <= 3) {
         printf("		      		8'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d],29'bx};\n",0x100-i,i,29+i);
 	} else {
         printf("		      		8'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d],|mantissa_1[%d:32],29'bx};\n",0x100-i,i,30+i,29+i);
 	}
 	}
-        printf("		      		default :shifted_mantissa_1 = {23'b0, |mantissa_1[55:32],29'bx};\n");
+        printf("		      		default:shifted_mantissa_1 = {26'b0, |mantissa_1[55:32],29'bx};\n");
+        //printf("		      		8'h%x:shifted_mantissa_1 = {23'b0, |mantissa_1[55:32],29'bx};\n", 0x100-i);
+        //printf("		      		default :shifted_mantissa_1 = {24'b0, 29'bx};\n");
         printf("		      		endcase\n");
-        printf("		      	end else begin\n");
+        printf("		      	       end\n");
+        printf("		      	2'b?1: begin\n");
         printf("		      		case (exp_diff) // synthesis full_case parallel_case\n");
-	for (i = 1; i < 54; i++) {
+        //printf("		      		11'h%x:shifted_mantissa_1 = mantissa_1;\n",0x800-0);
+	for (i = 1; i < 55; i++) {
 	if (i <= 3) {
-        printf("		      		11'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d]};\n",0x800-i,i,i);
+        //printf("		      		11'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d]};\n",0x800-i,i,i);
+        printf("		      		11'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d],|mantissa_1[%d:0]};\n",0x800-i,i,1+i,i);
 	} else {
         printf("		      		11'h%x:shifted_mantissa_1 = {%d'b0, mantissa_1[55:%d],|mantissa_1[%d:3]};\n",0x800-i,i,1+i,i);
 	}
 	}
-        printf("		      		default :shifted_mantissa_1 = {53'b0, |mantissa_1[55:3]};\n");
+        printf("		      		default:shifted_mantissa_1 = {55'b0, |mantissa_1[55:3]};\n");
+        //printf("		      		11'h%x:shifted_mantissa_1 = {53'b0, |mantissa_1[55:3]};\n", 0x800-i);
+        //printf("		      		default :shifted_mantissa_1 = 54'b0;\n");
         printf("		      		endcase\n");
-        printf("		      	end\n");
+        printf("		      	       end\n");
+        printf("		      	endcase\n");
         printf("		      	shifted_mantissa_2 = mantissa_2;\n");
-        printf("		      	exponent_x = exp_2;\n");
+        printf("		      	exponent_x = rexp_2;\n");
         printf("		      end\n");
         printf("		      2'b?1:begin\n");
         printf("		      	shifted_mantissa_1 = mantissa_1;\n");
         printf("		      	shifted_mantissa_2 = mantissa_2;\n");
-        printf("		      	exponent_x = exp_2;\n");
+        printf("		      	exponent_x = rexp_2;\n");
         printf("		      end\n");
         printf("		endcase\n");
         printf("	end\n");

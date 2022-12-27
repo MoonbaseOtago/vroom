@@ -814,6 +814,184 @@ fpmul32:	fpt fptest/fp_mul_test_32.txt
 fpmul64:	fpt fptest/fp_mul_test_64.txt
 	./fpt +d +m
 
+fptest/f_add_test_16.txt:
+	echo "o 0" >fptest/f_add_test_16.txt
+	echo "s 2" >>fptest/f_add_test_16.txt
+	echo "r 0" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f16_add >>fptest/f_add_test_16.txt
+	echo "r 1" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f16_add >>fptest/f_add_test_16.txt
+	echo "r 2" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rmin -n 1000000 f16_add >>fptest/f_add_test_16.txt
+	echo "r 3" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rmax -n 1000000 f16_add >>fptest/f_add_test_16.txt
+	echo "r 4" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f16_add >>fptest/f_add_test_16.txt
+	echo "o 1" >>fptest/f_add_test_16.txt
+	echo "r 0" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f16_sub >>fptest/f_add_test_16.txt
+	echo "r 1" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f16_sub >>fptest/f_add_test_16.txt
+	echo "r 2" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rmin -n 1000000 f16_sub >>fptest/f_add_test_16.txt
+	echo "r 3" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rmax -n 1000000 f16_sub >>fptest/f_add_test_16.txt
+	echo "r 4" >>fptest/f_add_test_16.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f16_sub >>fptest/f_add_test_16.txt
+
+fptest/f_add_test_32.txt:
+	echo "o 0" >fptest/f_add_test_32.txt
+	echo "s 0" >>fptest/f_add_test_32.txt
+	echo "r 0" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f32_add >>fptest/f_add_test_32.txt
+	echo "r 1" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f32_add >>fptest/f_add_test_32.txt
+	echo "r 2" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rmin -n 1000000 f32_add >>fptest/f_add_test_32.txt
+	echo "r 3" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rmax -n 1000000 f32_add >>fptest/f_add_test_32.txt
+	echo "r 4" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f32_add >>fptest/f_add_test_32.txt
+	echo "o 1" >>fptest/f_add_test_32.txt
+	echo "r 0" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f32_sub >>fptest/f_add_test_32.txt
+	echo "r 1" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f32_sub >>fptest/f_add_test_32.txt
+	echo "r 2" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rmin -n 1000000 f32_sub >>fptest/f_add_test_32.txt
+	echo "r 3" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rmax -n 1000000 f32_sub >>fptest/f_add_test_32.txt
+	echo "r 4" >>fptest/f_add_test_32.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f32_sub >>fptest/f_add_test_32.txt
+
+fptest/f_add_test_64.txt:
+	echo "o 0" >fptest/f_add_test_64.txt
+	echo "s 1" >>fptest/f_add_test_64.txt
+	echo "r 0" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f64_add >>fptest/f_add_test_64.txt
+	echo "r 1" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f64_add >>fptest/f_add_test_64.txt
+	echo "r 2" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rmin -n 1000000 f64_add >>fptest/f_add_test_64.txt
+	echo "r 3" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rmax -n 1000000 f64_add >>fptest/f_add_test_64.txt
+	echo "r 4" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f64_add >>fptest/f_add_test_64.txt
+	echo "o 1" >>fptest/f_add_test_64.txt
+	echo "r 0" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f64_sub >>fptest/f_add_test_64.txt
+	echo "r 1" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f64_sub >>fptest/f_add_test_64.txt
+	echo "r 2" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rmin -n 1000000 f64_sub >>fptest/f_add_test_64.txt
+	echo "r 3" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rmax -n 1000000 f64_sub >>fptest/f_add_test_64.txt
+	echo "r 4" >>fptest/f_add_test_64.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f64_sub >>fptest/f_add_test_64.txt
+
+fptest/f_mul_test_16.txt:
+	echo "o 2" >fptest/f_mul_test_16.txt
+	echo "s 2" >>fptest/f_mul_test_16.txt
+	echo "r 0" >>fptest/f_mul_test_16.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f16_mul >>fptest/f_mul_test_16.txt
+	echo "r 1" >>fptest/f_mul_test_16.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f16_mul >>fptest/f_mul_test_16.txt
+	echo "r 2" >>fptest/f_mul_test_16.txt
+	fptest/testfloat_gen -rmin -n 1000000 f16_mul >>fptest/f_mul_test_16.txt
+	echo "r 3" >>fptest/f_mul_test_16.txt
+	fptest/testfloat_gen -rmax -n 1000000 f16_mul >>fptest/f_mul_test_16.txt
+	echo "r 4" >>fptest/f_mul_test_16.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f16_mul >>fptest/f_mul_test_16.txt
+
+fptest/f_mul_test_32.txt:
+	echo "o 2" >fptest/f_mul_test_32.txt
+	echo "s 0" >>fptest/f_mul_test_32.txt
+	echo "r 0" >>fptest/f_mul_test_32.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f32_mul >>fptest/f_mul_test_32.txt
+	echo "r 1" >>fptest/f_mul_test_32.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f32_mul >>fptest/f_mul_test_32.txt
+	echo "r 2" >>fptest/f_mul_test_32.txt
+	fptest/testfloat_gen -rmin -n 1000000 f32_mul >>fptest/f_mul_test_32.txt
+	echo "r 3" >>fptest/f_mul_test_32.txt
+	fptest/testfloat_gen -rmax -n 1000000 f32_mul >>fptest/f_mul_test_32.txt
+	echo "r 4" >>fptest/f_mul_test_32.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f32_mul >>fptest/f_mul_test_32.txt
+
+fptest/f_mul_test_64.txt:
+	echo "o 2" >fptest/f_mul_test_64.txt
+	echo "s 1" >>fptest/f_mul_test_64.txt
+	echo "r 0" >>fptest/f_mul_test_64.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f64_mul >>fptest/f_mul_test_64.txt
+	echo "r 1" >>fptest/f_mul_test_64.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f64_mul >>fptest/f_mul_test_64.txt
+	echo "r 2" >>fptest/f_mul_test_64.txt
+	fptest/testfloat_gen -rmin -n 1000000 f64_mul >>fptest/f_mul_test_64.txt
+	echo "r 3" >>fptest/f_mul_test_64.txt
+	fptest/testfloat_gen -rmax -n 1000000 f64_mul >>fptest/f_mul_test_64.txt
+	echo "r 4" >>fptest/f_mul_test_64.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f64_mul >>fptest/f_mul_test_64.txt
+
+fptest/f_mul_add_test_16.txt:
+	echo "o 3" >fptest/f_mul_add_test_16.txt
+	echo "s 2" >>fptest/f_mul_add_test_16.txt
+	echo "r 0" >>fptest/f_mul_add_test_16.txt
+	fptest/testfloat_gen -rnear_even -n 10000000 f16_mulAdd >>fptest/f_mul_add_test_16.txt
+	echo "r 1" >>fptest/f_mul_add_test_16.txt
+	fptest/testfloat_gen -rminMag -n 10000000 f16_mulAdd >>fptest/f_mul_add_test_16.txt
+	echo "r 2" >>fptest/f_mul_add_test_16.txt
+	fptest/testfloat_gen -rmin -n 10000000 f16_mulAdd >>fptest/f_mul_add_test_16.txt
+	echo "r 3" >>fptest/f_mul_add_test_16.txt
+	fptest/testfloat_gen -rmax -n 10000000 f16_mulAdd >>fptest/f_mul_add_test_16.txt
+	echo "r 4" >>fptest/f_mul_add_test_16.txt
+	fptest/testfloat_gen -rnear_maxMag -n 10000000 f16_mulAdd >>fptest/f_mul_add_test_16.txt
+
+fptest/f_mul_add_test_32.txt:
+	echo "o 3" >fptest/f_mul_add_test_32.txt
+	echo "s 0" >>fptest/f_mul_add_test_32.txt
+	echo "r 0" >>fptest/f_mul_add_test_32.txt
+	fptest/testfloat_gen -rnear_even -n 10000000 f32_mulAdd >>fptest/f_mul_add_test_32.txt
+	echo "r 1" >>fptest/f_mul_add_test_32.txt
+	fptest/testfloat_gen -rminMag -n 10000000 f32_mulAdd >>fptest/f_mul_add_test_32.txt
+	echo "r 2" >>fptest/f_mul_add_test_32.txt
+	fptest/testfloat_gen -rmin -n 10000000 f32_mulAdd >>fptest/f_mul_add_test_32.txt
+	echo "r 3" >>fptest/f_mul_add_test_32.txt
+	fptest/testfloat_gen -rmax -n 10000000 f32_mulAdd >>fptest/f_mul_add_test_32.txt
+	echo "r 4" >>fptest/f_mul_add_test_32.txt
+	fptest/testfloat_gen -rnear_maxMag -n 10000000 f32_mulAdd >>fptest/f_mul_add_test_32.txt
+
+fptest/f_mul_add_test_64.txt:
+	echo "o 3" >fptest/f_mul_add_test_64.txt
+	echo "s 1" >>fptest/f_mul_add_test_64.txt
+	echo "r 0" >>fptest/f_mul_add_test_64.txt
+	fptest/testfloat_gen -rnear_even -n 10000000 f64_mulAdd >>fptest/f_mul_add_test_64.txt
+	echo "r 1" >>fptest/f_mul_add_test_64.txt
+	fptest/testfloat_gen -rminMag -n 10000000 f64_mulAdd >>fptest/f_mul_add_test_64.txt
+	echo "r 2" >>fptest/f_mul_add_test_64.txt
+	fptest/testfloat_gen -rmin -n 10000000 f64_mulAdd >>fptest/f_mul_add_test_64.txt
+	echo "r 3" >>fptest/f_mul_add_test_64.txt
+	fptest/testfloat_gen -rmax -n 10000000 f64_mulAdd >>fptest/f_mul_add_test_64.txt
+	echo "r 4" >>fptest/f_mul_add_test_64.txt
+	fptest/testfloat_gen -rnear_maxMag -n 10000000 f64_mulAdd >>fptest/f_mul_add_test_64.txt
+
+fadd16:	fpt fptest/f_add_test_16.txt
+	./fpt +n +t=fptest/f_add_test_16.txt
+fadd32:	fpt fptest/f_add_test_32.txt
+	./fpt +n +t=fptest/f_add_test_32.txt
+fadd64:	fpt fptest/f_add_test_64.txt
+	./fpt +n +t=fptest/f_add_test_64.txt
+fmul16:	fpt fptest/f_mul_test_16.txt
+	./fpt +n +t=fptest/f_mul_test_16.txt
+fmul32:	fpt fptest/f_mul_test_32.txt
+	./fpt +n +t=fptest/f_mul_test_32.txt
+fmul64:	fpt fptest/f_mul_test_64.txt
+	./fpt +n +t=fptest/f_mul_test_64.txt
+fmuladd16:	fpt fptest/f_mul_add_test_16.txt
+	./fpt +n +t=fptest/f_mul_add_test_16.txt
+fmuladd32:	fpt fptest/f_mul_add_test_32.txt
+	./fpt +n +t=fptest/f_mul_add_test_32.txt
+fmuladd64:	fpt fptest/f_mul_add_test_64.txt
+	./fpt +n +t=fptest/f_mul_add_test_64.txt
+
 make_image:	make_image.c
 	gcc -o make_image make_image.c
 

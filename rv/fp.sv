@@ -59,7 +59,7 @@ module fpu(
 	//  xtra2 in immed[16]
 	//
 	//	ctrl:
-	//	5 size	1=D 0=S
+	//	6:5 size	2=H 1=D 0=S
 	//  4 multiple
 	//	3:0 - op 
 	//    mult=0
@@ -131,13 +131,15 @@ module fpu(
 	reg r_res_fp, c_res_fp;
 	assign res_makes_fp = r_res_fp;
 
-	wire size = control[5];
+	wire [1:0]size = control[6:5];
 	wire multiple = control[4];
 	wire [2:0]rounding = (immed[14:12]==3'd7 ? fp_rounding:immed[14:12]);
 	wire xtra = immed[15];
-	wire xtra2 = immed[16];
+	wire [3:0]xtra2 = {immed[17:16], immed[13:12]};
 	wire [3:0]op = control[3:0];
-	reg r_xtra, r_xtra2, r_size, r_multiple;
+	reg      r_xtra, r_multiple;
+	reg [1:0]r_size;
+	reg [3:0]r_xtra2;
 	reg [3:0]r_op;
 	reg [2:0]r_rounding;
 	reg   [(NHART==1?0:LNHART-1):0]r_hart;
@@ -228,17 +230,30 @@ module fpu(
 					clk_1 = 1;
 					case (r_rounding[1:0]) //synthesis full_case parallel_case
 					0:	// fsgnj.q
-						c_res = r_size? {fr2[63], fr1[62:0]}         : {fr1[63:32], fr2[31], fr1[30:0]};
+						casez (r_size) //synthesis full_case parallel_case
+						2'b1?: c_res = {fr1[63:16], fr2[15], fr1[14:0]};
+						2'b?1: c_res = {fr2[63], fr1[62:0]};
+						2'b00: c_res = {fr1[63:32], fr2[31], fr1[30:0]};
+						endcase
 					1:	// fsgnjn.q
-						c_res = r_size? {~fr2[63], fr1[62:0]}        : {fr1[63:32], ~fr2[31], fr1[30:0]};
+						casez (r_size) //synthesis full_case parallel_case
+						2'b1?: c_res = {fr1[63:16], ~fr2[15], fr1[14:0]};
+						2'b?1: c_res = {~fr2[63], fr1[62:0]};
+						2'b00: c_res = {fr1[63:32], ~fr2[31], fr1[30:0]};
+						endcase
 					2:	// fsgnjx.q
-						c_res = r_size? {fr1[63]^fr2[63], fr1[62:0]} : {fr1[63:32], fr1[31]^fr2[31], fr1[30:0]};
+						casez (r_size) //synthesis full_case parallel_case
+						2'b1?: c_res = {fr1[63:16], fr1[15]^fr2[15], fr1[14:0]};
+						2'b?1: c_res = {fr1[63]^fr2[63], fr1[62:0]};
+						2'b00: c_res = {fr1[63:32], fr1[31]^fr2[31], fr1[30:0]};
+						endcase
 					endcase
 				end
 			7:	//		7 = fcvt/s/d
 				begin
 					clk_1 = 1;
-					if (r_xtra2) begin //		   xtra2==1 FCVT.s.d  double->single
+					casez (r_xtra2) //synthesis full_case parallel_case
+					4'b00_01:	//FCVT.s.d  double->single
 						if (fr1[62:52] == 11'h7ff) begin
 							c_res = {32'hffff_ffff, fr1[63], 8'hff, fr1[51], fr1[21:0]};
 						end else begin :cvt
@@ -291,7 +306,7 @@ module fpu(
 								c_res = {32'hffff_ffff, fr1[63], 8'h00, t[25:3]+{22'b0,ainc}};
 							end
 						end
-					end else begin	 //		   xtra2==0 FCVT.d.s  single->double
+					4'b01_00:	// FCVT.d.s  single->double
 						if (fr1[63:32] != 32'hffff_ffff) begin	// bad
 							c_res = {fr1[31], 11'h7ff, 52'h1};
 						end else
@@ -312,7 +327,11 @@ module fpu(
 						end else begin
 							c_res = { fr1[31], fr1[30], {3{~fr1[30]}}, fr1[29:23], fr1[22:0], 29'b0};
 						end
-					end
+                    4'b00_10: ; // fcvt.s.h
+                    4'b10_00: ; // fcvt.h.s
+                    4'b01_10: ; // fcvt.d.h
+                    4'b10_01: ; // fcvt.h.d
+					endcase
 				end
 			8, //		8 = fcvt.w.*
 			9, //      9 = fcvt.wu.*
@@ -344,39 +363,62 @@ module fpu(
 					endcase
 					t2 = (sign? ~t1:t1) + {63'b0, sign};
 `include "mkf6.inc"
-					if (r_size) begin :ffd
-						reg [51:0]m3;
-						reg [10:0]e3;
-						reg inc;
+					casez (r_size) //synthesis full_case parallel_case
+					2'b1?:
+						begin : ffh
+							reg [9:0]m3;
+							reg [4:0]e3;
+							reg [2:0]m;
+							reg inc;
+	
+							m = {mantissa[47:46], |mantissa[45:0]};
+							case (r_rounding) //synthesis full_case parallel_case
+							0: inc = (m>4) || ((m==4) && mantissa[48]);
+							1: inc = 0;
+							2: inc =  sign && (m!=0);
+							3: inc = !sign && (m!=0);
+							4: inc = m >= 4;
+							endcase
+							m3 = (inc?mantissa[54:45]+1:mantissa[54:52]);
+							e3 = (inc && (mantissa[54:52]==(~10'h0))?{exponent[10], exponent[3:0]}+4'b1:{exponent[10], exponent[3:0]});
+							c_res = {48'hffff_ffff_ffff, sign, e3, m3};
+						end
+					2'b?1: begin :ffd
+							reg [51:0]m3;
+							reg [10:0]e3;
+							reg inc;
 
-						case (r_rounding) //synthesis full_case parallel_case
-						0: inc = (mantissa[2:0]>4) || ((mantissa[2:0]==4) && mantissa[3]);
-						1: inc = 0;
-						2: inc =  sign && (mantissa[2:0]!=0);
-						3: inc = !sign && (mantissa[2:0]!=0);
-						4: inc = mantissa[2:0]>=4;
-						endcase
-						m3 = (inc?mantissa[54:3]+1:mantissa[54:3]);
-						e3 = (inc && (mantissa[54:3]==52'hf_ffff_ffff_ffff)?exponent+1:exponent);
-						c_res = {sign, e3, m3};
-					end else begin : ffs
-						reg [22:0]m3;
-						reg [7:0]e3;
-						reg [2:0]m;
-						reg inc;
-
-						m = {mantissa[31:30], |mantissa[29:0]};
-						case (r_rounding) //synthesis full_case parallel_case
-						0: inc = (m>4) || ((m==4) && mantissa[32]);
-						1: inc = 0;
-						2: inc =  sign && (m!=0);
-						3: inc = !sign && (m!=0);
-						4: inc = m >= 4;
-						endcase
-						m3 = (inc?mantissa[54:32]+1:mantissa[54:32]);
-						e3 = (inc && (mantissa[54:32]==(~23'h0))?{exponent[10], exponent[6:0]}+8'b1:{exponent[10], exponent[6:0]});
-						c_res = {32'hffff_ffff, sign, e3, m3};
-					end
+							case (r_rounding) //synthesis full_case parallel_case
+							0: inc = (mantissa[2:0]>4) || ((mantissa[2:0]==4) && mantissa[3]);
+							1: inc = 0;
+							2: inc =  sign && (mantissa[2:0]!=0);
+							3: inc = !sign && (mantissa[2:0]!=0);
+							4: inc = mantissa[2:0]>=4;
+							endcase
+							m3 = (inc?mantissa[54:3]+1:mantissa[54:3]);
+							e3 = (inc && (mantissa[54:3]==52'hf_ffff_ffff_ffff)?exponent+1:exponent);
+							c_res = {sign, e3, m3};
+						end
+					2'b00:
+						begin : ffs
+							reg [22:0]m3;
+							reg [7:0]e3;
+							reg [2:0]m;
+							reg inc;
+	
+							m = {mantissa[31:30], |mantissa[29:0]};
+							case (r_rounding) //synthesis full_case parallel_case
+							0: inc = (m>4) || ((m==4) && mantissa[32]);
+							1: inc = 0;
+							2: inc =  sign && (m!=0);
+							3: inc = !sign && (m!=0);
+							4: inc = m >= 4;
+							endcase
+							m3 = (inc?mantissa[54:32]+1:mantissa[54:32]);
+							e3 = (inc && (mantissa[54:32]==(~23'h0))?{exponent[10], exponent[6:0]}+8'b1:{exponent[10], exponent[6:0]});
+							c_res = {32'hffff_ffff, sign, e3, m3};
+						end
+					endcase
 					c_res_fp = 1;
 				end else begin :a8 //		   xtra==0 fcvt.wlu.*
 					reg [66:0]t;
@@ -388,25 +430,38 @@ module fpu(
 					reg [52:0]m;
 
 					clk_1 = 1;
-					if (r_size) begin
-						sign = fr1[63]&~r_op[0];
-						m = {1'b1, fr1[51:0]};
-						e = fr1[62:52];
-						z = fr1[62:52]==0 && fr1[51:0]==0;
-						over = ~fr1[63] && &fr1[62:52];
-						under = fr1[63]&r_op[0] || (fr1[63] && &fr1[62:52]);
-						nan = fr1[62:52] == ~11'b0 && fr1[50:0] != 51'b00;
-						inf = fr1[62:52] == ~11'b0 && fr1[10:0] == 51'b00;
-					end else begin
-						sign = fr1[31]&~r_op[0];
-						m = {1'b1, fr1[22:0], 29'b0};
-						e = {fr1[30], {3{~fr1[30]}}, fr1[29:23]};
-						z = fr1[30:23]==0 && fr1[22:0]==0;
-						over = ~fr1[31] && &fr1[30:23];
-						under = fr1[31]&r_op[0] || (fr1[31] && &fr1[30:23]);
-						nan = fr1[30:23] == ~8'b0 && fr1[21:0] != 22'b00;
-						inf = fr1[30:23] == ~8'b0 && fr1[22:0] == 23'b00;
-					end
+					casez (r_size) //synthesis full_case parallel_case
+					2'b1?: begin
+							sign = fr1[15]&~r_op[0];
+							m = {1'b1, fr1[9:0], 42'b0}; 
+							e = {fr1[14], {6{~fr1[14]}}, fr1[13:10]};
+							z = fr1[14:10]==0 && fr1[9:0]==0;
+							over = ~fr1[15] && &fr1[14:10];
+							under = fr1[15]&r_op[0] || (fr1[15] && &fr1[14:10]);
+							nan = fr1[14:10] == ~5'b0 && fr1[9:0] != 22'b00;
+							inf = fr1[14:10] == ~5'b0 && fr1[9:0] == 23'b00;
+						   end
+					2'b?1: begin
+							sign = fr1[63]&~r_op[0];
+							m = {1'b1, fr1[51:0]};
+							e = fr1[62:52];
+							z = fr1[62:52]==0 && fr1[51:0]==0;
+							over = ~fr1[63] && &fr1[62:52];
+							under = fr1[63]&r_op[0] || (fr1[63] && &fr1[62:52]);
+							nan = fr1[62:52] == ~11'b0 && fr1[50:0] != 51'b00;
+							inf = fr1[62:52] == ~11'b0 && fr1[10:0] == 51'b00;
+						end		
+					2'b00: begin
+							sign = fr1[31]&~r_op[0];
+							m = {1'b1, fr1[22:0], 29'b0};
+							e = {fr1[30], {3{~fr1[30]}}, fr1[29:23]};
+							z = fr1[30:23]==0 && fr1[22:0]==0;
+							over = ~fr1[31] && &fr1[30:23];
+							under = fr1[31]&r_op[0] || (fr1[31] && &fr1[30:23]);
+							nan = fr1[30:23] == ~8'b0 && fr1[21:0] != 22'b00;
+							inf = fr1[30:23] == ~8'b0 && fr1[22:0] == 23'b00;
+						end
+					endcase
 `include "mkf7.inc"
 					case (r_rounding) //synthesis full_case parallel_case
 					0: inc = (t[2:0] > 4) | ((t[2:0]==4)&t[3]);
@@ -459,24 +514,54 @@ module fpu(
 					reg lt; 
 
 					clk_1 = 1;
-					nan_a = (r_size? (fr1[62:52] == 11'h7ff && fr1[51:0] != 52'b0) :
-								   (fr1[63:32] != 32'hffff_ffff) ||
-									(fr1[30:23] == 8'hff && fr1[22:0] != 23'b0));
-					snan_a = (r_size? fr1[51] : fr1[22]);
-					nan_b = (r_size? (fr2[62:52] == 11'h7ff && fr2[51:0] != 52'b0) :
-								   (fr2[63:32] != 32'hffff_ffff) ||
-									(fr2[30:23] == 8'hff && fr2[22:0] != 23'b0));
-					snan_b = (r_size? fr2[51] : fr2[22]);
-					inf_a = (r_size? (fr1[62:52] == 11'h7ff && fr1[51:0] == 52'b0) :
-								   (fr1[30:23] == 8'hff && fr1[22:0] == 23'b0));
-					inf_b = (r_size? (fr2[62:52] == 11'h7ff && fr2[51:0] == 52'b0) :
-								   (fr2[30:23] == 8'hff && fr2[22:0] == 23'b0));
-					sign_a = (r_size ? fr1[63] : fr1[31]);
-					sign_b = (r_size ? fr2[63] : fr2[31]);
-					exp_a = (r_size? fr1[62:52] : {fr1[30], {3{~fr1[30]}}, fr1[29:23]});
-					exp_b = (r_size? fr2[62:52] : {fr2[30], {3{~fr2[30]}}, fr2[29:23]});
-					man_a = (r_size ? fr1[51:0] : {fr1[22:0], 29'b0});
-					man_b = (r_size ? fr2[51:0] : {fr2[22:0], 29'b0});
+					casez (r_size) // synthesis full_case parallel_case
+					2'b1?: begin //h
+							nan_a = (fr1[63:16] != 48'hffff_ffff_ffff) ||
+									(fr1[14:10] == 5'h1f && fr1[9:0] != 10'b0);
+							snan_a = fr1[29];
+							nan_b = (fr2[63:16] != 48'hffff_ffff_ffff) ||
+									(fr2[14:10] == 5'h1f && fr2[9:0] != 10'b0);
+							snan_b = fr2[29];
+							inf_a = (fr1[14:10] == 5'h1f && fr1[9:0] == 10'b0);
+							inf_b = (fr2[14:10] == 5'h1f && fr2[9:0] == 10'b0);
+							sign_a = fr1[15];
+							sign_b = fr2[15];
+							exp_a = {fr1[14], {6{~fr1[14]}}, fr1[13:10]};
+							exp_b = {fr2[14], {6{~fr2[14]}}, fr2[13:10]};
+							man_a = {fr1[9:0], 42'b0};
+							man_b = {fr2[9:0], 42'b0};
+						   end
+					2'b?1: begin //d
+							nan_a = (fr1[62:52] == 11'h7ff && fr1[51:0] != 52'b0);
+							snan_a = fr1[51];
+							nan_b = (fr2[62:52] == 11'h7ff && fr2[51:0] != 52'b0);
+							snan_b = fr2[51];
+							inf_a = (fr1[62:52] == 11'h7ff && fr1[51:0] == 52'b0);
+							inf_b = (fr2[62:52] == 11'h7ff && fr2[51:0] == 52'b0);
+							sign_a = fr1[63];
+							sign_b = fr2[63];
+							exp_a = fr1[62:52];
+							exp_b = fr2[62:52];
+							man_a = fr1[51:0];
+							man_b = fr2[51:0];
+						   end
+					2'b00: begin //f
+							nan_a = (fr1[63:32] != 32'hffff_ffff) ||
+									(fr1[30:23] == 8'hff && fr1[22:0] != 23'b0);
+							snan_a = fr1[22];
+							nan_b = (fr2[63:32] != 32'hffff_ffff) ||
+									(fr2[30:23] == 8'hff && fr2[22:0] != 23'b0);
+							snan_b = fr2[22];
+							inf_a = (fr1[30:23] == 8'hff && fr1[22:0] == 23'b0);
+							inf_b = (fr2[30:23] == 8'hff && fr2[22:0] == 23'b0);
+							sign_a = fr1[31];
+							sign_b = fr2[31];
+							exp_a = {fr1[30], {3{~fr1[30]}}, fr1[29:23]};
+							exp_b = {fr2[30], {3{~fr2[30]}}, fr2[29:23]};
+							man_a = {fr1[22:0], 29'b0};
+							man_b = {fr2[22:0], 29'b0};
+						   end
+					endcase
 
 					if (nan_a || nan_b ) begin
 						v = 0;
@@ -522,11 +607,11 @@ module fpu(
 							if (!nan_a && nan_b && !snan_b) begin
 								c_res = fr1;
 							end else begin
-								if (r_size) begin
-									c_res = 64'h7FF0_0000_0000_0000;
-								end else begin
-									c_res = 64'hffff_ffff_7F80_0000;
-								end
+								casez (r_size) //synthesis full_case parallel_case
+								2'b1?: c_res = 64'hffff_ffff_ffff_7c00;
+								2'b?1: c_res = 64'h7FF0_0000_0000_0000;
+								2'b00: c_res = 64'hffff_ffff_7F80_0000;
+								endcase
 							end
 						end else begin
 							c_res = (lt^r_rounding[0] ? fr1:fr2); // r_rounding[0] is fmin/fmax
@@ -540,9 +625,23 @@ module fpu(
 			13:	//		13 = fclass
 				begin
 					clk_1 = 1;
-					if (r_size) begin
+					casez (r_size) // synthesis full_case parallel_case
+					2'b1?:
 						c_res = {54'b0,
-							/*9 +qnan*/	(fr1[62:52] == 11'h7ff) & fr1[51],
+							/*9*/	(fr1[14:10] == 5'h1f) &  fr1[9] & (fr1[8:0] != 9'b00) | (fr1[63:16]!=48'hffff_ffff_ffff),
+							/*8*/	(fr1[14:10] == 5'h1f) & ~fr1[9] & (fr1[8:0] != 9'b00) & (fr1[63:16]==48'hffff_ffff_ffff),
+							/*7*/	~fr1[15] & (fr1[14:10] == 5'h1f) & (fr1[9:0] == 10'b0) & (fr1[63:16]==48'hffff_ffff_ffff),
+							/*6*/	~fr1[15] & (fr1[14:10] != 5'h1f) & (fr1[14:10] != 5'h0) & (fr1[63:16]==48'hffff_ffff_ffff),
+							/*5*/	~fr1[15] & (fr1[14:10] == 5'h0) & (fr1[63:16]==48'hffff_ffff_ffff) & (fr1[22:0] != 0),
+							/*4*/	~fr1[15] & (fr1[14:0] == 15'h0) & (fr1[63:16]==48'hffff_ffff_ffff),
+							/*3*/	fr1[15] & (fr1[14:0] == 15'h0) & (fr1[63:16]==48'hffff_ffff_ffff),
+							/*2*/	fr1[15] & (fr1[14:10] == 5'h0) & (fr1[63:16]==48'hffff_ffff_ffff) & (fr1[22:0] != 0),
+							/*1*/	fr1[15] & (fr1[14:10] != 5'h1f) & (fr1[14:10] != 5'h0) & (fr1[63:16]==48'hffff_ffff_ffff),
+							/*0*/	fr1[15] & (fr1[14:10] == 5'h1f) & (fr1[9:0] == 10'b0) & (fr1[63:16]==48'hffff_ffff_ffff)
+								};
+					2'b?1:
+						c_res = {54'b0,
+							/*9 +qnan*/	(fr1[62:52] == 11'h7ff) & fr1[51]  & (fr1[50:0] != 52'b00),
 							/*8 +snan*/	(fr1[62:52] == 11'h7ff) & ~fr1[51] & (fr1[50:0] != 52'b00),
 							/*7 +inf */	~fr1[63] & (fr1[62:52] == 11'h7ff) & (fr1[51:0] == 52'b0),
 							/*6 +    */	~fr1[63] & (fr1[62:52] != 11'h7ff) & (fr1[62:52] != 11'h0),
@@ -551,9 +650,9 @@ module fpu(
 							/*3 -0   */	fr1[63] & (fr1[62:0] == 63'h0),
 							/*2 -sub */	fr1[63] & (fr1[62:52] == 11'h0) & (fr1[51:0] != 0),
 							/*1 -    */	fr1[63] & (fr1[62:52] != 11'h7ff) & (fr1[62:52] != 11'h0),
-							/*0 -inf */	fr1[63] & (fr1[62:52] == 11'h7ff) & (fr1[51:0] == 51'b0)
+							/*0 -inf */	fr1[63] & (fr1[62:52] == 11'h7ff) & (fr1[51:0] == 52'b0)
 							};
-					end else begin
+					2'b00:
 						c_res = {54'b0,
 							/*9*/	(fr1[30:23] == 8'hff) &  fr1[22] & (fr1[21:0] != 22'b00) | (fr1[63:32]!=32'hffff_ffff),
 							/*8*/	(fr1[30:23] == 8'hff) & ~fr1[22] & (fr1[21:0] != 22'b00) & (fr1[63:32]==32'hffff_ffff),
@@ -566,24 +665,23 @@ module fpu(
 							/*1*/	fr1[31] & (fr1[30:23] != 8'hff) & (fr1[30:23] != 8'h0) & (fr1[63:32]==32'hffff_ffff),
 							/*0*/	fr1[31] & (fr1[30:23] == 8'hff) & (fr1[22:0] == 23'b0) & (fr1[63:32]==32'hffff_ffff)
 								};
-					end
+					endcase
 					c_res_fp = 0;
 				end
 			14: //		14 = fmv
 				if (r_xtra) begin	// FMV.D.X
 					clk_1 = 1;
-					if (r_size) begin
-						c_res = ir1;
-					end else begin
-						c_res = {32'hffff_ffff, ir1[31:0]};
-					end
+					casez (r_size) // synthesis full_case parallel_case
+					2'b1?: c_res = {48'hffff_ffff_ffff, ir1[15:0]};
+					2'b?1: c_res = ir1;
+					2'b00: c_res = {32'hffff_ffff, ir1[31:0]};
+					endcase
 				end else begin				// FMV.X.D
 					clk_1 = 1;
-					if (r_size) begin
-						c_res = fr1;
-					end else begin
-						c_res = {{32{fr1[31]}}, fr1[31:0]};
-					end
+					casez (r_size) // synthesis full_case parallel_case
+					2'b?1: c_res = fr1;
+					2'b00: c_res = {{32{fr1[31]}}, fr1[31:0]};
+					endcase
 					c_res_fp = 0;
 				end
 			default: begin c_res_fp = 'bx; c_res = 'bx; end

@@ -560,7 +560,7 @@ module decode(input clk,
 			end
 		22'b00_???_??_?????????_??_??_?_1: begin // fp
 				c_unit_type_1 = 5;
-				c_control_1 = {c_fp_sz_1[0], c_fpm_1, c_fp_op_1};
+				c_control_1 = {c_fp_sz_1[1:0], c_fpm_1, c_fp_op_1};
 				c_issue_1 = 1;
 			end
 		endcase
@@ -1036,6 +1036,10 @@ module decode(input clk,
 					makes_rd = rd != 0;
 					rd_fp = 1;
 					case (ins[14:12])   // synthesis full_case parallel_case
+					3'b001: begin		// flh
+								lsize = 1;
+								lf = 1;
+							end
 					3'b010: begin		// flw
 								lsize = 2;
 								lf = 1;
@@ -2134,6 +2138,10 @@ module decode(input clk,
 					makes_rd = 0;
 					rs2_fp = 1;
 					case (ins[14:12])  // synthesis full_case parallel_case
+					3'b001: begin		// fhw
+								lsize = 1;
+								lf = 1;
+							end
 					3'b010: begin		// fsw
 								lsize = 2;
 								lf = 1;
@@ -2177,7 +2185,7 @@ module decode(input clk,
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
 					f_fp_sz = ins[26:25];
-					trap = trap | ins[26];
+					trap = trap | (ins[26:25] == 2'b11);
 					f_fp_op = 0;	// fadd
 					needs_rs2 = 1;
 					needs_rs3 = 1;
@@ -2195,7 +2203,7 @@ module decode(input clk,
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
 					f_fp_sz = ins[26:25];
-					trap = trap | ins[26];
+					trap = trap | (ins[26:25] == 2'b11);
 					f_fp_op = 1;	// fsub
 					needs_rs3 = 1;
 					needs_rs2 = 1;
@@ -2213,7 +2221,7 @@ module decode(input clk,
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
 					f_fp_sz = ins[26:25];
-					trap = trap | ins[26];
+					trap = trap | (ins[26:25] == 2'b11);
 					f_fp_op = 2;	// fnmsub
 					needs_rs2 = 1;
 					needs_rs3 = 1;
@@ -2231,7 +2239,7 @@ module decode(input clk,
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
 					f_fp_sz = ins[26:25];
-					trap = trap | ins[26];
+					trap = trap | (ins[26:25] == 2'b11);
 					f_fp_op = 3;	// fnmadd
 					needs_rs2 = 1;
 					needs_rs3 = 1;
@@ -2252,8 +2260,8 @@ module decode(input clk,
 					needs_rs2 = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
 					f_fp_sz = ins[26:25];
-					trap = trap | ins[26];
-					imm = {15'bxxxxx, ins[20], ins[28], ins[14:12], 5'bxxxxx, 2'bxx, 5'bxxxxx};	// encode RM here
+					trap = trap | (ins[26:25] == 2'b11);
+					imm = {14'bxxxxx, ins[21:20], ins[28], ins[14:12], 5'bxxxxx, 2'bxx, 5'bxxxxx};	// encode RM here
 					rs1_fp = 1;
 					rd_fp = 1;
 					case (ins[31:27]) // synthesis full_case parallel_case
@@ -2281,17 +2289,26 @@ module decode(input clk,
 					5'b00100:	begin	// fsgn*.*
 									f_fp_op = 5;	// fsgn*
 									rs2_fp = 1;
-									trap = ins[14] | ins[26] | (ins[13:12]==2'h3);
+									trap = ins[14] | (ins[26:25] == 2'b11) | (ins[13:12]==2'h3);
 								end
 					5'b00101:	begin	// fmin/max.*
 									rs2_fp = 1;
 									f_fp_op = 6;	// fmin/max
-									trap = ins[14:13]!=0 || ins[26];
+									trap = ins[14:13]!=0 || (ins[26:25] == 2'b11);
 								end
 					5'b01000:	begin	// fcvt.sd/ds
 									needs_rs2 = 0;
 									f_fp_op = 7;			// fcvt.s.d/d.s 
-									trap = trap || rs2[4:1]!=0 || (rs2[0]&ins[25]) || (~rs2[0]&~ins[25]);
+									trap = rs2[4:2]!=0;
+									casez ({ins[26:25], rs2[1:0]}) // synthesis full_case parallel_case
+									4'b00_01: ;	// fcvt.s.d
+									4'b01_00: ;	// fcvt.d.s
+									4'b00_10: ;	// fcvt.s.h
+									4'b10_00: ;	// fcvt.h.s
+									4'b01_10: ;	// fcvt.d.h
+									4'b10_01: ;	// fcvt.h.d
+									default: trap = 1;
+									endcase
 								end
 					5'b10100:	begin	// fcmp
 									rd_fp = 0;

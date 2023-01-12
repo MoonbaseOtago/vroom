@@ -243,7 +243,7 @@ module alu(
 	//			   8 - add r1 = pc
 	//			   9 - add r1 << 1
 	//			   a - add r1 << 2
-	//			   b - add r1 << 2
+	//			   b - add r1 << 3
 	//			   c - add r1 << 0 sign extend .w with 0
 	//			   d - clz/pcnt/etc
 

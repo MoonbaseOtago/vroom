@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2020-21 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2020-23 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -193,6 +193,29 @@ module fpu(
 			.hart_out(mul_hart),
 			.valid(valid_mul));
 
+	wire [RV-1:0]res_div;
+	wire		valid_div;
+	wire [LNCOMMIT-1:0]div_rd;
+	wire [(NHART==1?0:LNHART-1):0]div_hart;
+	fp_div		#(.RV(RV), .LNHART(LNHART), .NHART(NHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))fpdiv(.clk(clk), .reset(reset),
+			.start(r_start&(r_op == 3 || r_op == 4)),
+            .sz(r_size),    // double/single
+			.rd(r_rd),
+			.hart(r_hart),
+			.makes_rd(r_makes_rd),
+			.rnd(r_rounding),
+			.issqrt(r_op == 4),
+			.in_1(fr1),
+			.in_2(fr2),
+			.commit_kill_0(commit_kill_0),
+			//.commit_kill_1(commit_kill_1),
+			.exception(div_exception),
+			.res(res_div),
+			.rd_out(div_rd),
+			.hart_out(div_hart),
+			.valid(valid_div),
+			.valid_ack(!r_start&!valid_mul&!valid_add));
+
 
 
 
@@ -211,16 +234,20 @@ module fpu(
 	always @(*) begin
 		c_res_fp = (reset? 0:1);
 		clk_1 = 0;
-		casez ({valid_mul, valid_add}) // synthesis full_case parallel_case
-		2'b1?:	begin
+		casez ({valid_div, r_start, valid_mul, valid_add}) // synthesis full_case parallel_case
+		4'b1000:begin
+					c_res = res_div;
+					c_res_fp = 1;
+				end
+		4'b??1?:begin
 					c_res = res_mul;
 					c_res_fp = 1;
 				end
-		2'b?1:	begin
+		4'b???1:begin
 					c_res = res_add;
 					c_res_fp = 1;
 				end
-		2'b00:
+		4'b?1??:
 			case (r_op)	// synthesis full_case parallel_case
 			3, //		3 = fdiv
 			4: //		4 = fsqrt
@@ -688,19 +715,24 @@ module fpu(
 			endcase
 		endcase
 		c_res_makes_rd = 0;
-		casez ({valid_add, valid_mul}) // synthesis full_case parallel_case
-		2'b1?: begin
+		casez ({valid_div, r_start, valid_add, valid_mul}) // synthesis full_case parallel_case
+		4'b1000:begin
+					c_res_makes_rd[div_hart] = 1;
+					c_res_rd = div_rd;
+			    end
+		4'b??1?:begin
 					c_res_makes_rd[add_hart] = 1;
 					c_res_rd = add_rd;
-			   end
-		2'b?1: begin
+			    end
+		4'b???1:begin
 					c_res_makes_rd[mul_hart] = 1;
 					c_res_rd = mul_rd;
-			   end
-		2'b00: begin
+			    end
+		4'b?1??:begin
 					c_res_makes_rd[r_hart] = clk_1&r_start;
 					c_res_rd = r_rd;
-			   end
+			    end
+		4'b0000: c_res_rd='bx;
 		endcase
 	end
 

@@ -336,9 +336,9 @@ module fp_add_sub(input reset, input clk,
 		incx = 0;
 		if (mantissa_z[55]) begin
 			casez (r_b_sz) // synthesis full_case parallel_case
-			2'b1?: incx = exponent_t[11:7]==5'h0;
+			2'b1?: incx = exponent_t[10:7]==4'h0;
 			2'b?1: incx = exponent_t==11'h0;
-			2'b00: incx = exponent_t[11:4]==8'h0;
+			2'b00: incx = exponent_t[10:4]==7'h0;
 			endcase
 		end
 	end
@@ -488,7 +488,7 @@ module fp_add_sub(input reset, input clk,
 						out = {48'hffff_ffff_ffff, 6'h1f, 1'b1, 9'h0};	// quiet nan
 					end else
 					if (!r_b_infinity&calc_infinity&roverflow) begin
-						out = {48'hffff_ffff_ffff, r_b_infinity?r_b_infinity_sign:r_b_sign, 5'h1e, ~10'h0};	
+						out = {48'hffff_ffff_ffff, r_b_sign, 5'h1e, ~10'h0};	
 					end else
 					if (r_b_infinity|calc_infinity) begin
 						out = {48'hffff_ffff_ffff, r_b_infinity?r_b_infinity_sign:r_b_sign, 5'h1f, 10'h0};	
@@ -501,7 +501,7 @@ module fp_add_sub(input reset, input clk,
 						out = {12'h7ff, 1'b1, 51'h0};	// quiet nan
 					end else
 					if (!r_b_infinity&calc_infinity&roverflow) begin
-						out = {r_b_infinity?r_b_infinity_sign:r_b_sign, 11'h7fe, ~52'h0};	
+						out = {r_b_sign, 11'h7fe, ~52'h0};	
 					end else
 					if (r_b_infinity|calc_infinity) begin
 						out = {r_b_infinity?r_b_infinity_sign:r_b_sign, 11'h7ff, 52'h0};	
@@ -514,7 +514,7 @@ module fp_add_sub(input reset, input clk,
 						out = {32'hffff_ffff, 9'h0ff, 1'b1, 22'h0};	// quiet nan
 					end else
 					if (!r_b_infinity&calc_infinity&roverflow) begin
-						out = {32'hffff_ffff, r_b_infinity?r_b_infinity_sign:r_b_sign, 8'hfe, ~23'h0};
+						out = {32'hffff_ffff, r_b_sign, 8'hfe, ~23'h0};
 					end else
 					if (r_b_infinity|calc_infinity) begin
 						out = {32'hffff_ffff, r_b_infinity?r_b_infinity_sign:r_b_sign, 8'hff, 23'h0};	

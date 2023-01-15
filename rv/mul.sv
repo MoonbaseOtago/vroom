@@ -337,7 +337,6 @@ module mul(
 			c_div_sign = sgn[0];
 			c_div_start = !commit_kill_0[rd];
 		end else 
-//		casez ({r_div_hart==1?commit_kill_1[r_div_rd]:commit_kill_0[r_div_rd], r_div_start, r_div_next, r_dividing, r_div_sign_last, r_div_last})// synthesis full_case parallel_case
 		casez ({commit_kill_0[r_div_rd], r_div_start, r_div_next, r_dividing, r_div_sign_last, r_div_last})// synthesis full_case parallel_case
 		6'b1?????:begin			// abort 
 					c_div_start = 0;

@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2020-22 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2020-23 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -471,7 +471,6 @@ debug=5;
 			endcase
 		end else begin
 			exponent = exponent_t;
-			calc_infinity = calc_infinity_t;
 			casez (r_c_sz) // synthesis full_case parallel_case
 			2'b1?: begin
 						calc_infinity = calc_infinity_t || (!exponent_t[11] && exponent_t[10:0] >= 12'h00f);

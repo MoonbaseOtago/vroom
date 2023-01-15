@@ -3,6 +3,7 @@ module main;
 	parameter RV=64;
 	reg reset, clk;
 	reg sub, mul;
+	reg div, issqrt, div_start;
 	reg [1:0]sz;	// 0=32-bit 1=64-bit 2=16-bit
 	reg [2:0]rnd;
 	reg [63:0]in_1, in_2, in_3;
@@ -11,6 +12,9 @@ module main;
 	wire [63:0]res;
 	wire exception_mul;
 	wire [63:0]res_mul;
+	wire [63:0]res_div;
+	wire exception_div;
+	wire valid_div;
 	string file_name;
 	integer in;
 	integer count;
@@ -26,6 +30,7 @@ module main;
 
 	//  +n
 	//  O op	- 0 add, 1 sub, 2 mul, 3 a*b+c, 4 a*b-c 5 -(a*b)+c 6 -(a*b)-c
+	//			7 div 8 sqrt
 	//  R rnd
 	//  S sz
 	//  a b c flags
@@ -42,11 +47,13 @@ module main;
 			$dumpfile("fpt.vcd");
 			$dumpvars;
 		end
+		div_start = 0;
 		reset = 1;
 		in_3 = 0;
 		fmuladd = 0;
 		#5
 		clk = 0; #5 clk = 1; #5
+		reset = 0;
 		clk = 0; #5 clk = 1; #5
 		if ($test$plusargs ("t")) begin
 			if ($value$plusargs ("t=%s", file_name)) begin
@@ -70,6 +77,8 @@ module main;
 					x = $fscanf(f, " %d", op);
 					op1 = "";
 					op2 = "";
+					div = 0;
+					issqrt = 0;
 					case (op) // synthesis full_case parallel_case
 					0: begin sub = 0; mul = 0; end
 					1: begin sub = 1; mul = 0; end
@@ -78,6 +87,8 @@ module main;
 					4: begin mul = 1; sub = 0; fmuladd = 1; fmulsub = 1; fmulsign = 0; op1=""; op2="-"; end
 					5: begin mul = 1; sub = 0; fmuladd = 1; fmulsub = 0; fmulsign = 1; op1="-("; op2=")+"; end
 					6: begin mul = 1; sub = 0; fmuladd = 1; fmulsub = 1; fmulsign = 1; op1="-("; op2=")-"; end
+					7: begin div=1; mul = 0; sub = 0; fmuladd = 0; fmulsub = 0; fmulsign = 0; op1=""; op2="/"; end
+					8: begin div=1; issqrt=1; mul = 0; sub = 0; fmuladd = 0; fmulsub = 0; fmulsign = 0; op1=""; op2="~"; end
 					default: begin sub = 1'bx; mul = 1'bx;  fmuladd = 1'bx; end
 					endcase		
 					in = $fgetc(f);
@@ -98,13 +109,16 @@ module main;
 					in = $fgetc(f);
 				end else begin
 					x = $ungetc(in, f);
-					if (op == 3) begin
+					if (op == 8) begin
+						x = $fscanf(f, "%x %x %x", in_1, r, flags);
+					end else 
+					if (op >= 3 && op <= 6) begin
 						x = $fscanf(f, "%x %x %x %x %x", in_1, in_2, in_3, r, flags);
 					end else begin
 						x = $fscanf(f, "%x %x %x %x", in_1, in_2, r, flags);
 					end
 					in = $fgetc(f);
-					if (x < 4) begin
+					if (x < 3) begin
 						$display("BAD input line #%d '%c' %x", line, in, in);
 						$finish;
 					end
@@ -123,8 +137,97 @@ module main;
 							r = {~32'h0, r[31:0]};
 						end
 					endcase
-					clk = 0; #5 clk = 1; #5
+					if (div) begin
+						clk = 0; div_start=1; #5 clk = 1; #5
+						while (!valid_div) begin
+							clk = 0; div_start = 0; #5  clk = 1; #5;
+						end
+						if (!issqrt) begin
+							casez (sz) 
+							2'b1?:	if (sig_exception && exception_div) begin
+									$display("%h%s%h = %h EXCEPTION", in_1[15:0], "/", in_2[15:0], r[15:0]);
+								end else
+								if (res_div[63:16] != 48'hffff_ffff_ffff) begin
+									$display("%h%s%h = %h notfp16 - %h", in_1[15:0], "/", in_2[15:0], r[15:0], res_div);
+									$finish;
+								end else
+								if (r[15:0] !== res_div[15:0]) begin
+									$display("%h%s%h = %h FAIL (got %h)", in_1[15:0], "/", in_2[15:0], r[15:0], res_div[15:0]); 
+									$display("(g b) s(%b %b) e(%h %h) m(%h %h) rnd=%d", r[15], res_div[15], r[14:10], res_div[14:10], r[9:0], res_div[9:0], rnd);
+									$finish;
+								end else begin
+									$display("%h%s%h = %h OK", in_1[15:0], "/", in_2[15:0], res_div[15:0]);  
+								end
+							2'b?1:	if (sig_exception && exception_div) begin
+									$display("%h%s%h = %h EXCEPTION", in_1, "/", in_2, r);
+								end else
+								if (r !== res_div) begin
+									$display("%h%s%h = %h FAIL (got %h)", in_1, "/", in_2, r, res_div); 
+									$display("(g b) s(%b %b) e(%h %h) m(%h %h) rnd=%d", r[63], res_div[63], r[62:52], res_div[62:52], r[51:0], res_div[51:0], rnd);
+									$finish;
+								end else begin
+									$display("%h%s%h = %h OK", in_1, "/", in_2, res_div);  
+								end
+							2'b00:	if (sig_exception && exception_div) begin
+									$display("%h%s%h = %h EXCEPTION", in_1[31:0], "/", in_2[31:0], r[31:0]);
+								end else
+								if (res_div[63:32] != 32'hffff_ffff) begin
+									$display("%h%s%h = %h notfp32 - %h", in_1[31:0], "/", in_2[31:0], r[31:0], res_div);
+									$finish;
+								end else
+								if (r[31:0] !== res_div[31:0]) begin
+									$display("%h%s%h = %h FAIL (got %h)", in_1[31:0], "/", in_2[31:0], r[31:0], res_div[31:0]); 
+									$display("(g b) s(%b %b) e(%h %h) m(%h %h) rnd=%d", r[31], res_div[31], r[30:23], res_div[30:23], r[22:0], res_div[22:0], rnd);
+									$finish;
+								end else begin
+									$display("%h%s%h = %h OK", in_1[31:0], "/", in_2[31:0], res_div[31:0]);  
+								end
+							endcase
+						end else begin
+							casez (sz) 
+							2'b1?:	if (sig_exception && exception_div) begin
+									$display("sqrt %h = %h EXCEPTION", in_1[15:0], r[15:0]);
+								end else
+								if (res_div[63:16] != 48'hffff_ffff_ffff) begin
+									$display("sqrt %h = %h notfp16 - %h", in_1[15:0], r[15:0], res_div);
+									$finish;
+								end else
+								if (r[15:0] !== res_div[15:0]) begin
+									$display("sqrt %h = %h FAIL (got %h)", in_1[15:0], r[15:0], res_div[15:0]); 
+									$display("(g b) s(%b %b) e(%h %h) m(%h %h) rnd=%d", r[15], res_div[15], r[14:10], res_div[14:10], r[9:0], res_div[9:0], rnd);
+									$finish;
+								end else begin
+									$display("sqrt %h = %h OK", in_1[15:0], res_div[15:0]);  
+								end
+							2'b?1:	if (sig_exception && exception_div) begin
+									$display("sqrt %h = %h EXCEPTION", in_1, r);
+								end else
+								if (r !== res_div) begin
+									$display("sqrt %h = %h FAIL (got %h)", in_1, r, res_div); 
+									$display("(g b) s(%b %b) e(%h %h) m(%h %h) rnd=%d", r[63], res_div[63], r[62:52], res_div[62:52], r[51:0], res_div[51:0], rnd);
+									$finish;
+								end else begin
+									$display("sqrt %h = %h OK", in_1, res_div);  
+								end
+							2'b00:	if (sig_exception && exception_div) begin
+									$display("sqrt %h = %h EXCEPTION", in_1[31:0], r[31:0]);
+								end else
+								if (res_div[63:32] != 32'hffff_ffff) begin
+									$display("sqrt %h = %h notfp32 - %h", in_1[31:0], r[31:0], res_div);
+									$finish;
+								end else
+								if (r[31:0] !== res_div[31:0]) begin
+									$display("sqrt %h = %h FAIL (got %h)", in_1[31:0], r[31:0], res_div[31:0]); 
+									$display("(g b) s(%b %b) e(%h %h) m(%h %h) rnd=%d", r[31], res_div[31], r[30:23], res_div[30:23], r[22:0], res_div[22:0], rnd);
+									$finish;
+								end else begin
+									$display("sqrt %h = %h OK", in_1[31:0], res_div[31:0]);  
+								end
+							endcase
+						end
+					end else
 					if (mul) begin
+						clk = 0; #5 clk = 1; #5
 						clk = 0; #5 clk = 1; #5
 						if (!fmuladd) begin
 							casez (sz) 
@@ -210,6 +313,7 @@ module main;
 							endcase
 						end
 					end else begin
+						clk = 0; #5 clk = 1; #5
 						casez (sz) 
 						2'b1?: if (sig_exception && exception) begin
 								$display("%h%s%h = %h EXCEPTION", in_1[15:0], sub?"-":"+", in_2[15:0], r[15:0]);
@@ -414,5 +518,22 @@ module main;
 		.fmulsign(fmulsign),
         	.exception(exception_mul),
         	.res(res_mul));
+
+	fp_div #(.RV(RV))fpdiv(
+		.hart(1'b0),
+		.start(div_start),
+		.rd(6'b0),
+		.reset(reset), 
+		.issqrt(issqrt),
+		.clk(clk),
+        	.sz(sz),
+        	.rnd(rnd),
+        	.in_1(in_1),
+        	.in_2(in_2),
+        	.res(res_div),
+		.commit_kill_0(64'b0),
+        	.exception(exception_div),
+		.valid(valid_div),
+		.valid_ack(valid_div));
 
 endmodule

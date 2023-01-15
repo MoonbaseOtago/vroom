@@ -94,8 +94,8 @@ XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
 XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(OPT_FLAG_1)
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
 
-FPU = fp_add.sv fp_mul.sv fp.sv 
-FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc mkf8.inc mkf9.inc
+FPU = fp.sv fp_add.sv fp_mul.sv fp_div.sv
+FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc mkf8.inc mkf9.inc mkf10.inc mkf11.inc
 
 
 VSYNTH1 = +define+VSYNTH +define+VSYNTH2 $(OPT_FLAG_1)
@@ -712,6 +712,16 @@ mkf9:	mkf9.c
 mkf9.inc:	mkf9
 	./mkf9 >$@
 
+mkf10:	mkf10.c
+	gcc -o mkf10 mkf10.c
+mkf10.inc:	mkf10
+	./mkf10 >$@
+
+mkf11:	mkf11.c
+	gcc -o mkf11 mkf11.c
+mkf11.inc:	mkf11
+	./mkf11 >$@
+
 fptest/fp_add_test_32.txt:	fptest/timesoftfloat32
 	fptest/timesoftfloat32 -nearesteven float32_add > fptest/fp_add_test_32.txt
 	fptest/timesoftfloat32 -nearesteven float32_sub >> fptest/fp_add_test_32.txt
@@ -799,8 +809,8 @@ opensbi.bin: linux/opensbi-master/build/platform/moonbase/firmware/fw_jump.elf
 sv.dtb:	sv.dts
 	$(XDTC) -I dts sv.dts -o sv.dtb
 
-fpt:	testfp.sv fp_add.sv mkf1.inc mkf2.inc fp_mul.sv mkf3.inc mkf9.inc
-	iverilog testfp.sv fp_add.sv fp_mul.sv -g 2005-sv -o fpt
+fpt:	testfp.sv fp_add.sv mkf1.inc mkf2.inc fp_mul.sv mkf3.inc mkf9.inc fp_div.sv mkf10.inc mkf11.inc
+	iverilog testfp.sv fp_add.sv fp_mul.sv fp_div.sv -g 2005-sv -o fpt
 
 fpadd32:	fpt fptest/fp_add_test_32.txt
 	./fpt +s
@@ -888,6 +898,90 @@ fptest/f_add_test_64.txt:
 	fptest/testfloat_gen -rmax -n 1000000 f64_sub >>fptest/f_add_test_64.txt
 	echo "r 4" >>fptest/f_add_test_64.txt
 	fptest/testfloat_gen -rnear_maxMag -n 1000000 f64_sub >>fptest/f_add_test_64.txt
+
+fptest/f_div_test_16.txt:
+	echo "o 7" >fptest/f_div_test_16.txt
+	echo "s 2" >>fptest/f_div_test_16.txt
+	echo "r 0" >>fptest/f_div_test_16.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f16_div >>fptest/f_div_test_16.txt
+	echo "r 1" >>fptest/f_div_test_16.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f16_div >>fptest/f_div_test_16.txt
+	echo "r 2" >>fptest/f_div_test_16.txt
+	fptest/testfloat_gen -rmin -n 1000000 f16_div >>fptest/f_div_test_16.txt
+	echo "r 3" >>fptest/f_div_test_16.txt
+	fptest/testfloat_gen -rmax -n 1000000 f16_div >>fptest/f_div_test_16.txt
+	echo "r 4" >>fptest/f_div_test_16.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f16_div >>fptest/f_div_test_16.txt
+
+fptest/f_div_test_32.txt:
+	echo "o 7" >fptest/f_div_test_32.txt
+	echo "s 0" >>fptest/f_div_test_32.txt
+	echo "r 0" >>fptest/f_div_test_32.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f32_div >>fptest/f_div_test_32.txt
+	echo "r 1" >>fptest/f_div_test_32.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f32_div >>fptest/f_div_test_32.txt
+	echo "r 2" >>fptest/f_div_test_32.txt
+	fptest/testfloat_gen -rmin -n 1000000 f32_div >>fptest/f_div_test_32.txt
+	echo "r 3" >>fptest/f_div_test_32.txt
+	fptest/testfloat_gen -rmax -n 1000000 f32_div >>fptest/f_div_test_32.txt
+	echo "r 4" >>fptest/f_div_test_32.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f32_div >>fptest/f_div_test_32.txt
+
+fptest/f_div_test_64.txt:
+	echo "o 7" >fptest/f_div_test_64.txt
+	echo "s 1" >>fptest/f_div_test_64.txt
+	echo "r 0" >>fptest/f_div_test_64.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f64_div >>fptest/f_div_test_64.txt
+	echo "r 1" >>fptest/f_div_test_64.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f64_div >>fptest/f_div_test_64.txt
+	echo "r 2" >>fptest/f_div_test_64.txt
+	fptest/testfloat_gen -rmin -n 1000000 f64_div >>fptest/f_div_test_64.txt
+	echo "r 3" >>fptest/f_div_test_64.txt
+	fptest/testfloat_gen -rmax -n 1000000 f64_div >>fptest/f_div_test_64.txt
+	echo "r 4" >>fptest/f_div_test_64.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f64_div >>fptest/f_div_test_64.txt
+
+fptest/f_sqrt_test_16.txt:
+	echo "o 8" >fptest/f_sqrt_test_16.txt
+	echo "s 2" >>fptest/f_sqrt_test_16.txt
+	echo "r 0" >>fptest/f_sqrt_test_16.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f16_sqrt >>fptest/f_sqrt_test_16.txt
+	echo "r 1" >>fptest/f_sqrt_test_16.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f16_sqrt >>fptest/f_sqrt_test_16.txt
+	echo "r 2" >>fptest/f_sqrt_test_16.txt
+	fptest/testfloat_gen -rmin -n 1000000 f16_sqrt >>fptest/f_sqrt_test_16.txt
+	echo "r 3" >>fptest/f_sqrt_test_16.txt
+	fptest/testfloat_gen -rmax -n 1000000 f16_sqrt >>fptest/f_sqrt_test_16.txt
+	echo "r 4" >>fptest/f_sqrt_test_16.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f16_sqrt >>fptest/f_sqrt_test_16.txt
+
+fptest/f_sqrt_test_32.txt:
+	echo "o 8" >fptest/f_sqrt_test_32.txt
+	echo "s 0" >>fptest/f_sqrt_test_32.txt
+	echo "r 0" >>fptest/f_sqrt_test_32.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f32_sqrt >>fptest/f_sqrt_test_32.txt
+	echo "r 1" >>fptest/f_sqrt_test_32.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f32_sqrt >>fptest/f_sqrt_test_32.txt
+	echo "r 2" >>fptest/f_sqrt_test_32.txt
+	fptest/testfloat_gen -rmin -n 1000000 f32_sqrt >>fptest/f_sqrt_test_32.txt
+	echo "r 3" >>fptest/f_sqrt_test_32.txt
+	fptest/testfloat_gen -rmax -n 1000000 f32_sqrt >>fptest/f_sqrt_test_32.txt
+	echo "r 4" >>fptest/f_sqrt_test_32.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f32_sqrt >>fptest/f_sqrt_test_32.txt
+
+fptest/f_sqrt_test_64.txt:
+	echo "o 8" >fptest/f_sqrt_test_64.txt
+	echo "s 1" >>fptest/f_sqrt_test_64.txt
+	echo "r 0" >>fptest/f_sqrt_test_64.txt
+	fptest/testfloat_gen -rnear_even -n 1000000 f64_sqrt >>fptest/f_sqrt_test_64.txt
+	echo "r 1" >>fptest/f_sqrt_test_64.txt
+	fptest/testfloat_gen -rminMag -n 1000000 f64_sqrt >>fptest/f_sqrt_test_64.txt
+	echo "r 2" >>fptest/f_sqrt_test_64.txt
+	fptest/testfloat_gen -rmin -n 1000000 f64_sqrt >>fptest/f_sqrt_test_64.txt
+	echo "r 3" >>fptest/f_sqrt_test_64.txt
+	fptest/testfloat_gen -rmax -n 1000000 f64_sqrt >>fptest/f_sqrt_test_64.txt
+	echo "r 4" >>fptest/f_sqrt_test_64.txt
+	fptest/testfloat_gen -rnear_maxMag -n 1000000 f64_sqrt >>fptest/f_sqrt_test_64.txt
 
 fptest/f_mul_test_16.txt:
 	echo "o 2" >fptest/f_mul_test_16.txt
@@ -979,6 +1073,18 @@ fadd32:	fpt fptest/f_add_test_32.txt
 	./fpt +n +t=fptest/f_add_test_32.txt
 fadd64:	fpt fptest/f_add_test_64.txt
 	./fpt +n +t=fptest/f_add_test_64.txt
+fsqrt16:fpt fptest/f_sqrt_test_16.txt
+	./fpt +n +t=fptest/f_sqrt_test_16.txt
+fsqrt32:fpt fptest/f_sqrt_test_32.txt
+	./fpt +n +t=fptest/f_sqrt_test_32.txt
+fsqrt64:fpt fptest/f_sqrt_test_64.txt
+	./fpt +n +t=fptest/f_sqrt_test_64.txt
+fdiv16:	fpt fptest/f_div_test_16.txt
+	./fpt  +n +t=fptest/f_div_test_16.txt
+fdiv32:	fpt fptest/f_div_test_32.txt
+	./fpt +n +t=fptest/f_div_test_32.txt
+fdiv64:	fpt fptest/f_div_test_64.txt
+	./fpt +n +t=fptest/f_div_test_64.txt
 fmul16:	fpt fptest/f_mul_test_16.txt
 	./fpt +n +t=fptest/f_mul_test_16.txt
 fmul32:	fpt fptest/f_mul_test_32.txt

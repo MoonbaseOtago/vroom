@@ -415,9 +415,9 @@ module fp_div(input reset, input clk,
         default: begin inc = 'bx; mantissa = 'bx; end
         endcase
         casez (r_div_sz) // synthesis full_case parallel_case
-        2'b1?: is_zero = r_div_zero || mantissa_z[55:45] == 0;
-        2'b?1: is_zero = r_div_zero || mantissa_z[55:3] == 0;
-        2'b00: is_zero = r_div_zero || mantissa_z[55:32] == 0;
+        2'b1?: is_zero = r_div_zero || mantissa_z[54:45] == 0;
+        2'b?1: is_zero = r_div_zero || mantissa_z[54:3] == 0;
+        2'b00: is_zero = r_div_zero || mantissa_z[54:32] == 0;
         endcase
     end
 

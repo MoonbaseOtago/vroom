@@ -507,7 +507,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 
 	TLB	#(.VA_SZ(VA_SZ), .NPHYS(NPHYS), .NADDR(NADDR))dtlb();		// DTLB interface
 
-	reg [$clog2(NLDSTQ)-1:0]num_ldstq_avail;
+	//reg [$clog2(NLDSTQ)-1:0]num_ldstq_avail;
 
 	wire [NLDSTQ-1:0]q_allocate;
 	wire [NLDSTQ-1:0]q_load;
@@ -2313,7 +2313,7 @@ module ldstq(
 	always @(*) begin
 		c_waiting_line_busy = r_waiting_line_busy;
 		c_waiting_line_index = r_waiting_line_index;
-		if (reset || (!r_valid&&!allocate) || (r_valid && dc_rdata_req && r_waiting_line_index==dc_rdata_trans)) begin
+		if (reset || (!r_valid&&!allocate) || (r_valid && dc_rdata_req && r_waiting_line_busy && r_waiting_line_index==dc_rdata_trans)) begin
 			c_waiting_line_busy = 0;
 		end else
 		if (allocate && !fence) begin
@@ -2672,7 +2672,7 @@ module ldstq(
 						c_load_acked = r_load_acked|load_ack;
 						c_last_load_acked = load_ack;
 						if (r_io) begin
-							if (commitable) begin 
+							if (commitable&!killed) begin 
 								case (r_io_state ) // synthesis full_case parallel_case
 								0:	begin
 										c_write_io_read_req = 1;
@@ -2701,6 +2701,8 @@ module ldstq(
 										c_io_state = 'bx;
 									end
 								endcase
+							end else begin
+								c_free = killed;
 							end
 						end else begin
 							casez ({r_last_load_acked, r_waiting_hazard, r_waiting_line_busy, r_waiting_memory, r_load_next_ready|r_ack_waiting, r_send_cancel}) // synthesis full_case parallel_case

@@ -336,8 +336,8 @@ module alu(
 	wire [RV:0]c_add64 = {1'b0,c_r1}+{1'b0,c_r2}+{64'b0,r_inv};		// main adder (+carry if r_inv)
 	wire [RV-1:0]c_add = (RV==64&&r_addw?{(r_op==12?32'b0:{32{c_add64[31]}}), c_add64[31:0]}: c_add64); // addw stuff
 
-	wire s_lt = (RV==64 ? (c_r1[63]^r2[63] ? c_r1[63] : c_add64[63]) :
-					      (c_r1[31]^r2[31] ? c_r1[31] : c_add64[31]));
+	wire s_lt = (RV==64 ? (c_r1[63]^x_r2[63] ? c_r1[63] : c_add64[63]) :
+					      (c_r1[31]^x_r2[31] ? c_r1[31] : c_add64[31]));
 						  //c_add64[63]^((c_add64[63]&~c_r1[63]&~c_r2[63])|(~c_add64[64]&c_r1[63]&c_r2[63])) :
 			              //c_add64[31]^((c_add64[31]&~c_r1[31]&~c_r2[31])|(~c_add64[32]&c_r1[31]&c_r2[31])));
 	wire u_lt = (RV==64 ? ~c_add64[64] : ~c_add64[32]);

@@ -110,6 +110,7 @@ module mul(
 	reg			r_div_next, c_div_next;
 	reg			r_div_last, c_div_last;
 	reg			r_div_sign_last, c_div_sign_last;
+	reg			r_div_rem_sign, c_div_rem_sign;
 	reg			r_div_busy, c_div_busy;
 	reg [2*RV-1:0]r_remainder, c_remainder;
 	reg [RV-1:0]r_quotient, c_quotient;
@@ -327,6 +328,7 @@ module mul(
 		c_divisor = r_divisor;
 		c_divisor3 = r_divisor3;
 		c_div_count = r_div_count;
+		c_div_rem_sign = r_div_rem_sign;
 		if (enable && !mul && !bopt) begin
 			c_div_busy = !commit_kill_0[rd];
 			c_div_addw = addw;
@@ -354,12 +356,14 @@ module mul(
 						c_remainder = {63'b0, (r_div_sign&r1[31]?(~r1[31:0])+32'b1:r1[31:0]), 33'b0};
 						c_div_count = 15;
 						c_div_last = r2[31:0]==0;
+						c_div_rem_sign = r_div_sign&r1[31];
 					end else begin
 						c_div_sign = r_div_sign&(r1[63]^r2[63]);
 						c_divisor = r_div_sign&r2[63]?(~r2)+64'b1:r2;
 						c_remainder = {63'b0, (r_div_sign&r1[63]?(~r1)+64'b1:r1), 1'b0};
 						c_div_count = 31;
 						c_div_last = r2==0;
+						c_div_rem_sign = r_div_sign&r1[63];
 					end
 					c_div_next = !c_div_last;
 					c_dividing = !c_div_last;
@@ -426,7 +430,7 @@ module mul(
 					if (r_div_count == 0) begin
 						c_dividing = 0;
 						c_div_res = r_div_rem?c_rem:c_quotient;
-						if (r_div_sign) begin
+						if (!r_div_rem? r_div_sign:r_div_rem_sign) begin
 							c_div_sign_last = 1;
 						end else begin
 							c_div_last = 1;
@@ -471,6 +475,7 @@ module mul(
 		r_div_next <= c_div_next;
 		r_div_last <= c_div_last;
 		r_div_sign_last <= c_div_sign_last;
+		r_div_rem_sign <= c_div_rem_sign;
 		r_div_busy <= c_div_busy;
 		r_remainder <= c_remainder;
 		r_quotient <= c_quotient;

@@ -39,6 +39,14 @@ module csr(input clk, input reset,
 		input [3:0]num_branches_retired,
 		input [3:0]num_branches_predicted,
 		input [3:0]count_out_rename,
+
+`ifdef FP
+		input		update_fp_state,
+		input  [4:0]fp_exceptions,
+		input		fp_written,
+		output [2:0]fp_rounding,
+		output		fp_off,
+`endif
 		
                 
         output [RV-1:0]result,    
@@ -788,11 +796,16 @@ module csr(input clk, input reset,
 									endcase
 									c_trap_br_enable = xmxr|xprv|xprv2|nint;
 								end
-				13'b00_01_1000_0000,	// satp
+				12'b00_01_1000_0000,	// satp
 				12'b01_10_1000_0000,	// vsatp
 				12'b00_11_1010_00??,	// pmap
 				12'b00_11_1011_????:
 								c_trap_br_enable = 1;
+`ifdef FP
+				12'b00_00_0000_0010,
+				12'b00_00_0000_0011:
+								c_trap_br_enable = r_frm != new_rm;
+`endif
 				default: ;
 				endcase
 			end
@@ -1094,12 +1107,49 @@ module csr(input clk, input reset,
 	always @(posedge clk)
 	if (reset) r_xs <= 0;
 
+`ifdef FP
+	reg [4:0]r_fflags;
+	reg [2:0]r_frm;
 	reg	[1:0]r_fs;					// fp context
+
+	reg	[2:0]new_rm;
+	assign fp_rounding = r_frm;
+	assign fp_off = r_fs == 0;
+
 	always @(posedge clk)
-	if (reset) r_fs <= 0; else
+		r_frm <= new_rm;
+	always @(*) begin :rmmx
+		reg [2:0]xrm;
+		xrm = r_frm;
+		if (reset) xrm = 0; else
+		if (csr_write && (r_immed[11:0] == 12'h002)) begin
+			if (r_control[1]) xrm = r_frm|in[2:0]; else
+			if (r_control[2]) xrm = r_frm&~in[2:0]; else xrm = in[2:0];
+		end else
+		if (csr_write && (r_immed[11:0] == 12'h003)) begin
+			if (r_control[1]) xrm = r_frm|in[7:5]; else
+			if (r_control[2]) xrm = r_frm&~in[7:5]; else xrm = in[7:5];
+		end 
+		new_rm = xrm > 4 ? r_frm : xrm;
+	end
+
+	always @(posedge clk)
+	if (reset) r_fflags <= 0; else
+	if (update_fp_state) r_fflags <= r_fflags|fp_exceptions; else
+	if (csr_write && (r_immed[11:0] == 12'h001 || r_immed[11:0] == 12'h003)) 
+	if (r_control[1]) r_fflags <= r_fflags|in[4:0]; else
+	if (r_control[2]) r_fflags <= r_fflags&~in[4:0]; else r_fflags <= in[4:0];
+
+	always @(posedge clk)
+	if (reset) r_fs <= 1; else
+	if (update_fp_state & (fp_written ||  |(fp_exceptions&~r_fflags))) r_fs <= 3; else
 	if (csr_write && (r_immed[11:0] == 12'h300 || r_immed[11:0] == 12'h345 || r_immed[11:0] == 12'h100 || r_immed[11:0] == 12'h145))
 	if (r_control[1]) r_fs <= r_fs|in[14:13]; else
 	if (r_control[2]) r_fs <= r_fs&~in[14:13]; else r_fs <= in[14:13];
+
+`else
+	wire [1:0]r_fs = 0;
+`endif
 
 	reg		 r_mpv, r_mtl;
 	always @(posedge clk)
@@ -2993,11 +3043,23 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		13'b?_00_00_0000_0000:		//	user status register
 					c_res = {59'b0, r_u_pie, 3'b0, r_u_ie};
 		13'b?_00_00_0000_0001:		//  FP accrued exceptions
+`ifdef FP
+					c_res = {59'b0, r_fflags};
+`else
 					c_res = 0;
+`endif
 		13'b?_00_00_0000_0010:		//  FP dynamic rounding mode
+`ifdef FP
+					c_res = {61'b0, r_frm};
+`else
 					c_res = 0;
+`endif
 		13'b?_00_00_0000_0011:		//  FP dynamic CS reg
+`ifdef FP
+					c_res = {56'b0, r_frm, r_fflags};
+`else
 					c_res = 0;
+`endif
 		13'b?_00_00_0000_0100:		//  user interrupt enable register
 					c_res = clic_u_enable?64'b0:{55'b0, r_u_eie, 3'b0, r_u_tie, 3'b0, r_u_sie};
 		13'b?_00_00_0000_0101:		//  user trap handler base address

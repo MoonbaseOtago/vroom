@@ -35,7 +35,7 @@ module fp_mul(input reset, input clk,
 		input fmulsign,
         input [LNCOMMIT-1:0]rd,
         input [(NHART==1?0:LNHART-1):0]hart,
-		output exception,
+		output [4:0]exceptions,
 		output valid,
 		output [RV-1:0]res,
 		output [LNCOMMIT-1:0]rd_out,
@@ -273,6 +273,8 @@ module fp_mul(input reset, input clk,
 	reg		  r_c_infinity_sign;
 	reg		  r_c_muladd;
 	reg		  r_c_eq_sign_3;
+
+	reg		  nx, nv, of, uf;
 
 	wire [105:0]mantissa_m = {53'b0,r_b_mantissa_1}*{53'b0,r_b_mantissa_2};
 	wire	   m_0 = r_b_mantissa_1==53'b0 || r_b_mantissa_2==53'b0;
@@ -588,6 +590,11 @@ debug=5;
 		default: begin inc = 'bx; mantissa = 'bx; end
 		endcase
 		casez (r_c_sz) // synthesis full_case parallel_case
+		2'b1?: nx = mantissa_z[44:42]!=0;
+		2'b?1: nx = mantissa_z[2:0]!=0;
+		2'b00: nx = mantissa_z[31:29]!=0;
+		endcase
+		casez (r_c_sz) // synthesis full_case parallel_case
 		2'b1?: is_zero = mantissa_z[55:45] == 0 && !inc;
 		2'b?1: is_zero = mantissa_z[55:3] == 0 && !inc;
 		2'b00: is_zero = mantissa_z[55:32] == 0 && !inc;
@@ -598,9 +605,13 @@ debug=5;
 
 	reg [63:0]out;
 	always @(*) begin
+		nv = 0;
+		of = calc_infinity;
+		uf = 0;
 		casez (r_c_sz) // synthesis full_case parallel_case
 		2'b1?: begin
 					if (r_c_nan) begin
+						nv = 1;
 						out = {48'hffff_ffff_ffff, 6'h1f, 10'h200};	// quiet nan
 					end else
 					if (r_c_infinity|calc_infinity|r_c_infinity_3) begin
@@ -611,6 +622,7 @@ debug=5;
 						end
 					end else
 					if (underflow&!x_underflow) begin
+						uf = 1;
 						out = {48'hffff_ffff_ffff, rsign, 5'b0, 10'h0};
 					end else begin
 						out = {48'hffff_ffff_ffff, rsign, ~exponent[11], exponent[3:0], mantissa[54:45]};
@@ -618,6 +630,7 @@ debug=5;
 			   end
 		2'b?1: begin
 					if (r_c_nan) begin
+						nv = 1;
 						out = {12'h7ff, 52'h8000000000000};	// quiet nan
 					end else
 					if (r_c_infinity|calc_infinity|r_c_infinity_3) begin
@@ -628,6 +641,7 @@ debug=5;
 						end
 					end else
 					if (underflow&!x_underflow) begin
+						uf = 1;
 						out = {rsign, 11'b0, 52'h0};
 					end else begin
 						out = {rsign, ~exponent[11], exponent[9:0], mantissa[54:3]};
@@ -635,6 +649,7 @@ debug=5;
 			   end
 		2'b00: begin
 					if (r_c_nan) begin
+						nv = 1;
 						out = {32'hffff_ffff, 9'h0ff, 23'h400000};	// quiet nan
 					end else
 					if (r_c_infinity|calc_infinity|r_c_infinity_3) begin
@@ -645,6 +660,7 @@ debug=5;
 						end
 					end else
 					if (underflow&!x_underflow) begin
+						uf = 1;
 						out = {32'hffff_ffff, rsign, 8'b0, 23'h0};
 					end else begin
 						out = {32'hffff_ffff, rsign, ~exponent[11], exponent[6:0], mantissa[54:32]};
@@ -653,6 +669,7 @@ debug=5;
 		endcase
 	end 
 	assign res = out;
+	assign exceptions = {nv, 1'b0, of, uf, nx};
 	
 endmodule
 

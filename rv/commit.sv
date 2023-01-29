@@ -215,6 +215,8 @@ module commit(input clk,
 	input		rs1_fp,
 	input		rs2_fp,
 	input		rs3_fp,
+	input  [4:0]fp_exceptions,
+	input		fp_done,
 `endif
 	input [CNTRL_SIZE-1:0]control,
 	input [VA_SZ-1:1]pc,
@@ -248,6 +250,8 @@ module commit(input clk,
 	output		 rs1_fp_out,
 	output		 rs2_fp_out,
 	output		 rs3_fp_out,
+	output  [4:0]fpu_exception_out,
+	output		 fpu_written_out,
 `endif
 	output [CNTRL_SIZE-1:0]control_out,
 	output     [3:0]unit_type_out,
@@ -529,6 +533,15 @@ module commit(input clk,
 `ifdef FP
 	reg  [3:0]r_fpu_req, c_fpu_req;
 	assign fpu_ready = (ready&(r_unit_type==5)&r_valid&!r_read ? r_fpu_req: 4'b0);
+	//
+	//	4 NV Invalid OP
+	//  3 DZ divide by zero
+	//  2 OF overflow
+	//  1 UF underflow
+	//  0 NX inexact
+	reg	 [4:0]r_fpu_exception, c_fpu_exception;
+	assign fpu_exception_out = r_fpu_exception;
+	assign fpu_written_out = r_makes_rd && r_rd_fp;
 `endif
 `ifdef COMBINED_BRANCH
 	assign alu_ready = ready&(r_unit_type==0 || r_unit_type==6)&r_valid&!r_read;
@@ -586,6 +599,9 @@ module commit(input clk,
 		c_br_ok = r_br_ok;
 		c_short = r_short;
 		c_start = r_start;
+`ifdef FP
+		c_fpu_exception = r_fpu_exception;
+`endif
 		if (reset) begin
 `ifdef FP
 			c_rd_fp = 0;
@@ -636,6 +652,9 @@ module commit(input clk,
 			c_vm_stall = 0;
 			c_wfi_pause = (unit_type==7)&&(control==6'b111001)&&!csr_wfi_wake;
 			c_br_ok = unit_type==6;
+`ifdef FP
+			c_fpu_exception = 5'b0;
+`endif
 		end else
 		if (r_valid&!commit_kill) begin
 			if (r_load_trap) begin
@@ -681,12 +700,16 @@ module commit(input clk,
 											c_busy2 = 0;
 										end
 							4'b1???:	begin		// N clocks
+											c_busy = 1;
+											c_busy2 = 1;
+											c_busy3 = 1;
 										end
 							4'b???1:	begin		// 1 clock
 											c_busy = 1;
 											c_busy2 = 0;
 											c_busy3 = 1;
 											c_completed = 1;
+											c_fpu_exception = fp_exceptions;
 										end
 							endcase
 						end else
@@ -694,11 +717,26 @@ module commit(input clk,
 						3'b011: begin   c_busy = 1; c_busy2 = 0; c_busy3 = 0; end
 						3'b100: begin   c_busy = 1; c_busy2 = 0; c_busy3 = 1; end
 						3'b101: begin   c_busy = 1; c_busy2 = 1; c_busy3 = 0; end
+						3'b111: begin
+									if (fp_done) begin
+										c_busy = 0;
+										c_busy2 = 0;
+										c_busy3 = 0;
+										c_completed = 1;
+										c_fpu_exception = fp_exceptions;
+										if (r_makes_rd) begin
+											c_commit_req = 1;
+										end else begin
+											c_done = 1;
+										end
+									end
+								end
 						default:
 							begin
 									c_busy = 0;
 									c_busy2 = 0;
 									if (r_busy && r_busy2) begin
+										c_fpu_exception = fp_exceptions;
 										if (r_makes_rd) begin
 											c_commit_req = 1;
 										end else begin
@@ -1079,6 +1117,7 @@ module commit(input clk,
 `ifdef FP
 		r_rd_fp <= c_rd_fp;
 		r_fpu_req <= c_fpu_req;
+		r_fpu_exception <= c_fpu_exception;
 `endif
 		if (load&!commit_kill) begin
 			r_force_fetch <= force_fetch;

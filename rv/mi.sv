@@ -895,7 +895,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 						c_rdata[I] = mem_rdata;
 						mem_rdata_ack_out[I] = 1;
 					end else
-					if (r_rd_mem_pending[I] && |(match_pending&match_pending_done)) begin
+					if (r_rd_mem_pending[I] && !r_mem_rd_req[I] && |(match_pending&match_pending_done)) begin
 						c_rdata_req[I] = 1;
 						c_rdata_trans[I] = r_raddr_trans[I];
 						c_rdata_resp[I] = 3'b001;

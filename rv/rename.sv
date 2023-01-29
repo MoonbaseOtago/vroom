@@ -503,7 +503,8 @@ module rename(
 	assign next_rd = rd;
 	assign next_makes_rd = makes_rd&c_valid_out;
 `ifdef FP
-	assign next_rd_fp = rd_fp&c_valid_out;
+	assign next_rd_fp = rd_fp;
+	//assign next_rd_fp = rd_fp&c_valid_out;
 `endif
 	assign branch_token_out =  r_branch_token_out;
 	assign branch_token_ret_out = r_branch_token_ret_out;

@@ -634,6 +634,21 @@ err:
 			printf(": q_control[%d] = %s[%d];\n", i, cp, j < nload?j:j-nload);
 		}
 		printf("	endcase\n");
+		printf("`ifdef FP\n");
+		printf("	always @(*)\n");
+		printf("	casez (xallocate[%d]) // synthesis full_case parallel_case\n", i);
+		printf("	%d'b",nload+nstore);
+		for (j=0; j < (nload+nstore); j++) printf("0");
+		printf(": q_fp_rd[%d] = 'bx;\n", i);
+		for (j = 0; j < (nload+nstore); j++) {
+			char *cp = (j < nload?"r_load_control":"r_store_control");
+
+			printf("	%d'b",nload+nstore);
+			for (k=(nload+nstore)-1; k >= 0; k--) printf(j==k?"1":"?");
+			printf(": q_fp_rd[%d] = %s[%d][3];\n", i, cp, j < nload?j:j-nload);
+		}
+		printf("	endcase\n");
+		printf("`endif\n");
 #ifdef NOTDEF
 		first = 1;
 		printf("	assign q_hazard[%d] = (", i);

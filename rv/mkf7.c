@@ -67,16 +67,17 @@ int main(int argc, char ** argv)
 	printf("		zz = 0;\n");
 	printf("		case (e) // synthesis full_case parallel_case\n");
 	printf("		default: begin\n");
-	printf("				t = 67'bx;\n");
+	printf("	    			t = { 64'b0, |m};\n");
 	printf("				o = e[10];\n");
-	printf("				zz = !e[10];\n");
+	printf("				zz = !e[10] && ! |m;\n");
 	printf("			 end\n");
-	for (i = 63; i >= -3; i--) {
+	for (i = 63; i >= -2; i--) {
 	printf("		11'h%x:begin\n", i+0x3ff);
-	if (i == 63)printf("			o = !r_op[0];\n");
+	if (i == 63)printf("			o = !r_op[0] && (|m)^xsign;\n");
 	printf("			    t = {");
 	if (i < 63) printf("%d'b0, ", 63-i); 
-	printf("m[52:%d]", i > (52-3)? 0: (52-3)-i);
+	printf("m[52:%d]", i > (52-3)? 0: (52-3)-i+1);
+	if (i <= (52-3)) printf(", |m[%d:0]", (52-3)-i);
 	if (i > (52-3)) printf(", %d'b0", i-(52-3));
 	printf("};\n");
 	printf("			end\n");

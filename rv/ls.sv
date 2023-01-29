@@ -454,6 +454,11 @@ wire [RV-1:0]dc_rd_data_0=dc_rd_data[0];
 	wire [NLDSTQ-1:0]wq_makes_rd;
 	wire [(NHART==1?0:LNHART-1):0]wq_hart[0:NLDSTQ-1];
 	wire [3:0]wq_control[0:NLDSTQ-1];
+`ifdef FP
+	wire [NLDSTQ-1:0]wq_fp_rd;
+`else
+	wire [NLDSTQ-1:0]wq_fp_rd=0;
+`endif
 	wire [5:0]wq_amo[0:NLDSTQ-1];
 	wire [1:0]wq_aq_rl[0:NLDSTQ-1];
 
@@ -520,6 +525,9 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
     reg  [(RV/8)-1:0]q_mask[0:NLDSTQ-1];
     reg  [(NHART==1?0:LNHART-1):0]q_hart[0:NLDSTQ-1];
     reg  [2:0]q_control[0:NLDSTQ-1];
+`ifdef FP
+    reg  [NLDSTQ-1:0]q_fp_rd;
+`endif
     reg  [LNCOMMIT-1:0]q_rd[0:NLDSTQ-1];
     reg  [1:0]q_aq_rl[0:NLDSTQ-1];
     wire [1:0]q_fd[0:NLDSTQ-1];
@@ -1228,7 +1236,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 	                    r_load_aq_rl[L] <= wq_aq_rl[load_qindex[L]];
 						r_load_ack_entry[L] <= load_qindex[L];
 						r_load_queued[L] <= 1;
-						r_load_control[L] <= {1'bx,wq_control[load_qindex[L]][3],1'b0, wq_control[load_qindex[L]][2:0]};
+						r_load_control[L] <= {1'bx,wq_control[load_qindex[L]][3], wq_fp_rd[load_qindex[L]], wq_control[load_qindex[L]][2:0]};
 
 					end
 				end
@@ -1559,6 +1567,10 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					.wq_makes_rd(wq_makes_rd[I]),
 					.wq_hart(wq_hart[I]),
 					.wq_control(wq_control[I]),
+`ifdef FP
+					.fp_rd(q_fp_rd[I]),
+					.wq_fp_rd(wq_fp_rd[I]),
+`endif
 					.wq_amo(wq_amo[I]),
 					.wq_aq_rl(wq_aq_rl[I]),
 					.active(all_active[I]),
@@ -2141,6 +2153,10 @@ module ldstq(
 	output		wq_makes_rd,
 	output [(NHART==1?0:LNHART-1):0]wq_hart,
 	output [3:0]wq_control,
+`ifdef FP
+	input       fp_rd,
+	output      wq_fp_rd,
+`endif
 	output [5:0]wq_amo, 
 	output [1:0]wq_aq_rl, 
 
@@ -2211,6 +2227,10 @@ module ldstq(
 	reg    [5:0]r_amo, c_amo;		// LSB is AMO valid bit, upper 4 bits identify which one
 	assign wq_amo = r_amo;
 	assign wq_control = {r_load&r_amo[0],r_control};
+`ifdef FP
+	reg			r_fp_rd, c_fp_rd;
+	assign wq_fp_rd = r_fp_rd;
+`endif
 	assign write_amo = r_amo;
 	reg    [1:0]r_aq_rl, c_aq_rl;	// aq = bit 1 rl = bit 0
 	assign wq_aq_rl = r_aq_rl;
@@ -2415,6 +2435,9 @@ module ldstq(
 		c_killed = r_killed;
 		c_hart = r_hart;
 		c_control = r_control;
+`ifdef FP
+		c_fp_rd = r_fp_rd;
+`endif
 		c_amo = r_amo;
 		c_hazard = r_hazard&~all_store_mem&all_active;
 		c_load_ready = 0;
@@ -2465,6 +2488,9 @@ module ldstq(
 			c_amo = amo;
 			c_hart = hart;
 			c_control = (load||fence?control:{2'b01, mask[7]&mask[3]});	// amo is .d or .w
+`ifdef FP
+			c_fp_rd = fp_rd;
+`endif
 			//c_commit = 0;
 			c_load = load;
 			c_store = store;
@@ -2804,6 +2830,9 @@ module ldstq(
 		r_valid <= c_valid&!free_out;
 		r_hart <= c_hart;
 		r_control <= c_control;
+`ifdef FP
+		r_fp_rd <= c_fp_rd;
+`endif
 		r_amo <= c_amo;
 		r_rd <= c_rd;
 		r_aq_rl <= c_aq_rl;

@@ -130,7 +130,11 @@ int main(int argc, char ** argv)
 //					printf("			end else begin\n");
 //				}
 				printf("				always @(*) begin local1 = 1; \n");
+				printf("`ifdef FP\n");
+				printf("				if (!rs1_fp && s1==0) begin\n");
+				printf("`else\n");
 				printf("				if (s1==0) begin\n");
+				printf("`endif\n");
 				printf("					renamed_rs1 = 0;\n");
 				printf("`ifdef RENAME_OPT\n");
 				printf("					renamed_commit_rs1 = 0;\n");
@@ -216,7 +220,11 @@ int main(int argc, char ** argv)
 //					printf("			end else begin\n");
 //				}
 				printf("				always @(*) begin local2 = 1;\n");
+				printf("`ifdef FP\n");
+				printf("				if (!rs2_fp && s2==0) begin\n");
+				printf("`else\n");
 				printf("				if (s2==0) begin\n");
+				printf("`endif\n");
 				printf("					renamed_rs2 = 0;\n");
 				printf("`ifdef RENAME_OPT\n");
 				printf("						renamed_commit_rs2 = 0;\n");
@@ -300,7 +308,11 @@ int main(int argc, char ** argv)
 //					printf("			end else begin\n");
 //				}
 				printf("				always @(*) begin local3 = 1;\n");
+				printf("`ifdef FP\n");
+				printf("				if (!rs3_fp && s3==0) begin\n");
+				printf("`else\n");
 				printf("				if (s3==0) begin\n");
+				printf("`endif\n");
 				printf("					renamed_rs3 = 0;\n");
 				printf("`ifdef RENAME_OPT\n");
 				printf("					renamed_commit_rs3 = 0;\n");

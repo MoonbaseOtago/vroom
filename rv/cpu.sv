@@ -220,6 +220,13 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 
 	wire [NHART-1:0]rv32;
 	wire [NHART-1:0]tvm;
+`ifdef FP
+	wire [NHART-1:0]fp_off;
+	wire       [2:0]fp_rounding[0:NHART-1];
+	wire [NHART-1:0]update_fp_state;
+	wire       [4:0]fp_exceptions[0:NHART-1];
+	wire [NHART-1:0]fp_written;
+`endif
 	wire [NHART-1:0]reset_out_h;
 	assign			reset_out = |reset_out_h;
 	wire       [3:0]mprv[0:NHART-1];
@@ -438,6 +445,8 @@ assign pmp[1].valid=0;
 	wire      [NCOMMIT-1:0]rs1_fp_commit[0:NHART-1];
 	wire      [NCOMMIT-1:0]rs2_fp_commit[0:NHART-1];
 	wire      [NCOMMIT-1:0]rs3_fp_commit[0:NHART-1];
+	wire	  [NCOMMIT-1:0]fpu_written_commit[0:NHART-1];
+	wire	          [4:0]fpu_exception_commit[0:NHART-1][0:NCOMMIT-1];
 `endif
 	wire      [CNTRL_SIZE-1:0]control_commit[0:NCOMMIT-1][0:NHART-1];
 	wire	            [3: 0]unit_type_commit[0:NCOMMIT-1][0:NHART-1];
@@ -803,6 +812,9 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					.tvm(tvm[H]),
 					.tsr(tsr[H]),
 					.hyper(hyper[H]),
+`ifdef FP
+					.fp_off(fp_off[H]),
+`endif
 					.partial_nuke(commit_trap_br_enable[H]|commit_int_br_enable[H]|commit_br_enable[0][H]),
 
 					.trap_out(trap_dec[D]),
@@ -1379,11 +1391,19 @@ end
 				reg		 this_vm_pause;
 				reg		 this_vm_stall;
 				reg [1:0]this_trap_type;
-				if (NADDR==6 && NLOAD == 4 && NSTORE == 4 && NMUL == 1) begin
-`include "mk14_6_4_4_1.inc"
+				reg [4:0]this_fp_exceptions;
+				reg		 this_fp_done;
+				if (NADDR==6 && NLOAD == 4 && NSTORE == 4 && NMUL == 1 && NFPU == 0) begin
+`include "mk14_6_4_4_1_0.inc"
 				end else
-				if (NADDR == 4 && NLOAD == 2 && NSTORE == 2 && NMUL == 1) begin
-`include "mk14_4_2_2_1.inc"
+				if (NADDR == 4 && NLOAD == 2 && NSTORE == 2 && NMUL == 1 && NFPU == 0) begin
+`include "mk14_4_2_2_1_0.inc"
+				end 
+				if (NADDR==6 && NLOAD == 4 && NSTORE == 4 && NMUL == 1 && NFPU == 1) begin
+`include "mk14_6_4_4_1_1.inc"
+				end else
+				if (NADDR == 4 && NLOAD == 2 && NSTORE == 2 && NMUL == 1 && NFPU == 1) begin
+`include "mk14_4_2_2_1_1.inc"
 				end 
 
 				assign commit_load[H][C] = xload&~(commit_br_enable[0][H]|commit_trap_br_enable[H]|commit_int_br_enable[H]);
@@ -1506,6 +1526,10 @@ end
 					.rs1_fp_out(rs1_fp_commit[H][C]),
 					.rs2_fp_out(rs2_fp_commit[H][C]),
 					.rs3_fp_out(rs3_fp_commit[H][C]),
+					.fpu_written_out(fpu_written_commit[H][C]),
+					.fpu_exception_out(fpu_exception_commit[H][C]),
+					.fp_exceptions(this_fp_exceptions),
+					.fp_done(this_fp_done),
 `endif
 					.control_out(control_commit[C][H]),
 					.unit_type_out(unit_type_commit[C][H]),
@@ -1609,8 +1633,32 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				assign will_trap[I] = will_trap_commit[H][ind];
 			end
 `endif
-		end
 
+`ifdef FP
+			//
+			//	accumumulate FP state for CSR
+			//
+			wire [NDEC*2-1:0]acc_fp_write;
+			wire [NDEC*2-1:0]acc_fp_exception_0;
+			wire [NDEC*2-1:0]acc_fp_exception_1;
+			wire [NDEC*2-1:0]acc_fp_exception_2;
+			wire [NDEC*2-1:0]acc_fp_exception_3;
+			wire [NDEC*2-1:0]acc_fp_exception_4;
+			assign fp_written[H] = |acc_fp_write;
+			assign fp_exceptions[H] = {|acc_fp_exception_4, |acc_fp_exception_3, |acc_fp_exception_2, |acc_fp_exception_1, |acc_fp_exception_0};
+			assign update_fp_state[H] = fp_written[H]| (|fp_exceptions[H]);
+			for (I = 0; I < NUM_TRANSFER_PORTS; I = I+1) begin
+				wire  [LNCOMMIT-1:0]ind = current_start[H]+I;	// wraps
+				assign acc_fp_write[I] = current_commit_mask[NUM_TRANSFER_PORTS-1-I]&fpu_written_commit[H][ind];
+				assign acc_fp_exception_0[I] = current_commit_mask[NUM_TRANSFER_PORTS-1-I]&fpu_exception_commit[H][ind][0];
+				assign acc_fp_exception_1[I] = current_commit_mask[NUM_TRANSFER_PORTS-1-I]&fpu_exception_commit[H][ind][1];
+				assign acc_fp_exception_2[I] = current_commit_mask[NUM_TRANSFER_PORTS-1-I]&fpu_exception_commit[H][ind][2];
+				assign acc_fp_exception_3[I] = current_commit_mask[NUM_TRANSFER_PORTS-1-I]&fpu_exception_commit[H][ind][3];
+				assign acc_fp_exception_4[I] = current_commit_mask[NUM_TRANSFER_PORTS-1-I]&fpu_exception_commit[H][ind][4];
+			end
+`endif
+
+		end
 		
         reg [NHART-1:0]reg_read_enable[0:NUM_GLOBAL_READ_PORTS-1];
         wire [RV-1:0]reg_read_data[0:NUM_GLOBAL_READ_PORTS-1][0:NHART-1];
@@ -1619,6 +1667,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
         reg [NHART-1:0]fpu_reg_read_enable[0:NUM_GLOBAL_READ_FP_PORTS-1];
         wire [RV-1:0]fpu_reg_read_data[0:NUM_GLOBAL_READ_FP_PORTS-1][0:NHART-1];
         wire [RA-1:0]fpu_reg_read_addr[0:NUM_GLOBAL_READ_FP_PORTS-1];
+		wire [4:0]fp_unit_exceptions[0:NFPU-1];
 `endif
 
         reg  [NHART-1:0]local_reg_read_enable[0:NUM_LOCAL_READ_PORTS-1][0:NHART-1];
@@ -2026,6 +2075,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.fr1(fpu_reg_read_data[NSTORE+3*F+0][hart_sched[NSHIFT+NALU+NMUL+F]]),
 				.fr2(fpu_reg_read_data[NSTORE+3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]]),
 				.fr3(fpu_reg_read_data[NSTORE+3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fp_rounding(fp_rounding[hart_sched[NSHIFT+NALU+NMUL+F]]),
 				.control(control_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]]),
 				.immed(immed_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]][16:12]),
 				.rd(alu_sched[NSHIFT+NALU+NMUL+F]),
@@ -2039,7 +2089,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.result(reg_write_data[NSHIFT+NALU+NMUL+F]),
 				.res_rd(reg_write_addr[NSHIFT+NALU+NMUL+F]),
 				.res_makes_rd(reg_write_enable[NSHIFT+NALU+NMUL+F]),
-				.res_makes_fp(reg_write_fp[NSHIFT+NALU+NMUL+F])
+				.res_makes_fp(reg_write_fp[NSHIFT+NALU+NMUL+F]),
+				.res_exceptions(fp_unit_exceptions[F])
 				);
 		end
 `endif
@@ -2209,6 +2260,13 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.rv32(rv32[H]),
 				.tsr(tsr[H]),
 				.tvm(tvm[H]),
+`ifdef FP
+				.fp_off(fp_off[H]),
+				.fp_rounding(fp_rounding[H]),
+				.update_fp_state(update_fp_state[H]),
+				.fp_exceptions(fp_exceptions[H]),
+				.fp_written(fp_written[H]),
+`endif 
 				.mprv(mprv[H]),
 				.hyper(hyper[H]),
 				.trap_ins(trap_ins[H]),

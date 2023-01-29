@@ -41,7 +41,8 @@ module fpu(
 	output [RV-1:0]result,
 	output [LNCOMMIT-1:0]res_rd, 
 	output			res_makes_fp,			// true if we're writing bask to the FP registers
-	output [NHART-1:0]res_makes_rd
+	output [NHART-1:0]res_makes_rd,
+	output     [4:0]res_exceptions
 	);
 
     parameter CNTRL_SIZE=7;
@@ -127,6 +128,8 @@ module fpu(
 	assign res_rd = r_res_rd;
 	reg  [NHART-1:0]r_res_makes_rd, c_res_makes_rd;
 	assign res_makes_rd = r_res_makes_rd;
+	reg  [4:0]r_res_exceptions, c_res_exceptions;
+	assign res_exceptions = r_res_exceptions;
 	reg	r_makes_rd;
 	reg r_res_fp, c_res_fp;
 	assign res_makes_fp = r_res_fp;
@@ -135,11 +138,11 @@ module fpu(
 	wire multiple = control[4];
 	wire [2:0]rounding = (immed[14:12]==3'd7 ? fp_rounding:immed[14:12]);
 	wire xtra = immed[15];
-	wire [3:0]xtra2 = {immed[17:16], immed[13:12]};
+	wire [1:0]xtra2 = {immed[17:16]};
 	wire [3:0]op = control[3:0];
 	reg      r_xtra, r_multiple;
 	reg [1:0]r_size;
-	reg [3:0]r_xtra2;
+	reg [1:0]r_xtra2;
 	reg [3:0]r_op;
 	reg [2:0]r_rounding;
 	reg   [(NHART==1?0:LNHART-1):0]r_hart;
@@ -152,6 +155,7 @@ module fpu(
 
 	wire [RV-1:0]res_add;
 	wire		valid_add;
+	wire [4:0]add_exceptions;
 	wire [LNCOMMIT-1:0]add_rd;
 	wire [(NHART==1?0:LNHART-1):0]add_hart;
 	fp_add_sub	#(.RV(RV), .LNHART(LNHART), .NHART(NHART), .LNCOMMIT(LNCOMMIT))fpadd(.clk(clk), .reset(reset), 
@@ -163,7 +167,7 @@ module fpu(
 			.rnd(r_rounding),
 			.in_1(fr1),
 			.in_2(fr2),
-			.exception(add_exception),
+			.exceptions(add_exceptions),
 			.res(res_add),
 			.rd_out(add_rd),
 			.hart_out(add_hart),
@@ -172,6 +176,7 @@ module fpu(
 	
 	wire [RV-1:0]res_mul;
 	wire		valid_mul;
+	wire [4:0]mul_exceptions;
 	//wire fmuladd = 
 	wire [LNCOMMIT-1:0]mul_rd;
 	wire [(NHART==1?0:LNHART-1):0]mul_hart;
@@ -187,7 +192,7 @@ module fpu(
 			.fmuladd(fmuladd),  // muladd
 			.fmulsub(fmulsub),
 			.fmulsign(fmulsign),
-			.exception(mul_exception),
+			.exceptions(mul_exceptions),
 			.res(res_mul),
 			.rd_out(mul_rd),
 			.hart_out(mul_hart),
@@ -195,6 +200,7 @@ module fpu(
 
 	wire [RV-1:0]res_div;
 	wire		valid_div;
+	wire [4:0]div_exceptions;
 	wire [LNCOMMIT-1:0]div_rd;
 	wire [(NHART==1?0:LNHART-1):0]div_hart;
 	fp_div		#(.RV(RV), .LNHART(LNHART), .NHART(NHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))fpdiv(.clk(clk), .reset(reset),
@@ -209,7 +215,7 @@ module fpu(
 			.in_2(fr2),
 			.commit_kill_0(commit_kill_0),
 			//.commit_kill_1(commit_kill_1),
-			.exception(div_exception),
+			.exceptions(div_exceptions),
 			.res(res_div),
 			.rd_out(div_rd),
 			.hart_out(div_hart),
@@ -231,7 +237,12 @@ module fpu(
 	end
 
 	reg clk_1;	// 1 clock ops
+	reg nv, nx, of, uf;
 	always @(*) begin
+		nv = 0;
+		nx = 0;
+		of = 0;
+		uf= 0;
 		c_res_fp = (reset? 0:1);
 		clk_1 = 0;
 		casez ({valid_div, r_start, valid_mul, valid_add}) // synthesis full_case parallel_case
@@ -279,10 +290,13 @@ module fpu(
 			7:	//		7 = fcvt/s/d
 				begin
 					clk_1 = 1;
-					casez (r_xtra2) //synthesis full_case parallel_case
+					// r_xtra2 = {immed[17:16]}
+					// r_xtra2 = {immed[21:20]}
+					casez ({r_size, r_xtra2}) //synthesis full_case parallel_case
 					4'b00_01:	//FCVT.s.d  double->single
 						if (fr1[62:52] == 11'h7ff) begin
-							c_res = {32'hffff_ffff, fr1[63], 8'hff, fr1[51], fr1[21:0]};
+							c_res = {32'hffff_ffff, fr1[63]&~|fr1[51:0], 8'hff, |fr1[51:0], 22'b0};
+							nv = !fr1[51] && |fr1[50:0];
 						end else begin :cvt
 							reg [2:0]guard;
 							reg inc, inc_exp;
@@ -300,20 +314,23 @@ module fpu(
 							3: inc = !fr1[63] && (guard!=0);
 							4: inc = guard >= 4;
 							endcase
+							nx = guard != 0;
 							inc_exp = inc && fr1[51:29] == 23'h7fffff;
-							
-							if ((fr1[62] && fr1[61:59] != 3'b000) || (inc_exp && fr1[62:52] == 11'h47f)) begin	// overflow
+							if (fr1[62:52] > 11'h47e || (inc_exp && fr1[62:52] == 11'h47e)) begin	// overflow
+								of = 1;
 								c_res = {32'hffff_ffff, fr1[63], 8'hff, 1'b0, 22'b0}; // inf
 							end else 
 							if (fr1[62:52] < 11'h367) begin // OK
+								nx = fr1[62:0]!=0;
+								uf = fr1[62:0]!=0;
 								c_res = {32'hffff_ffff, fr1[63], 31'b0};
 							end else
 							if (fr1[62:52] > 11'h380 || (inc_exp && fr1[62:52] == 11'h380)) begin // OK
 								if (inc_exp) begin
                                        c_res = {32'hffff_ffff, fr1[63], cvt_exp+8'h1, 23'h0};
-                                   end else begin
+                                end else begin
                                        c_res = {32'hffff_ffff, fr1[63], cvt_exp, fr1[51:29]+{22'b0, inc}};
-                                   end
+                                end
 							end else begin : tx		// denorm
 								reg [25:0]t;
 								reg ainc;
@@ -330,12 +347,13 @@ module fpu(
 								3: ainc = !fr1[63] & (t[2:0]!=0);
 								4: ainc = t[2:0]>=4;
 								endcase
+								nx = nx | (t[2:0] != 0);
 								c_res = {32'hffff_ffff, fr1[63], 8'h00, t[25:3]+{22'b0,ainc}};
 							end
 						end
 					4'b01_00:	// FCVT.d.s  single->double
 						if (fr1[63:32] != 32'hffff_ffff) begin	// bad
-							c_res = {fr1[31], 11'h7ff, 52'h1};
+							c_res = {fr1[31], 11'h7ff, 1'b1, 51'h0};
 						end else
 						if (fr1[30:23] == 8'h00) begin  
 							if (fr1[22:0] == 0) begin
@@ -354,10 +372,14 @@ module fpu(
 						end else begin
 							c_res = { fr1[31], fr1[30], {3{~fr1[30]}}, fr1[29:23], fr1[22:0], 29'b0};
 						end
-                    4'b00_10: ; // fcvt.s.h
-                    4'b10_00: ; // fcvt.h.s
-                    4'b01_10: ; // fcvt.d.h
-                    4'b10_01: ; // fcvt.h.d
+                    4'b00_10:  // fcvt.s.h
+						c_res = 0;
+                    4'b10_00:  // fcvt.h.s
+						c_res = 0;
+                    4'b01_10:  // fcvt.d.h
+						c_res = 0;
+                    4'b10_01:  // fcvt.h.d
+						c_res = 0;
 					endcase
 				end
 			8, //		8 = fcvt.w.*
@@ -396,6 +418,7 @@ module fpu(
 							reg [9:0]m3;
 							reg [4:0]e3;
 							reg [2:0]m;
+							reg [10:0]exp;
 							reg inc;
 	
 							m = {mantissa[47:46], |mantissa[45:0]};
@@ -406,13 +429,21 @@ module fpu(
 							3: inc = !sign && (m!=0);
 							4: inc = m >= 4;
 							endcase
+							nx = m != 0;
 							m3 = (inc?mantissa[54:45]+1:mantissa[54:52]);
-							e3 = (inc && (mantissa[54:52]==(~10'h0))?{exponent[10], exponent[3:0]}+4'b1:{exponent[10], exponent[3:0]});
-							c_res = {48'hffff_ffff_ffff, sign, e3, m3};
+							exp = (inc && (mantissa[54:45]==(~10'h0))?exponent+11'b1:exponent);
+							e3 = {exp[10], exp[3:0]};
+							if (exp > 5'hf) begin
+								c_res = {48'hffff_ffff_ffff, sign, 5'h1f, 10'b0};
+								of = 1;
+							end else begin
+								c_res = {48'hffff_ffff_ffff, sign, e3, m3};
+							end
 						end
 					2'b?1: begin :ffd
 							reg [51:0]m3;
 							reg [10:0]e3;
+							reg [10:0]exp;
 							reg inc;
 
 							case (r_rounding) //synthesis full_case parallel_case
@@ -422,8 +453,10 @@ module fpu(
 							3: inc = !sign && (mantissa[2:0]!=0);
 							4: inc = mantissa[2:0]>=4;
 							endcase
+							nx = mantissa[2:0]!=0;
 							m3 = (inc?mantissa[54:3]+1:mantissa[54:3]);
-							e3 = (inc && (mantissa[54:3]==52'hf_ffff_ffff_ffff)?exponent+1:exponent);
+							exp = (inc && (mantissa[54:3]==(~52'h0))?exponent+11'b1:exponent);
+							e3 = exp;
 							c_res = {sign, e3, m3};
 						end
 					2'b00:
@@ -431,6 +464,7 @@ module fpu(
 							reg [22:0]m3;
 							reg [7:0]e3;
 							reg [2:0]m;
+							reg [10:0]exp;
 							reg inc;
 	
 							m = {mantissa[31:30], |mantissa[29:0]};
@@ -441,15 +475,17 @@ module fpu(
 							3: inc = !sign && (m!=0);
 							4: inc = m >= 4;
 							endcase
+							nx = m != 0;
 							m3 = (inc?mantissa[54:32]+1:mantissa[54:32]);
-							e3 = (inc && (mantissa[54:32]==(~23'h0))?{exponent[10], exponent[6:0]}+8'b1:{exponent[10], exponent[6:0]});
+							exp = (inc && (mantissa[54:32]==(~23'h0))?exponent+11'b1:exponent);
+							e3 = {exp[10], exp[6:0]};
 							c_res = {32'hffff_ffff, sign, e3, m3};
 						end
 					endcase
 					c_res_fp = 1;
 				end else begin :a8 //		   xtra==0 fcvt.wlu.*
 					reg [66:0]t;
-					reg sign, inc, nan, inf;
+					reg sign, inc, nan, inf, xsign;
 					reg zz, o, o2, z;
 					reg over, under;
 					reg [63:0]tt;
@@ -459,33 +495,36 @@ module fpu(
 					clk_1 = 1;
 					casez (r_size) //synthesis full_case parallel_case
 					2'b1?: begin
-							sign = fr1[15]&~r_op[0];
-							m = {1'b1, fr1[9:0], 42'b0}; 
-							e = {fr1[14], {6{~fr1[14]}}, fr1[13:10]};
 							z = fr1[14:10]==0 && fr1[9:0]==0;
+							sign = fr1[15]&~r_op[0];
+							xsign = fr1[15];
+							m = {~z, fr1[9:0], 42'b0}; 
+							e = {fr1[14], {6{~fr1[14]}}, fr1[13:10]};
 							over = ~fr1[15] && &fr1[14:10];
 							under = fr1[15]&r_op[0] || (fr1[15] && &fr1[14:10]);
-							nan = fr1[14:10] == ~5'b0 && fr1[9:0] != 22'b00;
-							inf = fr1[14:10] == ~5'b0 && fr1[9:0] == 23'b00;
+							nan = (fr1[14:10] == ~5'b0 && fr1[9:0] != 10'b00) || fr1[63:16] != ~48'b0;
+							inf = fr1[14:10] == ~5'b0 && fr1[9:0] == 10'b00;
 						   end
 					2'b?1: begin
-							sign = fr1[63]&~r_op[0];
-							m = {1'b1, fr1[51:0]};
-							e = fr1[62:52];
 							z = fr1[62:52]==0 && fr1[51:0]==0;
+							sign = fr1[63]&~r_op[0];
+							xsign = fr1[63];
+							m = {~z, fr1[51:0]};
+							e = fr1[62:52];
 							over = ~fr1[63] && &fr1[62:52];
 							under = fr1[63]&r_op[0] || (fr1[63] && &fr1[62:52]);
-							nan = fr1[62:52] == ~11'b0 && fr1[50:0] != 51'b00;
-							inf = fr1[62:52] == ~11'b0 && fr1[10:0] == 51'b00;
+							nan = fr1[62:52] == ~11'b0 && fr1[51:0] != 51'b00;
+							inf = fr1[62:52] == ~11'b0 && fr1[51:0] == 51'b00;
 						end		
 					2'b00: begin
-							sign = fr1[31]&~r_op[0];
-							m = {1'b1, fr1[22:0], 29'b0};
-							e = {fr1[30], {3{~fr1[30]}}, fr1[29:23]};
 							z = fr1[30:23]==0 && fr1[22:0]==0;
+							sign = fr1[31]&~r_op[0];
+							xsign = fr1[31];
+							m = {~z, fr1[22:0], 29'b0};
+							e = {fr1[30], {3{~fr1[30]}}, fr1[29:23]};
 							over = ~fr1[31] && &fr1[30:23];
 							under = fr1[31]&r_op[0] || (fr1[31] && &fr1[30:23]);
-							nan = fr1[30:23] == ~8'b0 && fr1[21:0] != 22'b00;
+							nan = (fr1[30:23] == ~8'b0 && fr1[22:0] != 23'b00) || fr1[63:32] != ~32'b0; 
 							inf = fr1[30:23] == ~8'b0 && fr1[22:0] == 23'b00;
 						end
 					endcase
@@ -493,8 +532,8 @@ module fpu(
 					case (r_rounding) //synthesis full_case parallel_case
 					0: inc = (t[2:0] > 4) | ((t[2:0]==4)&t[3]);
 					1: inc = 0;
-					2: inc = fr1[63] & (t[2:0]!=0);
-					3: inc = !fr1[63] & (t[2:0]!=0);
+					2: inc = xsign & (t[2:0]!=0);
+					3: inc = !xsign & (t[2:0]!=0);
 					4: inc = t[2:0]>=4;
 					endcase
 					tt = (sign ? ~t[66:3]:t[66:3])+{63'b0, inc^sign};	// convert sign
@@ -517,15 +556,23 @@ module fpu(
 					4'b01_01,
 					4'b01_10: o2 = |t[66:35] | &t[34:3];
 					endcase
-					casez ({r_op[0], under|((o|o2)&sign)|(inf&sign), over|((o|o2|inf)&~sign)|nan, zz|z, r_op[1]}) // synthesis full_case parallel_case
-					5'b?_000_?: c_res = tt;
+					nv = nan||over||o||o2||(xsign && r_op[0] && (inc || t[66:3]!=64'h0 || inf ));
+					nx = t[2:0]!=0 && !nv;
+					// 8  = fcvt.w.*
+					// 9  = fcvt.wu.*
+					// 10 = fcvt.l.*
+					// 10 = fcvt.lu.*
+					casez ({r_op[0], !nan&(under|((o|o2)&sign)|(inf&sign)), over|((o|o2|inf)&~sign)|nan, zz|z, r_op[1]}) // synthesis full_case parallel_case
+					5'b?_000_0: c_res = {{32{tt[31]}}, tt[31:0]};
+					//5'b1_000_0: c_res = {32'b0, tt[31:0]};
+					5'b?_000_1: c_res = tt;
 					5'b0_1??_1: c_res = {1'b1, 63'b0};
 					5'b0_1??_0: c_res = {~33'b0, 31'b0};
 					5'b1_1??_?: c_res = 64'b0;
 					5'b0_?1?_1: c_res = {1'b0, ~63'b0};
 					5'b0_?1?_0: c_res = {33'b0, ~31'b0};
 					5'b1_?1?_1: c_res = ~64'b0;
-					5'b1_?1?_0: c_res = {32'b0,~32'b0};
+					5'b1_?1?_0: c_res = ~64'b0;
 					5'b?_??1_?: c_res = 64'b0;
 					endcase
 					c_res_fp = 0;
@@ -534,21 +581,22 @@ module fpu(
 			12: //		12 = fcmp
 				begin : cmp
 					reg nan_a, nan_b, inf_a, inf_b, sign_a, sign_b;
-					reg snan_a, snan_b;
+					reg snan_a, snan_b, z_a, z_b;
 					reg [10:0]exp_a, exp_b;
 					reg [51:0]man_a, man_b;
 					reg v;
 					reg lt; 
+					reg eq;
 
 					clk_1 = 1;
 					casez (r_size) // synthesis full_case parallel_case
 					2'b1?: begin //h
 							nan_a = (fr1[63:16] != 48'hffff_ffff_ffff) ||
 									(fr1[14:10] == 5'h1f && fr1[9:0] != 10'b0);
-							snan_a = fr1[29];
+							snan_a = !fr1[9] && (fr1[14:10] == 5'h1f && fr1[9:0] != 10'b0);
 							nan_b = (fr2[63:16] != 48'hffff_ffff_ffff) ||
 									(fr2[14:10] == 5'h1f && fr2[9:0] != 10'b0);
-							snan_b = fr2[29];
+							snan_b = !fr2[9] && (fr2[14:10] == 5'h1f && fr2[9:0] != 10'b0);
 							inf_a = (fr1[14:10] == 5'h1f && fr1[9:0] == 10'b0);
 							inf_b = (fr2[14:10] == 5'h1f && fr2[9:0] == 10'b0);
 							sign_a = fr1[15];
@@ -557,12 +605,14 @@ module fpu(
 							exp_b = {fr2[14], {6{~fr2[14]}}, fr2[13:10]};
 							man_a = {fr1[9:0], 42'b0};
 							man_b = {fr2[9:0], 42'b0};
+							z_a = fr1[14:0]==0;
+							z_b = fr2[14:0]==0;
 						   end
 					2'b?1: begin //d
 							nan_a = (fr1[62:52] == 11'h7ff && fr1[51:0] != 52'b0);
-							snan_a = fr1[51];
+							snan_a = !fr1[51] && nan_a;
 							nan_b = (fr2[62:52] == 11'h7ff && fr2[51:0] != 52'b0);
-							snan_b = fr2[51];
+							snan_b = !fr2[51] && nan_b;
 							inf_a = (fr1[62:52] == 11'h7ff && fr1[51:0] == 52'b0);
 							inf_b = (fr2[62:52] == 11'h7ff && fr2[51:0] == 52'b0);
 							sign_a = fr1[63];
@@ -571,14 +621,16 @@ module fpu(
 							exp_b = fr2[62:52];
 							man_a = fr1[51:0];
 							man_b = fr2[51:0];
+							z_a = fr1[62:0]==0;
+							z_b = fr2[62:0]==0;
 						   end
 					2'b00: begin //f
 							nan_a = (fr1[63:32] != 32'hffff_ffff) ||
 									(fr1[30:23] == 8'hff && fr1[22:0] != 23'b0);
-							snan_a = fr1[22];
+							snan_a = !fr1[22] && (fr1[30:23] == 8'hff && fr1[22:0] != 23'b0);
 							nan_b = (fr2[63:32] != 32'hffff_ffff) ||
 									(fr2[30:23] == 8'hff && fr2[22:0] != 23'b0);
-							snan_b = fr2[22];
+							snan_b = !fr2[22]&& (fr2[30:23] == 8'hff && fr2[22:0] != 23'b0);
 							inf_a = (fr1[30:23] == 8'hff && fr1[22:0] == 23'b0);
 							inf_b = (fr2[30:23] == 8'hff && fr2[22:0] == 23'b0);
 							sign_a = fr1[31];
@@ -587,18 +639,20 @@ module fpu(
 							exp_b = {fr2[30], {3{~fr2[30]}}, fr2[29:23]};
 							man_a = {fr1[22:0], 29'b0};
 							man_b = {fr2[22:0], 29'b0};
+							z_a = fr1[30:0]==0;
+							z_b = fr2[30:0]==0;
 						   end
 					endcase
 
 					if (nan_a || nan_b ) begin
 						v = 0;
+						eq = 1'bx;
 						lt = 1'bx;
+						nv = snan_a || snan_b || r_rounding[1:0]!=2;
 					end else begin
-						reg eq;
-
 						if (sign_a != sign_b) begin
-							lt = sign_a;
-							eq = 0;
+							eq = z_a && z_b;
+							lt = sign_a && !eq;
 						end else
 						if (inf_a || inf_b) begin
 							if (inf_a && inf_b) begin
@@ -627,22 +681,18 @@ module fpu(
 						endcase
 					end
 					if (!r_op[3]) begin
-						if (nan_a || nan_b ) begin
-							if (nan_a && !snan_a && !nan_b) begin
-								c_res = fr2;
-							end else
-							if (!nan_a && nan_b && !snan_b) begin
-								c_res = fr1;
-							end else begin
-								casez (r_size) //synthesis full_case parallel_case
-								2'b1?: c_res = 64'hffff_ffff_ffff_7c00;
-								2'b?1: c_res = 64'h7FF0_0000_0000_0000;
-								2'b00: c_res = 64'hffff_ffff_7F80_0000;
-								endcase
-							end
-						end else begin
-							c_res = (lt^r_rounding[0] ? fr1:fr2); // r_rounding[0] is fmin/fmax
-						end
+						nv = snan_a || snan_b;
+						case ({nan_a, nan_b})
+						2'b01: c_res = fr1;
+						2'b10: c_res = fr2;
+						2'b11:
+							casez (r_size) //synthesis full_case parallel_case
+							2'b1?: c_res = 64'hffff_ffff_ffff_7e00;
+							2'b?1: c_res = 64'h7FF8_0000_0000_0000;
+							2'b00: c_res = 64'hffff_ffff_7Fc0_0000;
+							endcase
+						2'b00: c_res = ((eq?sign_a:lt)^r_rounding[0] ? fr1:fr2); // r_rounding[0] is fmin/fmax
+						endcase
 						c_res_fp = 1;
 					end else begin
 						c_res = {63'b0, v};
@@ -655,7 +705,7 @@ module fpu(
 					casez (r_size) // synthesis full_case parallel_case
 					2'b1?:
 						c_res = {54'b0,
-							/*9*/	(fr1[14:10] == 5'h1f) &  fr1[9] & (fr1[8:0] != 9'b00) | (fr1[63:16]!=48'hffff_ffff_ffff),
+							/*9*/	((fr1[14:10] == 5'h1f) &  fr1[9]) | (fr1[63:16]!=48'hffff_ffff_ffff),
 							/*8*/	(fr1[14:10] == 5'h1f) & ~fr1[9] & (fr1[8:0] != 9'b00) & (fr1[63:16]==48'hffff_ffff_ffff),
 							/*7*/	~fr1[15] & (fr1[14:10] == 5'h1f) & (fr1[9:0] == 10'b0) & (fr1[63:16]==48'hffff_ffff_ffff),
 							/*6*/	~fr1[15] & (fr1[14:10] != 5'h1f) & (fr1[14:10] != 5'h0) & (fr1[63:16]==48'hffff_ffff_ffff),
@@ -668,7 +718,7 @@ module fpu(
 								};
 					2'b?1:
 						c_res = {54'b0,
-							/*9 +qnan*/	(fr1[62:52] == 11'h7ff) & fr1[51]  & (fr1[50:0] != 52'b00),
+							/*9 +qnan*/	(fr1[62:52] == 11'h7ff) & fr1[51],
 							/*8 +snan*/	(fr1[62:52] == 11'h7ff) & ~fr1[51] & (fr1[50:0] != 52'b00),
 							/*7 +inf */	~fr1[63] & (fr1[62:52] == 11'h7ff) & (fr1[51:0] == 52'b0),
 							/*6 +    */	~fr1[63] & (fr1[62:52] != 11'h7ff) & (fr1[62:52] != 11'h0),
@@ -681,7 +731,7 @@ module fpu(
 							};
 					2'b00:
 						c_res = {54'b0,
-							/*9*/	(fr1[30:23] == 8'hff) &  fr1[22] & (fr1[21:0] != 22'b00) | (fr1[63:32]!=32'hffff_ffff),
+							/*9*/	((fr1[30:23] == 8'hff) &  fr1[22]) | (fr1[63:32]!=32'hffff_ffff),
 							/*8*/	(fr1[30:23] == 8'hff) & ~fr1[22] & (fr1[21:0] != 22'b00) & (fr1[63:32]==32'hffff_ffff),
 							/*7*/	~fr1[31] & (fr1[30:23] == 8'hff) & (fr1[22:0] == 23'b0) & (fr1[63:32]==32'hffff_ffff),
 							/*6*/	~fr1[31] & (fr1[30:23] != 8'hff) & (fr1[30:23] != 8'h0) & (fr1[63:32]==32'hffff_ffff),
@@ -719,20 +769,27 @@ module fpu(
 		4'b1000:begin
 					c_res_makes_rd[div_hart] = 1;
 					c_res_rd = div_rd;
+					c_res_exceptions = div_exceptions;
 			    end
 		4'b??1?:begin
 					c_res_makes_rd[add_hart] = 1;
 					c_res_rd = add_rd;
+					c_res_exceptions = add_exceptions;
 			    end
 		4'b???1:begin
 					c_res_makes_rd[mul_hart] = 1;
 					c_res_rd = mul_rd;
+					c_res_exceptions = mul_exceptions;
 			    end
 		4'b?1??:begin
 					c_res_makes_rd[r_hart] = clk_1&r_start;
 					c_res_rd = r_rd;
+					c_res_exceptions = {nv, 1'b0, of, uf, nx};
 			    end
-		4'b0000: c_res_rd='bx;
+		4'b0000:begin
+					c_res_rd='bx;
+					c_res_exceptions = 'bx;
+				end
 		endcase
 	end
 
@@ -740,11 +797,11 @@ module fpu(
         r_res_makes_rd <= c_res_makes_rd;
 		r_res_rd <= c_res_rd;
 		r_res_fp <= c_res_fp;
+		r_res_exceptions <= c_res_exceptions;
 		r_res <= c_res;
 `ifdef SIMD
         if (|c_res_makes_rd && simd_enable) $display("F %d @ %x <- %x",$time,c_res_rd,c_res);
 `endif
-
 	end
 
 endmodule

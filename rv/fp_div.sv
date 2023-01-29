@@ -35,7 +35,7 @@ module fp_div(input reset, input clk,
         input [LNCOMMIT-1:0]rd,
         input [(NHART==1?0:LNHART-1):0]hart,
 		input 	makes_rd,
-		output exception,
+		output [4:0]exceptions,
 		output valid,
 		input valid_ack,
 		output [RV-1:0]res,
@@ -308,11 +308,13 @@ module fp_div(input reset, input clk,
     2'b?1: rem = mantissa_z[2:0];
     2'b00: rem = {mantissa_z[31:30], |mantissa_z[29:0]};
 	endcase 
+	reg nx;
     always @(*) begin
         mantissa = mantissa_z[54:3];
         inc = 0;
         roverflow = 0;  // true if 
 		x_underflow = 0;
+		nx = rem != 0;
         case (r_div_rnd) // synthesis full_case parallel_case
         0:  //      0 - RNE round to nearest, ties to even
             casez (r_div_sz) // synthesis full_case parallel_case
@@ -596,20 +598,27 @@ module fp_div(input reset, input clk,
                   end
         endcase
     end
+	reg nv, uf, of;
 	always @(*) begin
 		c_div_res = 64'bx;
+		nv = 0;
+		uf = 0;
+		of = 0;
 		casez (r_div_sz) // synthesis full_case parallel_case
 		2'b1?:	begin
 					if (r_div_nan) begin
+						nv = 1;
 						c_div_res = {48'hffff_ffff_ffff, 6'h1f, 1'b1, 9'h0};  // quiet nan
 					end else
 					if (!r_div_infinity&calc_infinity&roverflow) begin
+						of = 1;
 						c_div_res = {48'hffff_ffff_ffff, r_div_sign, 5'h1e, ~10'h0};  
 					end else
 					if (r_div_infinity|calc_infinity) begin
 						c_div_res = {48'hffff_ffff_ffff, r_div_sign, 5'h1f, 10'h0};  
 					end else
 					if (underflow&!x_underflow || is_zero) begin
+						uf = 1;
 						c_div_res = {48'hffff_ffff_ffff, rsign, 5'b0, 10'h0};
 					end else begin
 						c_div_res = {48'hffff_ffff_ffff, rsign, ~exponent[11], exponent[3:0], mantissa[54:45]};
@@ -617,31 +626,37 @@ module fp_div(input reset, input clk,
 				end
 		2'b?1:	begin
 					if (r_div_nan) begin
+						nv = 1;
 						c_div_res = {12'h7ff, 1'b1, 51'h0};   // quiet nan
 					end else
-						if (!r_div_infinity&calc_infinity&roverflow) begin
-							c_div_res = {r_div_sign, 11'h7fe, ~52'h0};
-						end else
-						if (r_div_infinity|calc_infinity) begin
-							c_div_res = {r_div_sign, 11'h7ff, 52'h0};
-						end else
-						if (underflow&!x_underflow || is_zero) begin
-							c_div_res = {rsign, 11'b0, 52'h0};
-						end else begin
-							c_div_res = {rsign, ~exponent[11], exponent[9:0], mantissa[54:3]};
-						end
+					if (!r_div_infinity&calc_infinity&roverflow) begin
+						of = 1;
+						c_div_res = {r_div_sign, 11'h7fe, ~52'h0};
+					end else
+					if (r_div_infinity|calc_infinity) begin
+						c_div_res = {r_div_sign, 11'h7ff, 52'h0};
+					end else
+					if (underflow&!x_underflow || is_zero) begin
+						uf = 1;
+						c_div_res = {rsign, 11'b0, 52'h0};
+					end else begin
+						c_div_res = {rsign, ~exponent[11], exponent[9:0], mantissa[54:3]};
 					end
+				end
 		2'b00:	begin
 					if (r_div_nan) begin
+						nv = 1;
 						c_div_res = {32'hffff_ffff, 9'h0ff, 1'b1, 22'h0}; // quiet nan
 					end else
 					if (!r_div_infinity&calc_infinity&roverflow) begin
+						of = 1;
 						c_div_res = {32'hffff_ffff, r_div_sign, 8'hfe, ~23'h0};
 					end else
 					if (r_div_infinity|calc_infinity) begin
 						c_div_res = {32'hffff_ffff, r_div_sign, 8'hff, 23'h0};
 					end else
 					if (underflow&!x_underflow || is_zero) begin
+						uf = 1;
 						c_div_res = {32'hffff_ffff, rsign, 8'b0, 23'h0};
 					end else begin
 						c_div_res = {32'hffff_ffff, rsign, ~exponent[11], exponent[6:0], mantissa[54:32]};
@@ -649,6 +664,8 @@ module fp_div(input reset, input clk,
 				end
 		endcase
 	end
+
+	assign exceptions = {nv, r_div_zero, of, uf, nx};
 
 	assign rd_out = r_div_rd;
 	assign hart_out = r_div_hart;

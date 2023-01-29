@@ -120,7 +120,7 @@ MX10 = mk10_2.inc mk10_4.inc mk10_8.inc mk10_16.inc
 MX11 = mk11_4_2.inc mk11_8_2.inc mk11_16_2.inc mk11_32_2.inc mk11_64_2.inc mk11_4_3.inc mk11_8_3.inc mk11_16_3.inc mk11_32_3.inc mk11_64_3.inc mk11_32_4.inc
 MX12 = mk12_16.inc mk12_32.inc mk12_64.inc
 MX13 = mk13_8_2_1.inc mk13_16_2_1.inc mk13_32_2_1.inc mk13_8_2_2.inc mk13_16_2_2.inc mk13_32_2_2.inc mk13_16_4_4.inc mk13_32_4_4.inc 
-MX14 = mk14_6_4_4_1.inc mk14_4_2_2_1.inc
+MX14 = mk14_6_4_4_1_1.inc mk14_4_2_2_1_1.inc mk14_6_4_4_1_0.inc mk14_4_2_2_1_0.inc
 MX15 = mk15_10_2.inc mk15_11_2.inc mk15_12_2.inc mk15_15_2.inc mk15_14_2.inc \
 	mk15_10_1.inc mk15_11_1.inc mk15_12_1.inc mk15_15_1.inc mk15_14_1.inc \
 	mk15_16_1.inc mk15_16_2.inc
@@ -564,10 +564,14 @@ mk13_32_4_4.inc: mk13
 
 mk14:	mk14.c
 	gcc -o mk14 mk14.c
-mk14_6_4_4_1.inc: mk14
-	./mk14 6 4 4 1 >$@
-mk14_4_2_2_1.inc: mk14
-	./mk14 4 2 2 1 >$@
+mk14_6_4_4_1_0.inc: mk14
+	./mk14 6 4 4 1 0 >$@
+mk14_4_2_2_1_0.inc: mk14
+	./mk14 4 2 2 1 0 >$@
+mk14_6_4_4_1_1.inc: mk14
+	./mk14 6 4 4 1 1 >$@
+mk14_4_2_2_1_1.inc: mk14
+	./mk14 4 2 2 1 1 >$@
 
 mk15:	mk15.c
 	gcc -o mk15 mk15.c

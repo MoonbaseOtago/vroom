@@ -144,6 +144,9 @@ module decode(input clk,
 
 		input	partial_nuke,
 
+`ifdef FP
+		input		fp_off,
+`endif
 		//
 		//	default		predict
 		//	  1			-			use default prediction
@@ -898,6 +901,9 @@ module decode(input clk,
 	task decode_32;
 	input [31:0]ins;
 	input       b;
+`ifdef FP
+	input		fp_off;
+`endif
 	output [4:0]rd, rs1, rs2, rs3;
 	output	trap, brk, env_call;
 	output  jmp, cjmp;
@@ -1033,8 +1039,13 @@ module decode(input clk,
 					imm = {{20{ins[31]}},ins[31:20]};
 					f_load = 1;
 					f_amo = 0;
-					makes_rd = rd != 0;
+					makes_rd = 1;
 					rd_fp = 1;
+`ifdef FP
+					trap = fp_off;
+`else
+					trap = 1;
+`endif
 					case (ins[14:12])   // synthesis full_case parallel_case
 					3'b001: begin		// flh
 								lsize = 1;
@@ -2137,6 +2148,11 @@ module decode(input clk,
 					needs_rs2 = 1;
 					makes_rd = 0;
 					rs2_fp = 1;
+`ifdef FP
+					trap = fp_off;
+`else
+					trap = 1;
+`endif
 					case (ins[14:12])  // synthesis full_case parallel_case
 					3'b001: begin		// fhw
 								lsize = 1;
@@ -2194,7 +2210,9 @@ module decode(input clk,
 					rs2_fp = 1;
 					rs3_fp = 1;
 					rd_fp = 1;
-`ifndef FP
+`ifdef FP
+					trap = trap|fp_off;
+`else
 					trap = 1; 
 `endif
 				 end
@@ -2212,7 +2230,9 @@ module decode(input clk,
 					rs2_fp = 1;
 					rs3_fp = 1;
 					rd_fp = 1;
-`ifndef FP
+`ifdef FP
+					trap = trap|fp_off;
+`else
 					trap = 1; 
 `endif
 				 end
@@ -2230,14 +2250,16 @@ module decode(input clk,
 					rs2_fp = 1;
 					rs3_fp = 1;
 					rd_fp = 1;
-`ifndef FP
+`ifdef FP
+					trap = trap|fp_off;
+`else
 					trap = 1; 
 `endif
 				 end
 		5'b10011:begin	// fnmadd*
 					f_fp = 1;
 					f_fpm = 1;
-					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
+					trap = fp_off || ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
 					f_fp_sz = ins[26:25];
 					trap = trap | (ins[26:25] == 2'b11);
 					f_fp_op = 3;	// fnmadd
@@ -2358,7 +2380,9 @@ module decode(input clk,
 								end
 					default:	trap = 1;
 					endcase
-`ifndef FP
+`ifdef FP
+					trap = trap|fp_off;
+`else
 					trap = 1;
 `endif
 				 end
@@ -2596,6 +2620,9 @@ module decode(input clk,
 
 	task decode_16;
 	input [15:0]ins;
+`ifdef FP
+	input 	fp_off;
+`endif
 	output [4:0]rd, rs1, rs2;
 	output	trap, brk;
 	output  jmp, cjmp;
@@ -2671,7 +2698,9 @@ module decode(input clk,
 							lsize = 3;
 							lsgn = 0;
 							rd_fp = 1;
-`ifndef FP
+`ifdef FP
+							trap = fp_off;
+`else
 							trap = 1;
 `endif
 						end
@@ -2692,7 +2721,9 @@ module decode(input clk,
 								lsize = 2;
 								lsgn = 0;
 								rd_fp = 1;
-`ifndef FP
+`ifdef FP
+								trap = fp_off;
+`else
 								trap = 1;
 `endif
 							end else begin
@@ -2708,7 +2739,9 @@ module decode(input clk,
 						end
 					3'b101: begin
 							// c.fsd
-`ifndef FP
+`ifdef FP
+							trap = fp_off;
+`else
 							trap = 1;
 `endif
 							f_store = 1;
@@ -2729,7 +2762,9 @@ module decode(input clk,
 						end
 					3'b111: if (rv32) begin
 								// c.fsw
-`ifndef FP
+`ifdef FP
+								trap = fp_off;
+`else
 								trap = 1;
 `endif
 								f_store = 1;
@@ -2901,6 +2936,11 @@ module decode(input clk,
 						lsize = 3;
 						lsgn = 0;
 						rd_fp = 1;
+`ifdef FP
+						trap = fp_off;
+`else
+						trap = 1;
+`endif
 					end
 				3'b010:	begin	// c.lwsp
 						imm = {24'b0,ins[3:2],ins[12],ins[6:4], 2'b00};
@@ -2919,6 +2959,11 @@ module decode(input clk,
 							lsize = 2;
 							lsgn = 0;
 							rd_fp = 1;
+`ifdef FP
+							trap = fp_off;
+`else
+							trap = 1;
+`endif
 						end else begin	// c.ldsp
 							imm = {23'b0,ins[4:2],ins[12],ins[6:5], 3'b00};
 							f_load = 1;
@@ -2975,6 +3020,11 @@ module decode(input clk,
 						lf = 1;
 						lsize = 3;
 						lsgn = 0;
+`ifdef FP
+						trap = fp_off;
+`else
+						trap = 1;
+`endif
 					end
 				3'b110:	begin
 						// c.swsp
@@ -2995,6 +3045,11 @@ module decode(input clk,
 							lf = 1;
 							lsize = 2;
 							lsgn = 0;
+`ifdef FP
+							trap = fp_off;
+`else
+							trap = 1;
+`endif
 						end else begin
 							// c.sdsp
 							imm = {22'b0,ins[9:7],ins[12:10], 3'b00};
@@ -3015,6 +3070,9 @@ module decode(input clk,
 			c_short_pc = 0;
 			c_inc2_1 = partial_valid_in;
 			decode_32((partial_valid_in?{ins[15:0],partial_ins_in}:ins), b,
+`ifdef FP
+				fp_off,
+`endif
 				c_rd_1, c_rs1_1, c_rs2_1, c_rs3_1,
 				c_trap_1, c_break_1, c_env_call_1, 
 				c_jmp_1, c_cjmp_1,
@@ -3038,6 +3096,9 @@ module decode(input clk,
 
 			if (partial_valid_in && (ins[17:16] != 3)) begin
 				decode_16(ins[31:16], 
+`ifdef FP
+					fp_off,
+`endif
 					c_rd_2, c_rs1_2, c_rs2_2,
 					c_trap_2, c_break_2,
 					c_jmp_2, c_cjmp_2,
@@ -3096,6 +3157,9 @@ module decode(input clk,
 			c_min_1 = 0;
 			c_max_1 = 0;
 			decode_16(ins[15:0], 
+`ifdef FP
+				fp_off,
+`endif
 				c_rd_1, c_rs1_1, c_rs2_1,
 				c_trap_1, c_break_1,
 				c_jmp_1, c_cjmp_1,
@@ -3120,6 +3184,9 @@ module decode(input clk,
 			c_sgn_1 = 2'bxx;
 			if (ins[31:16] != 3) begin
 				decode_16(ins[31:16], 
+`ifdef FP
+					fp_off,
+`endif
 					c_rd_2, c_rs1_2, c_rs2_2,
 					c_trap_2, c_break_2,
 					c_jmp_2, c_cjmp_2,

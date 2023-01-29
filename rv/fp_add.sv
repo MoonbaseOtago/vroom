@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2020-22 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2020-23 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ module fp_add_sub(input reset, input clk,
 		input [LNCOMMIT-1:0]rd,
 		input [(NHART==1?0:LNHART-1):0]hart,
 		output valid,
-		output exception,
+		output [4:0]exceptions,
 		output [RV-1:0]res,
 		output [LNCOMMIT-1:0]rd_out,
 		output [(NHART==1?0:LNHART-1):0]hart_out
@@ -56,15 +56,18 @@ module fp_add_sub(input reset, input clk,
 	reg	sign_1, sign_2;
 	reg [10:0]exp_1, rexp_1;
 	reg [10:0]exp_2, rexp_2;
+	reg	boxed_nan_1, boxed_nan_2;
 	
 
 	always @(*)
 	casez (sz)  // synthesis full_case parallel_case
 	2'b1?:	begin
-				is_nan_1 = (in_1[63:16]!=~48'b0) || ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0));
-				is_nan_2 = (in_2[63:16]!=~48'b0) || ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0));
-				is_nan_signalling_1 = in_1[9];
-				is_nan_signalling_2 = in_2[9];
+				boxed_nan_1 = (in_1[63:16]!=~48'b0);
+				boxed_nan_2 = (in_2[63:16]!=~48'b0);
+				is_nan_1 = ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0)) || boxed_nan_1;
+				is_nan_2 = ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0)) || boxed_nan_2;
+				is_nan_signalling_1 = !in_1[8] || boxed_nan_1;
+				is_nan_signalling_2 = !in_2[8] || boxed_nan_2;
 				is_infinity_1 = (in_1[14:10] == 5'h1f) && (in_1[9:0] == 0);
 				is_infinity_2 = (in_2[14:10] == 5'h1f) && (in_2[9:0] == 0);
 				sign_1 = in_1[15];
@@ -75,10 +78,12 @@ module fp_add_sub(input reset, input clk,
 				rexp_2 = in_2[14:10]==0? {5'h1, 6'b0} : {in_2[14:10],6'b0};
 			end
 	2'b?1:	begin
+				boxed_nan_1 = 0;
+				boxed_nan_2 = 0;
 				is_nan_1 = ((in_1[62:52] == 11'h7ff) && (in_1[51:0] != 0));
 				is_nan_2 = ((in_2[62:52] == 11'h7ff) && (in_2[51:0] != 0));
-				is_nan_signalling_1 = in_1[51];
-				is_nan_signalling_2 = in_2[51];
+				is_nan_signalling_1 = !in_1[51] || boxed_nan_1;
+				is_nan_signalling_2 = !in_2[51] || boxed_nan_2;
 				is_infinity_1 = (in_1[62:52] == 11'h7ff) && (in_1[51:0] == 0);
 				is_infinity_2 = (in_2[62:52] == 11'h7ff) && (in_2[51:0] == 0);
 				sign_1 = in_1[63];
@@ -89,10 +94,12 @@ module fp_add_sub(input reset, input clk,
 				rexp_2 = in_2[62:52]==0? 11'h1 : in_2[62:52];
 			end
 	2'b00:	begin
-				is_nan_1 = (in_1[63:32]!=~32'b0) || ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0));
-				is_nan_2 = (in_2[63:32]!=~32'b0) || ((in_2[30:23] == 8'hff) && (in_2[22:0] != 0));
-				is_nan_signalling_1 = in_1[22];
-				is_nan_signalling_2 = in_2[22];
+				boxed_nan_1 = (in_1[63:32]!=~32'b0);
+				boxed_nan_2 = (in_2[63:32]!=~32'b0);
+				is_nan_1 = ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0)) || boxed_nan_1;
+				is_nan_2 = ((in_2[30:23] == 8'hff) && (in_2[22:0] != 0)) || boxed_nan_2;
+				is_nan_signalling_1 = !in_1[22] || boxed_nan_1;
+				is_nan_signalling_2 = !in_2[22] || boxed_nan_2;
 				is_infinity_1 = (in_1[30:23] == 8'hff) && (in_1[22:0] == 0);
 				is_infinity_2 = (in_2[30:23] == 8'hff) && (in_2[22:0] == 0);
 				sign_1 = in_1[31];
@@ -104,9 +111,10 @@ module fp_add_sub(input reset, input clk,
 			end
 	endcase
 
+	assign bad_infinity = (is_infinity_1&&is_infinity_2&&(sign_1!=sign_2));
 	
-	assign a_exception = is_nan_1&is_nan_signalling_1 || is_nan_2&is_nan_signalling_2;
-	wire nan = is_nan_1 || is_nan_2 || (is_infinity_1&&is_infinity_2&&(sign_1!=sign_2));
+	assign a_nan_quiet = !(is_nan_1&is_nan_signalling_1 || is_nan_2&is_nan_signalling_2 || bad_infinity);
+	wire nan = is_nan_1 || is_nan_2 || bad_infinity;
 	wire infinity = is_infinity_1 || is_infinity_2;
 	wire infinity_sign = (is_infinity_1&sign_1) || (is_infinity_2&sign_2);
 
@@ -162,7 +170,6 @@ module fp_add_sub(input reset, input clk,
 	wire in_is_0 = mantissa_1_0 && mantissa_2_0 && exp_1 == 0 && exp_2 == 0;
 	wire in_eq_sign = in_is_0 && sign_1 == sign_2;
 
-
 	// pull in denormalisation mux
 	//	makes shifted_mantissa_1, shifted_mantissa_2, exponent
 `include "mkf1.inc"	
@@ -196,30 +203,6 @@ module fp_add_sub(input reset, input clk,
 		end
 	end
 
-`ifdef NOTDEF
-	reg [56:0]r_a_mantissa_1, r_a_mantissa_2;
-	reg		  r_a_cin, r_a_exception, r_a_nan, r_a_infinity, r_a_infinity_sign;
-	reg [10:0]r_a_exponent;
-	reg  [2:0]r_a_rnd;
-	reg	 [1:0]r_a_sz;
-	reg		  r_a_signx;
-
-	always @(posedge clk) begin
-		r_a_mantissa_1 <= c_a_mantissa_1;
-		r_a_mantissa_2 <= c_a_mantissa_2;
-		r_a_sz <= sz;
-		r_a_exception <= a_exception;
-		r_a_nan <= nan;
-		r_a_infinity <= infinity;
-		r_a_infinity_sign <= infinity_sign;
-		r_a_signx <= sign_x;
-		r_a_cin <= cin;
-		r_a_exponent <= exponent_x;
-		r_a_rnd <= rnd;
-	end
-`endif
-		
-
 	reg [57:0]c_mantissa_x;
 	always @(*) 
 	casez (sz) // synthesis full_case parallel_case
@@ -232,7 +215,7 @@ module fp_add_sub(input reset, input clk,
 
 	reg [57:0]r_b_mantissa;
 	reg  [1:0]r_b_sz;
-	reg		  r_b_exception, r_b_nan, r_b_infinity, r_b_infinity_sign, r_b_sign, r_b_eq_sign;
+	reg		  r_b_nan, r_b_infinity, r_b_infinity_sign, r_b_sign, r_b_eq_sign, r_b_nan_quiet;
 	reg [10:0]r_b_exponent;
 	reg  [2:0]r_b_rnd;
 	reg [LNCOMMIT-1:0]r_b_rd;
@@ -243,7 +226,7 @@ module fp_add_sub(input reset, input clk,
 	always @(posedge clk) begin
 		r_b_mantissa <= c_mantissa_x;
 		r_b_sz <= sz;
-        r_b_exception <= a_exception;
+        r_b_nan_quiet <= a_nan_quiet;
         r_b_nan <= nan;
         r_b_infinity <= infinity;
         r_b_infinity_sign <= infinity_sign;
@@ -338,7 +321,7 @@ module fp_add_sub(input reset, input clk,
 			casez (r_b_sz) // synthesis full_case parallel_case
 			2'b1?: incx = exponent_t[10:7]==4'h0;
 			2'b?1: incx = exponent_t==11'h0;
-			2'b00: incx = exponent_t[10:4]==7'h0;
+			2'b00: incx = exponent_t[10:3]==8'h0;
 			endcase
 		end
 	end
@@ -374,6 +357,7 @@ module fp_add_sub(input reset, input clk,
 
 	reg [54:3]mantissa;
 	reg		  roverflow;
+	reg		  nx;
 	always @(*) begin
 		mantissa = mantissa_z[54:3];
 		inc = 0;
@@ -473,6 +457,12 @@ module fp_add_sub(input reset, input clk,
 			endcase
 		default: begin inc = 'bx; mantissa = 'bx; end
 		endcase
+		nx = 'bx;
+		casez (r_b_sz) // synthesis full_case parallel_case
+		2'b1?: nx = (calc_infinity || mantissa_z[44:42]!=0) && !r_b_infinity && !r_b_nan; 
+		2'b?1: nx = (calc_infinity || mantissa_z[2:0]!=0)   && !r_b_infinity && !r_b_nan;
+		2'b00: nx = (calc_infinity || mantissa_z[31:29]!=0) && !r_b_infinity && !r_b_nan;
+		endcase	
 		casez (r_b_sz) // synthesis full_case parallel_case
 		2'b1?: is_zero = mantissa_z[55:45] == 0;
 		2'b?1: is_zero = mantissa_z[55:3] == 0;
@@ -481,16 +471,23 @@ module fp_add_sub(input reset, input clk,
 	end
 
 	reg [63:0]out;
+	reg uf, of, nv;
 	always @(*) begin
+		of = 0;
+		nv = 0;
+		uf = 0;
 		casez (r_b_sz) // synthesis full_case parallel_case
 		2'b1?: begin
 					if (r_b_nan) begin
+						nv = !r_b_nan_quiet;
 						out = {48'hffff_ffff_ffff, 6'h1f, 1'b1, 9'h0};	// quiet nan
 					end else
 					if (!r_b_infinity&calc_infinity&roverflow) begin
+						of = 1;
 						out = {48'hffff_ffff_ffff, r_b_sign, 5'h1e, ~10'h0};	
 					end else
 					if (r_b_infinity|calc_infinity) begin
+						of = calc_infinity&!r_b_infinity;
 						out = {48'hffff_ffff_ffff, r_b_infinity?r_b_infinity_sign:r_b_sign, 5'h1f, 10'h0};	
 					end else begin
 						out = {48'hffff_ffff_ffff, rsign, exponent[10:6], mantissa[54:45]};
@@ -498,12 +495,15 @@ module fp_add_sub(input reset, input clk,
 			   end
 		2'b?1: begin
 					if (r_b_nan) begin
+						nv = !r_b_nan_quiet;
 						out = {12'h7ff, 1'b1, 51'h0};	// quiet nan
 					end else
 					if (!r_b_infinity&calc_infinity&roverflow) begin
+						of = 1;
 						out = {r_b_sign, 11'h7fe, ~52'h0};	
 					end else
 					if (r_b_infinity|calc_infinity) begin
+						of = calc_infinity&!r_b_infinity;
 						out = {r_b_infinity?r_b_infinity_sign:r_b_sign, 11'h7ff, 52'h0};	
 					end else begin
 						out = {rsign, exponent[10:0], mantissa[54:3]};
@@ -511,12 +511,15 @@ module fp_add_sub(input reset, input clk,
 			   end
 		2'b00: begin
 					if (r_b_nan) begin
+						nv = !r_b_nan_quiet;
 						out = {32'hffff_ffff, 9'h0ff, 1'b1, 22'h0};	// quiet nan
 					end else
 					if (!r_b_infinity&calc_infinity&roverflow) begin
+						of = 1;
 						out = {32'hffff_ffff, r_b_sign, 8'hfe, ~23'h0};
 					end else
 					if (r_b_infinity|calc_infinity) begin
+						of = calc_infinity&!r_b_infinity;
 						out = {32'hffff_ffff, r_b_infinity?r_b_infinity_sign:r_b_sign, 8'hff, 23'h0};	
 					end else begin
 						out = {32'hffff_ffff, rsign, exponent[10:3], mantissa[54:32]};
@@ -525,6 +528,7 @@ module fp_add_sub(input reset, input clk,
 		endcase
 	end 
 	assign res = out;
+	assign exceptions = {nv, 1'b0, of, uf, nx};
 	
 endmodule
 

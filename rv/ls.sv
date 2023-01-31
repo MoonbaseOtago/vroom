@@ -16,6 +16,10 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // 
 
+// FIXME - the hazard checking doesn't treat the FP and integer registers as separate
+//		   this means we sometimes aliasing and over active hazard stalls
+//
+
 `include "lstypes.si"
 
 module load_store(

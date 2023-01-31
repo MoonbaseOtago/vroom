@@ -177,7 +177,9 @@ module fpu(
 	wire [RV-1:0]res_mul;
 	wire		valid_mul;
 	wire [4:0]mul_exceptions;
-	//wire fmuladd = 
+	wire fmuladd = r_multiple;
+	wire fmulsub = r_op[0];
+	wire fmulsign = r_op[1];
 	wire [LNCOMMIT-1:0]mul_rd;
 	wire [(NHART==1?0:LNHART-1):0]mul_hart;
 	fp_mul		#(.RV(RV), .LNHART(LNHART), .NHART(NHART), .LNCOMMIT(LNCOMMIT))fpmul(.clk(clk), .reset(reset),
@@ -204,7 +206,7 @@ module fpu(
 	wire [LNCOMMIT-1:0]div_rd;
 	wire [(NHART==1?0:LNHART-1):0]div_hart;
 	fp_div		#(.RV(RV), .LNHART(LNHART), .NHART(NHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))fpdiv(.clk(clk), .reset(reset),
-			.start(r_start&(r_op == 3 || r_op == 4)),
+			.start(r_start&!r_multiple&(r_op == 3 || r_op == 4)),
             .sz(r_size),    // double/single
 			.rd(r_rd),
 			.hart(r_hart),
@@ -765,7 +767,7 @@ module fpu(
 			endcase
 		endcase
 		c_res_makes_rd = 0;
-		casez ({valid_div, r_start, valid_add, valid_mul}) // synthesis full_case parallel_case
+		casez ({valid_div, r_start&!r_multiple&(r_op>=5), valid_add, valid_mul}) // synthesis full_case parallel_case
 		4'b1000:begin
 					c_res_makes_rd[div_hart] = 1;
 					c_res_rd = div_rd;

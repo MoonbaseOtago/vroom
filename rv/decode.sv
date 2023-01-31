@@ -2197,6 +2197,7 @@ module decode(input clk,
 					endcase
 				 end
 		5'b10000:begin	// fmadd*
+					makes_rd = 1;
 					f_fp = 1;
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
@@ -2217,6 +2218,7 @@ module decode(input clk,
 `endif
 				 end
 		5'b10001:begin	// fmsub*
+					makes_rd = 1;
 					f_fp = 1;
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
@@ -2237,6 +2239,7 @@ module decode(input clk,
 `endif
 				 end
 		5'b10010:begin	// fnmsub*
+					makes_rd = 1;
 					f_fp = 1;
 					f_fpm = 1;
 					trap = ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
@@ -2257,6 +2260,7 @@ module decode(input clk,
 `endif
 				 end
 		5'b10011:begin	// fnmadd*
+					makes_rd = 1;
 					f_fp = 1;
 					f_fpm = 1;
 					trap = fp_off || ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes

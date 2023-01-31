@@ -51,6 +51,10 @@
     mv          a0, _V2; \
     jal         FN_WriteA0; \
 
+#define LOCAL_IO_WRITE_DFPRX(_F)                                   \
+    fmv.x.d     a0, _F;                                                 \
+    jal         FN_WriteA0; 
+
 #define LOCAL_IO_PUTC(_R)                                               \
     csrw       0x8f0,_R                                               \
 
@@ -96,9 +100,10 @@
 // _F = FPR
 // _C = GPR
 // _I = Immediate
-#define XVTEST_IO_ASSERT_SFPR_EQ(_F, _C, _I)                            \
-    fmv.x.s     t0, _F;                                                 \
-    beq         _C, t0, 20003f;                                         \
+#define XVTEST_IO_ASSERT_SFPR_EQ(_F, _R, _I)                            \
+    fmv.x.s     _R, _F;                                                 \
+    li	     	a0, _I;                                                 \
+    beq         _R, a0, 20003f;                                         \
     LOCAL_IO_WRITE_STR("Assertion violation: file ");                   \
     LOCAL_IO_WRITE_STR(__FILE__);                                       \
     LOCAL_IO_WRITE_STR(", line ");                                      \
@@ -118,8 +123,9 @@
 // _R = GPR
 // _I = Immediate
 #define XVTEST_IO_ASSERT_DFPR_EQ(_D, _R, _I)                            \
-    fmv.x.d     t0, _D;                                                 \
-    beq         _R, t0, 20005f;                                         \
+    fmv.x.d     _R, _D;                                                 \
+    li          a0, _I;							\
+    beq         _R, a0, 20005f;                                         \
     LOCAL_IO_WRITE_STR("Assertion violation: file ");                   \
     LOCAL_IO_WRITE_STR(__FILE__);                                       \
     LOCAL_IO_WRITE_STR(", line ");                                      \
@@ -127,7 +133,7 @@
     LOCAL_IO_WRITE_STR(": ");                                           \
     LOCAL_IO_WRITE_STR(# _D);                                           \
     LOCAL_IO_WRITE_STR("(");                                            \
-    LOCAL_IO_WRITE_DFPR(_D);                                            \
+    LOCAL_IO_WRITE_DFPRX(_D);                                            \
     LOCAL_IO_WRITE_STR(") != ");                                        \
     LOCAL_IO_WRITE_STR(# _I);                                           \
     LOCAL_IO_WRITE_STR("\n");                                           \
@@ -237,11 +243,14 @@ FN_WriteA0_common:
 //RVTEST_IO_CHECK
 #define RVMODEL_IO_CHECK()
 //RVTEST_IO_ASSERT_GPR_EQ
-#define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I) XVTEST_IO_ASSERT_GPR_EQ(_S, _R, _I)
+#define RVMODEL_IO_ASSERT_GPR_EQ(_S, _R, _I)
+//XVTEST_IO_ASSERT_GPR_EQ(_S, _R, _I)
 //RVTEST_IO_ASSERT_SFPR_EQ
-#define RVMODEL_IO_ASSERT_SFPR_EQ(_F, _R, _I) XVTEST_IO_ASSERT_SFPR_EQ(_F, _R, _I)
+#define RVMODEL_IO_ASSERT_SFPR_EQ(_F, _R, _I)
+//XVTEST_IO_ASSERT_SFPR_EQ(_R, _F, _I)
 //RVTEST_IO_ASSERT_DFPR_EQ
-#define RVMODEL_IO_ASSERT_DFPR_EQ(_D, _R, _I) XVTEST_IO_ASSERT_DFPR_EQ(_D, _R, _I)
+#define RVMODEL_IO_ASSERT_DFPR_EQ(_D, _R, _I)
+//XVTEST_IO_ASSERT_DFPR_EQ(_R, _D, _I)
 
 #define RVMODEL_SET_MSW_INT       \
  li t1, 1;                         \

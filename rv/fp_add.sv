@@ -66,8 +66,8 @@ module fp_add_sub(input reset, input clk,
 				boxed_nan_2 = (in_2[63:16]!=~48'b0);
 				is_nan_1 = ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0)) || boxed_nan_1;
 				is_nan_2 = ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0)) || boxed_nan_2;
-				is_nan_signalling_1 = !in_1[8] || boxed_nan_1;
-				is_nan_signalling_2 = !in_2[8] || boxed_nan_2;
+				is_nan_signalling_1 = !in_1[9] || boxed_nan_1;
+				is_nan_signalling_2 = !in_2[9] || boxed_nan_2;
 				is_infinity_1 = (in_1[14:10] == 5'h1f) && (in_1[9:0] == 0);
 				is_infinity_2 = (in_2[14:10] == 5'h1f) && (in_2[9:0] == 0);
 				sign_1 = in_1[15];

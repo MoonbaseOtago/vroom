@@ -75,16 +75,20 @@ module fp_mul(input reset, input clk,
 	reg is_infinity_1, is_infinity_2, is_infinity_3;
 	reg sign_1, sign_2, sign_3;
 	reg z_1, z_2, z_3;
+	reg boxed_nan_1, boxed_nan_2, boxed_nan_3;
 
 	always @(*)
 	casez (sz) // synthesis full_case parallel_case
 	2'b1?: begin	// 16-bit
-			is_nan_1 = (in_1[63:16]!=~48'b0) || ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0));
-			is_nan_2 = (in_2[63:16]!=~48'b0) || ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0));
-			is_nan_3 = (in_3[63:16]!=~48'b0) || ((in_3[14:10] == 5'h1f) && (in_3[9:0] != 0));
-			is_nan_signalling_1 = in_1[9];
-			is_nan_signalling_2 = in_2[9];
-			is_nan_signalling_3 = in_3[9];
+			boxed_nan_1 = (in_1[63:16]!=~48'b0);
+			boxed_nan_2 = (in_2[63:16]!=~48'b0);
+			boxed_nan_3 = (in_3[63:16]!=~48'b0);
+			is_nan_1 = ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0)) || boxed_nan_1;
+			is_nan_2 = ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0)) || boxed_nan_2;
+			is_nan_3 = (((in_3[14:10] == 5'h1f) && (in_3[9:0] != 0)) || boxed_nan_3) && fmuladd;
+			is_nan_signalling_1 = !in_1[9] || boxed_nan_1;
+			is_nan_signalling_2 = !in_2[9] || boxed_nan_2;
+			is_nan_signalling_3 = !in_3[9] || boxed_nan_3;
 			is_infinity_1 = (in_1[14:10] == 5'h1f) && (in_1[9:0] == 0);
 			is_infinity_2 = (in_2[14:10] == 5'h1f) && (in_2[9:0] == 0);
 			is_infinity_3 = (in_3[14:10] == 5'h1f) && (in_3[9:0] == 0) && fmuladd;
@@ -96,12 +100,15 @@ module fp_mul(input reset, input clk,
 			z_3 = in_3[14:10]==8'b0 || !fmuladd;
 		   end
 	2'b?1: begin	// 64-bit
+			boxed_nan_1 = 1'bx;
+			boxed_nan_2 = 1'bx;
+			boxed_nan_3 = 1'bx;
 			is_nan_1 = ((in_1[62:52] == 11'h7ff) && (in_1[51:0] != 0));
 			is_nan_2 = ((in_2[62:52] == 11'h7ff) && (in_2[51:0] != 0));
 			is_nan_3 = ((in_3[62:52] == 11'h7ff) && (in_3[51:0] != 0)) && fmuladd;
-			is_nan_signalling_1 = in_1[51];
-			is_nan_signalling_2 = in_2[51];
-			is_nan_signalling_3 = in_3[51] && fmuladd;
+			is_nan_signalling_1 = !in_1[51];
+			is_nan_signalling_2 = !in_2[51];
+			is_nan_signalling_3 = !in_3[51] && fmuladd;
 			is_infinity_1 = (in_1[62:52] == 11'h7ff) && (in_1[51:0] == 0);
 			is_infinity_2 = (in_2[62:52] == 11'h7ff) && (in_2[51:0] == 0);
 			is_infinity_3 = (in_3[62:52] == 11'h7ff) && (in_3[51:0] == 0) && fmuladd;
@@ -113,12 +120,15 @@ module fp_mul(input reset, input clk,
 			z_3 = in_3[62:52]==11'b0  || !fmuladd;
 		   end
 	2'b00: begin	// 32-bit
-			is_nan_1 = (in_1[63:32]!=~32'b0) || ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0));
-			is_nan_2 = (in_2[63:32]!=~32'b0) || ((in_2[30:23] == 8'hff) && (in_2[22:0] != 0));
-			is_nan_3 = (in_3[63:32]!=~32'b0) || ((in_3[30:23] == 8'hff) && (in_3[22:0] != 0));
-			is_nan_signalling_1 = in_1[22];
-			is_nan_signalling_2 = in_2[22];
-			is_nan_signalling_3 = in_3[22];
+			boxed_nan_1 = (in_1[63:32]!=~32'b0);
+			boxed_nan_2 = (in_2[63:32]!=~32'b0);
+			boxed_nan_3 = (in_3[63:32]!=~32'b0);
+			is_nan_1 = ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0)) || boxed_nan_1;
+			is_nan_2 = ((in_2[30:23] == 8'hff) && (in_2[22:0] != 0)) || boxed_nan_2;
+			is_nan_3 = (((in_3[30:23] == 8'hff) && (in_3[22:0] != 0)) || boxed_nan_3) && fmuladd;
+			is_nan_signalling_1 = !in_1[22] || boxed_nan_1;
+			is_nan_signalling_2 = !in_2[22] || boxed_nan_2;
+			is_nan_signalling_3 = !in_3[22] || boxed_nan_3;
 			is_infinity_1 = (in_1[30:23] == 8'hff) && (in_1[22:0] == 0);
 			is_infinity_2 = (in_2[30:23] == 8'hff) && (in_2[22:0] == 0);
 			is_infinity_3 = (in_3[30:23] == 8'hff) && (in_3[22:0] == 0) && fmuladd;
@@ -131,18 +141,18 @@ module fp_mul(input reset, input clk,
 		   end
 	endcase
 
-	wire in_eq_sign_3 = fmuladd && (sign_1^sign_2)==sign_3 && mantissa_3==0;
+	wire in_eq_sign_3 = fmuladd && sign == sign_3 && z_3 && mantissa_3 == 52'b0;
 	
-	assign exception = is_nan_1&is_nan_signalling_1 || is_nan_2&is_nan_signalling_2 || fmuladd&&is_nan_3&is_nan_signalling_3;
+	assign quiet_nan = !(is_nan_1&is_nan_signalling_1 || is_nan_2&is_nan_signalling_2 || is_nan_3&is_nan_signalling_3 || (is_infinity_2 && z_1 && (mantissa_1==52'b00)) || (is_infinity_1 && z_2 && (mantissa_2==52'b00)) || (infinity&!(is_nan_1|is_nan_2)&is_infinity_3&(sign != sign_3)&!is_nan_3));
 	wire nan = is_nan_1 ||
 			   is_nan_2 ||
 			   //(is_infinity_1&&is_infinity_2&&sign_1!=sign_2) ||
-			   (is_nan_3 && fmuladd) ||
-			   (is_infinity_2 && z_1 && (mantissa_1==0)) ||
-			   (is_infinity_1 && z_2 && (mantissa_2==0)) ||
-			   (infinity&is_infinity_3&((sign_1^sign_2) != sign_3));
+			   is_nan_3  ||
+			   (is_infinity_2 && z_1 && (mantissa_1==52'b00)) ||
+			   (is_infinity_1 && z_2 && (mantissa_2==52'b00)) ||
+			   (infinity&is_infinity_3&(sign != sign_3));
 	wire infinity = is_infinity_1 || is_infinity_2;
-	wire infinity_sign = (infinity&(sign_1)^(sign_2))|(is_infinity_3&sign_3);
+	wire infinity_sign = (infinity&sign)|(is_infinity_3&sign_3);
 
 	assign sign = sign_1^sign_2^(fmuladd&fmulsign);
 
@@ -204,7 +214,7 @@ module fp_mul(input reset, input clk,
 	reg [2:0]r_a_rnd;
 	reg r_a_nan;
 	reg [1:0]r_a_sz;
-	reg r_a_exception;
+	reg r_a_quiet_nan;
 	reg r_a_infinity;
 	reg r_a_infinity_sign;
 	always @(posedge clk) begin
@@ -215,7 +225,7 @@ module fp_mul(input reset, input clk,
 		r_a_mantissa_2 <= mantissa_2;
 		r_a_nan <= nan;
 		r_a_sz <= sz;
-		r_a_exception <= exception;
+		r_a_quiet_nan <= quiet_nan;
 		r_a_infinity <= infinity;
 		r_a_infinity_sign <= infinity_sign;
 	end
@@ -233,14 +243,17 @@ module fp_mul(input reset, input clk,
 	reg  [2:0]r_b_rnd;
 	reg	 [1:0]r_b_sz;
 	reg		  r_b_nan;
-	reg		  r_b_exception;
+	reg		  r_b_quiet_nan;
 	reg		  r_b_infinity_3;
 	reg		  r_b_infinity;
 	reg		  r_b_infinity_sign;
 	reg		  r_b_muladd;
 	reg		  r_b_eq_sign_3;
+	reg		  r_b_nz;
 
 	always @(posedge clk) begin
+		r_b_nz <= !(z_1 && (mantissa_1==52'b00)) &&
+			      !(z_2 && (mantissa_2==52'b00));
 		r_b_sign <= sign;
 		r_b_sign_3 <= sign_3;
 		r_b_exp_sum <= exp_sum;
@@ -251,7 +264,7 @@ module fp_mul(input reset, input clk,
 		r_b_nan <= nan;
 		r_b_sz <= sz;
 		r_b_rnd <= rnd;
-		r_b_exception <= exception;
+		r_b_quiet_nan <= quiet_nan;
 		r_b_infinity <= infinity;
 		r_b_infinity_3 <= is_infinity_3;
 		r_b_infinity_sign <= infinity_sign;
@@ -267,12 +280,13 @@ module fp_mul(input reset, input clk,
 	reg		  r_c_nan;
 	reg	 [1:0]r_c_sz;
 	reg  [2:0]r_c_rnd;
-	reg		  r_c_exception;
+	reg		  r_c_quiet_nan;
 	reg		  r_c_infinity;
 	reg		  r_c_infinity_3;
 	reg		  r_c_infinity_sign;
 	reg		  r_c_muladd;
 	reg		  r_c_eq_sign_3;
+	reg		  r_c_nz;
 
 	reg		  nx, nv, of, uf;
 
@@ -291,7 +305,7 @@ module fp_mul(input reset, input clk,
 	reg [109:0]mantissa_s_3;
 	
 	wire signed [11:0]mdiff = r_b_exp_3-b_exp_sum;
-	// some verilogs don;t do signed math correctly
+	// some verilogs don't do signed math correctly
 	//wire gt = r_b_exp_3 > b_exp_sum;
 	wire gt = r_b_exp_3[11]==b_exp_sum[11] ? r_b_exp_3[10:0] > b_exp_sum[10:0] : !r_b_exp_3[11];
 	wire eq = r_b_exp_3 == b_exp_sum;
@@ -307,13 +321,13 @@ module fp_mul(input reset, input clk,
 		r_c_rnd <= r_b_rnd;
 		r_c_nan <= r_b_nan;
 		r_c_sz <= r_b_sz;
-		r_c_exception <= r_b_exception;
+		r_c_quiet_nan <= r_b_quiet_nan;
 		r_c_infinity <= r_b_infinity;
 		r_c_infinity_3 <= r_b_infinity_3;
 		r_c_infinity_sign <= r_b_infinity_sign;
 		r_c_muladd <= r_b_muladd;
 		r_c_eq_sign_3 <= r_b_eq_sign_3;
-;
+		r_c_nz <= r_b_nz;
 	end
 	/// end custom core
 
@@ -343,22 +357,19 @@ module fp_mul(input reset, input clk,
 	reg inc;
 	reg calc_infinity, calc_infinity_t;
 	reg under;
-reg [3:0]debug;
+
 	always @(*) begin
 		calc_infinity_t = 0;
 		shl ='bx;
 		shr = 0;
 		under = 0;
 		underflow = 0;
-debug=0;
-		
 		casez (r_c_sz) // synthesis full_case parallel_case
 		2'b1?: under = r_c_exp_sum[11] && r_c_exp_sum[10:4]!=7'b111_1111;
 		2'b?1: under = r_c_exp_sum[11] && r_c_exp_sum[10]!=1'b1;
 		2'b00: under = r_c_exp_sum[11] && r_c_exp_sum[10:7]!=4'b1111;
 		endcase
 		if (under) begin 
-debug=1;
 			casez (r_c_sz) // synthesis full_case parallel_case
 			2'b1?: begin
 						//shr = {8'h01,shr_x}-{{3{r_c_exp_sum[11]}},r_c_exp_sum[11:3]};
@@ -369,7 +380,6 @@ debug=1;
 						//shr = {11'b01,shr_x}-r_c_exp_sum[11:0];
 						shr = (~r_c_exp_sum[9:0])+2;
 						underflow = shr > 54;
-debug=2;
 				   end
 			2'b00: begin
 						//shr = {8'h01,shr_x}-{{3{r_c_exp_sum[11]}},r_c_exp_sum[11:3]};
@@ -385,14 +395,12 @@ debug=2;
 					if (!r_c_exp_sum[11] && r_c_exp_sum[10:0] >= 12'h7fd)
 						calc_infinity_t = 1;
 					exponent_t = r_c_exp_sum+2;
-debug=7;
 			   end
 		2'b?1: begin
 					shr = 1;
 					if (!r_c_exp_sum[11] && r_c_exp_sum[10:0] >= 12'h7fe)
 						calc_infinity_t = 1;
 					exponent_t = r_c_exp_sum+1;
-debug=3;
 			   end
 		2'b00: begin
 				casez (r_c_sz) // synthesis full_case parallel_case
@@ -400,11 +408,9 @@ debug=3;
 						reg [11:0]tmp;
 						tmp = r_c_exp_sum+16;
 						if (shl_x < tmp) begin
-debug=4;
 							shl = shl_x;
 							exponent_t = r_c_exp_sum-shl_x;
 						end else begin
-debug=5;
 							shl = r_c_exp_sum == 12'hff0 ? 0:r_c_exp_sum+15;
 							shr = r_c_exp_sum == 12'hff0;
 							exponent_t = 12'hff0;
@@ -412,11 +418,9 @@ debug=5;
 					   end
 				2'b?1: begin
 						if (r_c_exp_sum[11:10] != 2'b11 || shl_x < r_c_exp_sum[9:0]) begin
-debug=4;
 							shl = shl_x;
 							exponent_t = r_c_exp_sum-shl_x;
 						end else begin
-debug=5;
 							shl = r_c_exp_sum[9:0]==0 ? 0:r_c_exp_sum[9:0]-1;
 							shr = r_c_exp_sum[9:0]==0;
 							exponent_t = 12'h800;
@@ -424,11 +428,9 @@ debug=5;
 				       end
 				2'b00: begin
 						if (r_c_exp_sum[11:7] != 5'h1f || shl_x < r_c_exp_sum[6:0]) begin
-debug=4;
 							shl = shl_x;
 							exponent_t = r_c_exp_sum-shl_x;
 						end else begin
-debug=5;
 							shl = r_c_exp_sum[6:0]==0 ? 0:r_c_exp_sum[6:0]-1;
 							shr = r_c_exp_sum[6:0]==0;
 							exponent_t = 12'hf80;
@@ -449,7 +451,7 @@ debug=5;
 			exponent = 12'hc00;
 			calc_infinity = calc_infinity_t;
 			rsign = !r_c_muladd ? c_sign :
-				                  r_c_mantissa == 111'b0 ? (r_c_eq_sign_3 ? r_c_sign_3 : (r_c_rnd==2)&(r_c_sign_3^c_sign)) :
+				                  r_c_mantissa == 111'b0 ? (r_c_eq_sign_3 ? r_c_sign_3: (r_c_rnd==2 || r_c_sign_3&r_c_sign)) :
 																      ((r_c_rnd==2)?(x_underflow ||c_sign) : c_sign);
 		end else
 		if (exponent_t[11:10] == 2'b01) begin
@@ -590,15 +592,15 @@ debug=5;
 		default: begin inc = 'bx; mantissa = 'bx; end
 		endcase
 		casez (r_c_sz) // synthesis full_case parallel_case
-		2'b1?: nx = mantissa_z[44:42]!=0;
-		2'b?1: nx = mantissa_z[2:0]!=0;
-		2'b00: nx = mantissa_z[31:29]!=0;
-		endcase
-		casez (r_c_sz) // synthesis full_case parallel_case
 		2'b1?: is_zero = mantissa_z[55:45] == 0 && !inc;
 		2'b?1: is_zero = mantissa_z[55:3] == 0 && !inc;
 		2'b00: is_zero = mantissa_z[55:32] == 0 && !inc;
 		endcase
+		casez (r_c_sz) // synthesis full_case parallel_case
+		2'b1?: nx = (calc_infinity || mantissa_z[44:42]!=0) && !r_c_infinity && !r_c_infinity_3 && !r_c_nan; 
+		2'b?1: nx = (calc_infinity || mantissa_z[2:0]!=0)   && !r_c_infinity && !r_c_infinity_3 && !r_c_nan;
+		2'b00: nx = (calc_infinity || mantissa_z[31:29]!=0) && !r_c_infinity && !r_c_infinity_3 && !r_c_nan;
+		endcase	
 	end
 
 	wire round_down_from_infinity = (r_c_rnd==1)||(r_c_rnd==2&&!c_sign)||(r_c_rnd==3&&c_sign);
@@ -606,12 +608,11 @@ debug=5;
 	reg [63:0]out;
 	always @(*) begin
 		nv = 0;
-		of = calc_infinity;
 		uf = 0;
 		casez (r_c_sz) // synthesis full_case parallel_case
 		2'b1?: begin
 					if (r_c_nan) begin
-						nv = 1;
+						nv = !r_c_quiet_nan;
 						out = {48'hffff_ffff_ffff, 6'h1f, 10'h200};	// quiet nan
 					end else
 					if (r_c_infinity|calc_infinity|r_c_infinity_3) begin
@@ -622,15 +623,16 @@ debug=5;
 						end
 					end else
 					if (underflow&!x_underflow) begin
-						uf = 1;
+						uf = r_c_nz;
 						out = {48'hffff_ffff_ffff, rsign, 5'b0, 10'h0};
 					end else begin
+						uf = ((exponent[11] && exponent[3:0]==0 && mantissa[54:45]!=0) || (is_zero&&r_c_nz)) && nx;
 						out = {48'hffff_ffff_ffff, rsign, ~exponent[11], exponent[3:0], mantissa[54:45]};
 					end
 			   end
 		2'b?1: begin
 					if (r_c_nan) begin
-						nv = 1;
+						nv = !r_c_quiet_nan;
 						out = {12'h7ff, 52'h8000000000000};	// quiet nan
 					end else
 					if (r_c_infinity|calc_infinity|r_c_infinity_3) begin
@@ -641,15 +643,16 @@ debug=5;
 						end
 					end else
 					if (underflow&!x_underflow) begin
-						uf = 1;
+						uf = r_c_nz;
 						out = {rsign, 11'b0, 52'h0};
 					end else begin
+						uf = ((exponent[11] && exponent[9:0]==0 && mantissa[54:3]!=0) || (is_zero&&r_c_nz)) && nx;
 						out = {rsign, ~exponent[11], exponent[9:0], mantissa[54:3]};
 					end
 			   end
 		2'b00: begin
 					if (r_c_nan) begin
-						nv = 1;
+						nv = !r_c_quiet_nan;
 						out = {32'hffff_ffff, 9'h0ff, 23'h400000};	// quiet nan
 					end else
 					if (r_c_infinity|calc_infinity|r_c_infinity_3) begin
@@ -660,16 +663,18 @@ debug=5;
 						end
 					end else
 					if (underflow&!x_underflow) begin
-						uf = 1;
+						uf = r_c_nz;
 						out = {32'hffff_ffff, rsign, 8'b0, 23'h0};
 					end else begin
+						uf = ((exponent[11] && exponent[6:0]==0 && mantissa[54:32]!=0) || (is_zero&&r_c_nz)) && nx; 
 						out = {32'hffff_ffff, rsign, ~exponent[11], exponent[6:0], mantissa[54:32]};
 					end
 			   end
 		endcase
+		of = calc_infinity&!r_c_infinity&!r_c_infinity_3&!nv&!r_c_nan;
 	end 
 	assign res = out;
-	assign exceptions = {nv, 1'b0, of, uf, nx};
+	assign exceptions = {nv, 1'b0, of, uf, nx&!nv};
 	
 endmodule
 

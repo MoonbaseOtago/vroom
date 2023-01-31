@@ -2060,7 +2060,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				fpu_reg_read_enable[NSTORE+3*F+1][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]&needs_rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			end
 			// f3 port
-			assign fpu_reg_read_addr[NSTORE+3*F+2] = rs2_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
+			assign fpu_reg_read_addr[NSTORE+3*F+2] = rs3_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];
 			always @(*) begin
 				fpu_reg_read_enable[NSTORE+3*F+2] = 0;
 				fpu_reg_read_enable[NSTORE+3*F+2][hart_sched[NSHIFT+NALU+NMUL+F]] = enable_sched[NSHIFT+NALU+NMUL+F]&needs_rs3_commit[alu_sched[NSHIFT+NALU+NMUL+F]][hart_sched[NSHIFT+NALU+NMUL+F]];

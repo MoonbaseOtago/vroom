@@ -40,6 +40,7 @@ tvv
 rv/qspi
 mk[0-9]
 mkf[0-9]
+mkf1[0-9]
 mk[0-9][0-9]
 rv/obj_dir
 rv/old

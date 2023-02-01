@@ -1102,6 +1102,12 @@ fmuladd32:	fpt fptest/f_mul_add_test_32.txt
 fmuladd64:	fpt fptest/f_mul_add_test_64.txt
 	./fpt +n +t=fptest/f_mul_add_test_64.txt
 
+fp_add: fadd16 fadd32 fadd64 
+fp_sqrt: fsqrt16 fsqrt32 fsqrt64 
+fp_div: fdiv16 fdiv32 fdiv64 
+fp_mul: fmul16 fmul32 fmul64 
+fp_all: fadd16 fadd32 fadd64 fsqrt16 fsqrt32 fsqrt64 fdiv16 fdiv32 fdiv64 fmul16 fmul32 fmul64 fmuladd16 fmuladd32 fmuladd64
+
 make_image:	make_image.c
 	gcc -o make_image make_image.c
 

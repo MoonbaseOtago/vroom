@@ -319,7 +319,7 @@ module fp_add_sub(input reset, input clk,
 		incx = 0;
 		if (mantissa_z[55]) begin
 			casez (r_b_sz) // synthesis full_case parallel_case
-			2'b1?: incx = exponent_t[10:7]==4'h0;
+			2'b1?: incx = exponent_t[10:6]==5'h0;
 			2'b?1: incx = exponent_t==11'h0;
 			2'b00: incx = exponent_t[10:3]==8'h0;
 			endcase

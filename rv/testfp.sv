@@ -8,18 +8,19 @@ module main;
 	reg [2:0]rnd;
 	reg [63:0]in_1, in_2, in_3;
 	reg fmuladd, fmulsub, fmulsign;
-	wire exception;
+	wire [4:0]exceptions;
 	wire [63:0]res;
-	wire exception_mul;
+	wire [4:0]exception_mul;
 	wire [63:0]res_mul;
 	wire [63:0]res_div;
-	wire exception_div;
+	wire [4:0]exception_div;
 	wire valid_div;
 	string file_name;
 	integer in;
 	integer count;
 
 	wire sig_exception = 0;
+	wire exception=0;
 
 	//	old format   not +n
 	// a - 32bits
@@ -494,12 +495,13 @@ module main;
 	fp_add_sub #(.RV(RV))fp_add(
 		.reset(reset), 
 		.clk(clk),
+		.start(1'b1),
         	.sz(sz),
         	.sub(sub),
         	.rnd(rnd),
         	.in_1(in_1),
         	.in_2(in_2),
-        	.exception(exception),
+        	.exceptions(exceptions),
         	.res(res));
 
 	fp_mul #(.RV(RV))fpm(
@@ -516,7 +518,7 @@ module main;
 		.fmuladd(fmuladd),
 		.fmulsub(fmulsub),
 		.fmulsign(fmulsign),
-        	.exception(exception_mul),
+        	.exceptions(exception_mul),
         	.res(res_mul));
 
 	fp_div #(.RV(RV))fpdiv(
@@ -532,7 +534,7 @@ module main;
         	.in_2(in_2),
         	.res(res_div),
 		.commit_kill_0(64'b0),
-        	.exception(exception_div),
+        	.exceptions(exception_div),
 		.valid(valid_div),
 		.valid_ack(valid_div));
 

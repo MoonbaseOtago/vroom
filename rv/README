@@ -17,6 +17,10 @@ This directory is set up for simulation testing, the bulk of the code is in .sv
 	decode.sv       - instruction decoder
 	dtbrom.sv  	- auto compiled boot .dtb (from sv.dts)
 	dtlb.sv     	- data L1 TLB
+	fp.sv		- main FPU unit
+	fp_add.sv	- FPU adder subunit
+	fp_div.sv	- FPU divide/sqrt subunit
+	fp_mul.sv	- FPU mulladd subunit
 	fetch.sv	- instruction fetch unit
 	ic1.sv       	- I$1 instruction L1 cache
 	ioi.sv     	- I/O subsystem
@@ -67,10 +71,14 @@ test--|--chip--|--cpu[N]--|--fetch--|--ic1 (icache)
                |          |--commit[32] (commitQ)
                |          |      
                |          |--alu_ctrl 
-               |          |--alu[2]
+               |          |--alu[3]
+               |          |--fp[1/2]-|--fp_add
+               |          |          |
+               |          |          |--fp_div
+               |          |          |
+               |          |          |--fp_mul
                |          |--shift[1]
                |          |--mul[1]
-               |          |--branch[1]
                |          |--csr[1]
                |          |--ls----|--dc1 (dcache)
                |          |        |
@@ -146,6 +154,8 @@ Both make .vcd files - they're not fast.
 You can also use Verilator for faster simulation:
 
 	make svv
+
+	make fvv	# with FP
 
 will build a verilator simulation that will load from x.bin (or any named file), it supports flags:
 

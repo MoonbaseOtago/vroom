@@ -38,6 +38,7 @@ module fp_div(input reset, input clk,
 		output [4:0]exceptions,
 		output valid,
 		input valid_ack,
+		output fpu_cancel, 
 		output [RV-1:0]res,
 		output [LNCOMMIT-1:0]rd_out,
         output [(NHART==1?0:LNHART-1):0]hart_out
@@ -53,14 +54,17 @@ module fp_div(input reset, input clk,
 	reg is_infinity_1, is_infinity_2;
 	reg sign_1, sign_2;
 	reg z_1, z_2;
+	reg boxed_nan_1, boxed_nan_2;
 
 	always @(*)
 	casez (sz) // synthesis full_case parallel_case
 	2'b1?: begin	// 16-bit
-			is_nan_1 = (in_1[63:16]!=~48'b0) || ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0));
-			is_nan_2 = (in_2[63:16]!=~48'b0) || ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0));
-			is_nan_signalling_1 = in_1[9];
-			is_nan_signalling_2 = in_2[9];
+			boxed_nan_1 = (in_1[63:16]!=~48'b0);
+            boxed_nan_2 = (in_2[63:16]!=~48'b0);
+			is_nan_1 = boxed_nan_1 || ((in_1[14:10] == 5'h1f) && (in_1[9:0] != 0));
+			is_nan_2 = boxed_nan_2 || ((in_2[14:10] == 5'h1f) && (in_2[9:0] != 0));
+			is_nan_signalling_1 = !in_1[9] || boxed_nan_1;
+			is_nan_signalling_2 = !in_2[9] || boxed_nan_2;
 			is_infinity_1 = (in_1[14:10] == 5'h1f) && (in_1[9:0] == 0);
 			is_infinity_2 = (in_2[14:10] == 5'h1f) && (in_2[9:0] == 0);
 			sign_1 = in_1[15];
@@ -69,10 +73,12 @@ module fp_div(input reset, input clk,
 			z_2 = in_2[14:10]==8'b0;
 		   end
 	2'b?1: begin	// 64-bit
+            boxed_nan_1 = 1'bx;
+            boxed_nan_2 = 1'bx;
 			is_nan_1 = ((in_1[62:52] == 11'h7ff) && (in_1[51:0] != 0));
 			is_nan_2 = ((in_2[62:52] == 11'h7ff) && (in_2[51:0] != 0));
-			is_nan_signalling_1 = in_1[51];
-			is_nan_signalling_2 = in_2[51];
+			is_nan_signalling_1 = !in_1[51];
+			is_nan_signalling_2 = !in_2[51];
 			is_infinity_1 = (in_1[62:52] == 11'h7ff) && (in_1[51:0] == 0);
 			is_infinity_2 = (in_2[62:52] == 11'h7ff) && (in_2[51:0] == 0);
 			sign_1 = in_1[63];
@@ -81,10 +87,12 @@ module fp_div(input reset, input clk,
 			z_2 = in_2[62:52]==11'b0;
 		   end
 	2'b00: begin	// 32-bit
-			is_nan_1 = (in_1[63:32]!=~32'b0) || ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0));
-			is_nan_2 = (in_2[63:32]!=~32'b0) || ((in_2[30:23] == 8'hff) && (in_2[22:0] != 0));
-			is_nan_signalling_1 = in_1[22];
-			is_nan_signalling_2 = in_2[22];
+            boxed_nan_1 = (in_1[63:32]!=~32'b0);
+            boxed_nan_2 = (in_2[63:32]!=~32'b0);
+			is_nan_1 = boxed_nan_1 || ((in_1[30:23] == 8'hff) && (in_1[22:0] != 0));
+			is_nan_2 = boxed_nan_2 || ((in_2[30:23] == 8'hff) && (in_2[22:0] != 0));
+			is_nan_signalling_1 = !in_1[22] || boxed_nan_1;
+			is_nan_signalling_2 = !in_2[22] || boxed_nan_2;
 			is_infinity_1 = (in_1[30:23] == 8'hff) && (in_1[22:0] == 0);
 			is_infinity_2 = (in_2[30:23] == 8'hff) && (in_2[22:0] == 0);
 			sign_1 = in_1[31];
@@ -99,8 +107,13 @@ module fp_div(input reset, input clk,
 	assign exception = 0;
 								   
 	wire nan = is_nan_1 ||
-			   ((is_infinity_1&&is_infinity_2) || (is_nan_2 || (z_1 && mantissa_1 == 53'b0 && z_2 && mantissa_2 == 53'b0))  && !issqrt) ||
+			   ((is_infinity_1&&is_infinity_2&&!issqrt) || (is_nan_2 || (z_1 && mantissa_1 == 53'b0 && z_2 && mantissa_2 == 53'b0))  && !issqrt) ||
 			   (issqrt && sign_1 && mantissa_1 !=0);
+
+	wire quiet_nan = !(is_nan_1&is_nan_signalling_1 || !issqrt&is_nan_2&is_nan_signalling_2 ||
+					   (issqrt && sign_1 && mantissa_1 !=0 && !is_nan_1) ||
+					   (!issqrt && is_infinity_1 && is_infinity_2) ||
+					   ((z_1 && mantissa_1 == 53'b0 && z_2 && mantissa_2 == 53'b0) && !issqrt));
 
 	wire infinity = is_infinity_1 || (!issqrt && ((z_2 && mantissa_2 == 53'b0))) ;
 	wire infinity_sign = (infinity&(sign_1^sign_2));
@@ -161,9 +174,14 @@ module fp_div(input reset, input clk,
 	reg			r_div_nan, c_div_nan;
 	reg			r_div_infinity, c_div_infinity;
 	reg			r_div_zero, c_div_zero;
+	reg			r_div_by_zero, c_div_by_zero;
+	reg			r_div_nz, c_div_nz;
+	reg			r_div_quiet_nan, c_div_quiet_nan;
 	reg signed [12:0]r_div_exponent, c_div_exponent;
     assign divide_hart = c_div_hart;
     assign divide_rd = c_div_rd;
+	reg			fpu_cancel_out;
+	assign fpu_cancel = fpu_cancel_out;
 
 	reg	[52:0]mantissa_sh_1;
 	reg	[52:0]mantissa_sh_2;
@@ -185,7 +203,7 @@ module fp_div(input reset, input clk,
 
 
     wire [56:0]mantissa_n = {r_quotient[56:1], r_quotient[0] | (|r_remainder)};
-    reg [54:0]mantissa_z;
+    reg [55:0]mantissa_z;
 
 `include "mkf11.inc"
 
@@ -302,36 +320,43 @@ module fp_div(input reset, input clk,
     reg       roverflow;
 	reg		  x_underflow;
 	reg [2:0]rem;
+
 	always @(*)
     casez (r_div_sz) // synthesis full_case parallel_case
     2'b1?: rem = {mantissa_z[44:43], |mantissa_z[42:0]};
     2'b?1: rem = mantissa_z[2:0];
     2'b00: rem = {mantissa_z[31:30], |mantissa_z[29:0]};
 	endcase 
+
 	reg nx;
+	reg dinc;
     always @(*) begin
         mantissa = mantissa_z[54:3];
         inc = 0;
         roverflow = 0;  // true if 
 		x_underflow = 0;
-		nx = rem != 0;
+		nx = (calc_infinity || rem!=0) && !r_div_infinity && !r_div_nan && !r_div_zero;;
+		dinc = 0;
         case (r_div_rnd) // synthesis full_case parallel_case
         0:  //      0 - RNE round to nearest, ties to even
             casez (r_div_sz) // synthesis full_case parallel_case
             2'b1?: begin
                         if (rem > 4 || (rem==4 && mantissa_z[45])) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:45]+10'h1,42'bx};
                             inc =  (~mantissa_z[54:45]) == 10'h0;
                         end
                    end
             2'b?1: begin
                         if (rem > 4 || (rem==4 && mantissa_z[3])) begin
+							dinc = 1;
                             mantissa = mantissa_z[54:3]+53'h1;
                             inc =  (~mantissa_z[54:3]) == 52'h0;
                         end
                    end
             2'b00: begin
                         if (rem > 4 || (rem==4 && mantissa_z[32])) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:32]+24'h1,29'bx};
                             inc =  (~mantissa_z[54:32]) == 23'h0;
                         end
@@ -345,6 +370,7 @@ module fp_div(input reset, input clk,
                 casez (r_div_sz) // synthesis full_case parallel_case
                 2'b1?: begin
                         if (rem!=0 && r_div_sign) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:45]+10'h1,42'bx};
                             inc =  (~mantissa_z[54:45]) == 10'h0;
 							x_underflow = 1;
@@ -352,6 +378,7 @@ module fp_div(input reset, input clk,
                        end
                 2'b?1: begin
                         if (rem != 0 && r_div_sign) begin
+							dinc = 1;
                             mantissa = mantissa_z[54:3]+53'h1;
                             inc =  (~mantissa_z[54:3]) == 52'h0;
 							x_underflow = 1;
@@ -359,6 +386,7 @@ module fp_div(input reset, input clk,
                        end
                 2'b00: begin
                         if (rem != 0 && r_div_sign) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:32]+24'h1,29'bx};
                             inc =  (~mantissa_z[54:32]) == 23'h0;
 							x_underflow = 1;
@@ -372,6 +400,7 @@ module fp_div(input reset, input clk,
                 casez (r_div_sz) // synthesis full_case parallel_case
                 2'b1?: begin
                         if (rem != 0 && !r_div_sign) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:45]+10'h1,42'bx};
                             inc =  (~mantissa_z[54:45]) == 10'h0;
 							x_underflow = 1;
@@ -379,6 +408,7 @@ module fp_div(input reset, input clk,
                        end
                 2'b?1: begin
                         if (rem != 0 && !r_div_sign) begin
+							dinc = 1;
                             mantissa = mantissa_z[54:3]+53'h1;
                             inc =  (~mantissa_z[54:3]) == 52'h0;
 							x_underflow = 1;
@@ -386,6 +416,7 @@ module fp_div(input reset, input clk,
                        end
                 2'b00: begin
                         if (rem != 0 && !r_div_sign) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:32]+24'h1,29'bx};
                             inc =  (~mantissa_z[54:32]) == 23'h0;
 							x_underflow = 1;
@@ -397,18 +428,21 @@ module fp_div(input reset, input clk,
             casez (r_div_sz) // synthesis full_case parallel_case
             2'b1?: begin
                         if (rem >= 4) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:45]+10'h1, 42'bx};
                             inc =  (~mantissa_z[54:45]) == 10'h0;
                         end
                    end
             2'b?1: begin
                         if (rem >= 4) begin
+							dinc = 1;
                             mantissa = mantissa_z[54:3]+53'h1;
                             inc =  (~mantissa_z[54:3]) == 52'h0;
                         end
                    end
             2'b00: begin
                         if (rem >= 4) begin
+							dinc = 1;
                             mantissa = {mantissa_z[54:32]+24'h1, 29'bx};
                             inc =  (~mantissa_z[54:32]) == 23'h0;
                         end
@@ -417,9 +451,9 @@ module fp_div(input reset, input clk,
         default: begin inc = 'bx; mantissa = 'bx; end
         endcase
         casez (r_div_sz) // synthesis full_case parallel_case
-        2'b1?: is_zero = r_div_zero || mantissa_z[54:45] == 0;
-        2'b?1: is_zero = r_div_zero || mantissa_z[54:3] == 0;
-        2'b00: is_zero = r_div_zero || mantissa_z[54:32] == 0;
+        2'b1?: is_zero = r_div_zero || (mantissa_z[55:45] == 0 && !dinc);
+        2'b?1: is_zero = r_div_zero || (mantissa_z[55:3] == 0 && !dinc);
+        2'b00: is_zero = r_div_zero || (mantissa_z[55:32] == 0 && !dinc);
         endcase
     end
 
@@ -472,6 +506,10 @@ module fp_div(input reset, input clk,
 		c_div_nan = r_div_nan;
 		c_div_infinity = r_div_infinity;
 		c_div_zero = r_div_zero;
+		c_div_by_zero = r_div_by_zero;
+		c_div_nz = r_div_nz;
+		c_div_quiet_nan = r_div_quiet_nan;
+		fpu_cancel_out = start&cancel_now;
 		casez ({cancel, start&!cancel_now, r_dividing, r_sqrting, r_div_final})// synthesis full_case parallel_case
         5'b11???,
         5'b1?1??,
@@ -480,6 +518,7 @@ module fp_div(input reset, input clk,
                     c_dividing = 0;
                     c_sqrting = 0;
                     c_div_final = 0;
+					fpu_cancel_out = 1;
                 end
         5'b01???:begin         // save RF data, set up registers
 					c_div_hart = hart;
@@ -506,13 +545,16 @@ module fp_div(input reset, input clk,
 						2'b00: c_div_count = (23+3+1)/2;
 						endcase
 					end
-                    c_div_final = nan || infinity || mantissa_1 == 0 || (!issqrt&&is_infinity_2);
+                    c_div_final = nan || infinity || mantissa_1 == 0 || (!issqrt&&(is_infinity_2 || mantissa_2 == 0));
                     c_dividing = !c_div_final && !issqrt;
 					c_sqrting = !c_div_final && issqrt;
 					c_div_exponent = issqrt?exp_sum_sqrt:exp_sum_div;
 					c_div_nan = nan;
 					c_div_infinity = infinity;
-					c_div_zero = mantissa_1 == 0 | (is_infinity_2&&!issqrt);
+					c_div_zero = mantissa_1 == 0 || (is_infinity_2&&!issqrt);
+					c_div_by_zero = mantissa_2 == 0 && !issqrt && !is_infinity_1;
+					c_div_nz = !c_div_zero;
+					c_div_quiet_nan = quiet_nan;
                     c_quotient = 0;
 					c_sqrt_b = {1'b1, 55'b0};
                 end
@@ -603,69 +645,70 @@ module fp_div(input reset, input clk,
 		c_div_res = 64'bx;
 		nv = 0;
 		uf = 0;
-		of = 0;
 		casez (r_div_sz) // synthesis full_case parallel_case
 		2'b1?:	begin
 					if (r_div_nan) begin
-						nv = 1;
+						nv = !r_div_quiet_nan;
 						c_div_res = {48'hffff_ffff_ffff, 6'h1f, 1'b1, 9'h0};  // quiet nan
 					end else
 					if (!r_div_infinity&calc_infinity&roverflow) begin
-						of = 1;
 						c_div_res = {48'hffff_ffff_ffff, r_div_sign, 5'h1e, ~10'h0};  
 					end else
-					if (r_div_infinity|calc_infinity) begin
+					if (r_div_infinity|calc_infinity|r_div_by_zero) begin
 						c_div_res = {48'hffff_ffff_ffff, r_div_sign, 5'h1f, 10'h0};  
 					end else
 					if (underflow&!x_underflow || is_zero) begin
-						uf = 1;
+						uf = r_div_nz;
 						c_div_res = {48'hffff_ffff_ffff, rsign, 5'b0, 10'h0};
 					end else begin
+						uf = ((exponent[11] && exponent[3:0]==0 && mantissa[54:45]!=0) || (is_zero&&r_div_nz)) && nx;
 						c_div_res = {48'hffff_ffff_ffff, rsign, ~exponent[11], exponent[3:0], mantissa[54:45]};
 					end
 				end
 		2'b?1:	begin
 					if (r_div_nan) begin
-						nv = 1;
+						nv = !r_div_quiet_nan;
 						c_div_res = {12'h7ff, 1'b1, 51'h0};   // quiet nan
 					end else
 					if (!r_div_infinity&calc_infinity&roverflow) begin
-						of = 1;
 						c_div_res = {r_div_sign, 11'h7fe, ~52'h0};
 					end else
-					if (r_div_infinity|calc_infinity) begin
+					if (r_div_infinity|calc_infinity|r_div_by_zero) begin
 						c_div_res = {r_div_sign, 11'h7ff, 52'h0};
 					end else
 					if (underflow&!x_underflow || is_zero) begin
-						uf = 1;
+						uf = r_div_nz;
 						c_div_res = {rsign, 11'b0, 52'h0};
 					end else begin
+						uf = ((exponent[11] && exponent[9:0]==0 && mantissa[54:3]!=0) || (is_zero&&r_div_nz)) && nx;
 						c_div_res = {rsign, ~exponent[11], exponent[9:0], mantissa[54:3]};
 					end
 				end
 		2'b00:	begin
 					if (r_div_nan) begin
-						nv = 1;
+						nv = !r_div_quiet_nan;
 						c_div_res = {32'hffff_ffff, 9'h0ff, 1'b1, 22'h0}; // quiet nan
 					end else
 					if (!r_div_infinity&calc_infinity&roverflow) begin
-						of = 1;
 						c_div_res = {32'hffff_ffff, r_div_sign, 8'hfe, ~23'h0};
 					end else
-					if (r_div_infinity|calc_infinity) begin
+					if (r_div_infinity|calc_infinity|r_div_by_zero) begin
 						c_div_res = {32'hffff_ffff, r_div_sign, 8'hff, 23'h0};
 					end else
 					if (underflow&!x_underflow || is_zero) begin
-						uf = 1;
+						uf = r_div_nz;
 						c_div_res = {32'hffff_ffff, rsign, 8'b0, 23'h0};
 					end else begin
+						 uf = ((exponent[11] && exponent[6:0]==0 && mantissa[54:32]!=0) || (is_zero&&r_div_nz)) && nx;
+
 						c_div_res = {32'hffff_ffff, rsign, ~exponent[11], exponent[6:0], mantissa[54:32]};
 					end
 				end
 		endcase
+		of = calc_infinity&!r_div_infinity&!nv&!r_div_nan;
 	end
 
-	assign exceptions = {nv, r_div_zero, of, uf, nx};
+	assign exceptions = {nv, r_div_by_zero&~nv&!r_div_nan, of, uf, nx&~nv};
 
 	assign rd_out = r_div_rd;
 	assign hart_out = r_div_hart;
@@ -689,8 +732,11 @@ module fp_div(input reset, input clk,
 		r_div_nan <= c_div_nan;
 		r_div_infinity <= c_div_infinity;
 		r_div_zero <= c_div_zero;
+		r_div_by_zero <= c_div_by_zero;
+		r_div_nz <= c_div_nz;
 		r_sqrting <= c_sqrting;
 		r_sqrt_b <= c_sqrt_b;
+		r_div_quiet_nan <= c_div_quiet_nan;
 	end
 
 endmodule

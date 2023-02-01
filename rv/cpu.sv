@@ -1680,6 +1680,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
         wire [(NHART==1?0:LNHART-1):0]reg_write_hart[0:NUM_GLOBAL_WRITE_PORTS-1];
 `ifdef FP
         wire [NUM_GLOBAL_WRITE_PORTS-1:0]reg_write_fp;
+		wire [NFPU-1:0]fpu_div_done;
 `endif
 
         wire [NHART-1:0]local_reg_write_enable[0:NUM_LOCAL_WRITE_PORTS-1][0:NHART-1];
@@ -2082,6 +2083,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.makes_rd(makes_rd_commit[hart_sched[NSHIFT+NALU+NMUL+F]][alu_sched[NSHIFT+NALU+NMUL+F]]),
 				.hart(hart_sched[NSHIFT+NALU+NMUL+F]),
 				.rv32(rv32[hart_sched[NSHIFT+NALU+NMUL+F]]),
+				.fpu_div_done(fpu_div_done[F]),
 
 				.commit_kill_0(commit_kill[0]),
 				//.commit_kill_0(commit_kill[1]),

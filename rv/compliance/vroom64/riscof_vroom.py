@@ -158,7 +158,7 @@ class vroom(pluginTemplate):
 	  # echo statement.
           if self.target_run:
             # set up the simulation command. Template is for spike. Please change.
-            simcmd = self.dut_exe + ' -l5000000 {2} | {3} > {1}'.format(self.isa, sig_file, "my.bin", "awk '{a[++k]=$$0}END{for(i=1;i<k;i++)print a[i]}'")
+            simcmd = self.dut_exe + ' -l50000000 {2} | {3} > {1}'.format(self.isa, sig_file, "my.bin", "awk '{a[++k]=$$0}END{for(i=1;i<k;i++)print a[i]}'")
           else:
             simcmd = 'echo "NO RUN"'
 

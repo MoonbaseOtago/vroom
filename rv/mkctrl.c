@@ -104,6 +104,9 @@ generate_sched(const char *name, int nunit, int numhart, int ncommit, int sepera
                               printf(": begin\n");
         printf("                                                                %s_ready%d = 1;\n", name, l);
         printf("                                                                %s_out%d = start_commit_%d+%d;\n", name, l, j%numhart, j/numhart);
+		if (strcmp(name, "fpu") == 0) {
+        printf("                                                                fpu_div[%d] =  fpu_div_ready[%d][start_commit_%d+%d];\n", l, l, j%numhart, j/numhart);
+		}
 		if (numhart > 1)
         printf("                                                                %s_hart%d = %d;\n", name, l, j%numhart);
         if (l != (nunit-1))
@@ -286,6 +289,9 @@ err:
 	switch (inc) {
 	case 0:
 		printf("		input [%d-1:0]divide_busy, \n", nmul);
+		if (nfpu) {
+			printf("	    input [%d-1:0]fpu_div_done,\n", nfpu);
+		}
 		for (i = 0; i < numhart; i++) {
 			printf("		input [LNCOMMIT-1:0]start_commit_%d, \n", i);
 			printf("		input [NCOMMIT-1:0]alu_ready_%d, \n", i);
@@ -342,19 +348,31 @@ err:
 	case 1:
 		j = 0;
 		if (nfpu) {
+			printf("	reg  [%d-1:0]r_fpu_div_busy;\n", nfpu);
+			printf("	reg  [%d-1:0]fpu_div;\n", nfpu);
+			for (i = 0; i < nfpu; i++) {
+			printf("	always @(posedge clk) begin\n");
+			printf("		if (reset) r_fpu_div_busy[%d] <= 0; else\n", i);
+			printf("		if (fpu_ready%d && fpu_div[%d]) r_fpu_div_busy[%d] <= 1; else\n", i, i, i);
+			printf("		if (fpu_div_done[%d]) r_fpu_div_busy[%d] <= 0;\n", i, i);
+			printf("	end\n");
+			}
 			printf("	wire [2:1]fpu_tsize[0:NHART-1][0:NCOMMIT-1];\n");
+			printf("	wire fpu_div_ready[0:NHART-1][0:NCOMMIT-1];\n");
 		}
 		for (i = 0; i < numhart; i++) {
 			printf("		wire [LNCOMMIT-1:0]sh%d = start_commit_%d;\n", i, i);
 			printf("		wire [NCOMMIT-1:0]mul_r_%d = mul_ready_%d|(|divide_busy?0:div_ready_%d);\n",i,i,i); // FIXME - need better solution for multiple multipliers
 			printf("		wire [NCOMMIT-1:0]alu_r%d, shift_r%d, mul_r%d;\n", i,i,i);
 			if (nfpu) {
-				for (k = 0; k < ncommit; k++)
+				for (k = 0; k < ncommit; k++) {
 				printf("	assign fpu_tsize[%d][%d] = fpu_ready_%d_%d[2:1];\n", i, k, i, k);
+				printf("	assign fpu_div_ready[%d][%d] = fpu_ready_%d_%d[3];\n", i, k, i, k);
+				}
 				for (j = 0; j < nfpu; j++) {
 					printf("		reg [2:1]r_fpu_sched_state_%d, c_fpu_sched_state_%d;\n", j, j);
 					printf("		always @(posedge clk) r_fpu_sched_state_%d <= (reset?2'b0:c_fpu_sched_state_%d);\n", j, j);
-					printf("		wire [3:0]fp_ok_%d = {2'b11, ~r_fpu_sched_state_%d[2:1]};\n", j, j);
+					printf("		wire [3:0]fp_ok_%d = {~r_fpu_div_busy[%d]|fpu_div_done[%d], 1'b1, ~r_fpu_sched_state_%d[2:1]};\n", j, j, j, j);
 					printf("		wire [NCOMMIT-1:0]fpu_r%d_f%d;\n", i, j);
 					printf("		wire [NCOMMIT-1:0]fpu_ready_%d_f%d;\n", i, j);
 					for (k = 0; k < ncommit; k++)
@@ -428,6 +446,9 @@ err:
 			printf("		.fpu_enable_%d(enable_sched[%d]), \n", i, j);
 			printf("\n");
 			j++;
+		}
+		if (nfpu) {
+			printf("		.fpu_div_done(fpu_div_done), \n");
 		}
 		for (i = 0; i < numhart; i++) {
 			j = 0;

@@ -42,7 +42,8 @@ module fpu(
 	output [LNCOMMIT-1:0]res_rd, 
 	output			res_makes_fp,			// true if we're writing bask to the FP registers
 	output [NHART-1:0]res_makes_rd,
-	output     [4:0]res_exceptions
+	output     [4:0]res_exceptions,
+	output		    fpu_div_done
 	);
 
     parameter CNTRL_SIZE=7;
@@ -151,7 +152,10 @@ module fpu(
 	reg r_start;
 	always @(posedge clk)
 		r_start <= enable;
-	
+
+	reg		fpu_div_done_out;
+	wire	fpu_div_cancel;
+	assign fpu_div_done = fpu_div_done_out|fpu_div_cancel;
 
 	wire [RV-1:0]res_add;
 	wire		valid_add;
@@ -221,6 +225,7 @@ module fpu(
 			.res(res_div),
 			.rd_out(div_rd),
 			.hart_out(div_hart),
+			.fpu_cancel(fpu_div_cancel),
 			.valid(valid_div),
 			.valid_ack(!r_start&!valid_mul&!valid_add));
 
@@ -553,8 +558,8 @@ module fpu(
 					4'b10_10: o2 = &t[65:3] | t[66];
 					4'b11_01,
 					4'b11_10: o2 = &t[66:3];
-					4'b00_01,
-					4'b00_10: o2 = |t[66:35] | &t[33:3] | t[34];
+					4'b00_01: o2 = |t[66:35] | &t[33:3] | t[34];
+					4'b00_10: o2 = |t[66:35] | (|t[33:3] & t[34]);
 					4'b01_01,
 					4'b01_10: o2 = |t[66:35] | &t[34:3];
 					endcase
@@ -767,11 +772,13 @@ module fpu(
 			endcase
 		endcase
 		c_res_makes_rd = 0;
+		fpu_div_done_out = 0;
 		casez ({valid_div, r_start&!r_multiple&(r_op>=5), valid_add, valid_mul}) // synthesis full_case parallel_case
 		4'b1000:begin
 					c_res_makes_rd[div_hart] = 1;
 					c_res_rd = div_rd;
 					c_res_exceptions = div_exceptions;
+					fpu_div_done_out = 1;
 			    end
 		4'b??1?:begin
 					c_res_makes_rd[add_hart] = 1;

@@ -358,27 +358,32 @@ module fp_add_sub(input reset, input clk,
 	reg [54:3]mantissa;
 	reg		  roverflow;
 	reg		  nx;
+	reg		  dinc;
 	always @(*) begin
 		mantissa = mantissa_z[54:3];
 		inc = 0;
+		dinc = 0;
 		roverflow = 0;	// true if 
 		case (r_b_rnd) // synthesis full_case parallel_case
 		0:	//      0 - RNE round to nearest, ties to even
 			casez (r_b_sz) // synthesis full_case parallel_case
 			2'b1?: begin
 						if (mantissa_z[44:42] > 4 || (mantissa_z[44:42]==4 && mantissa_z[45])) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:45]+10'h1,42'bx};
 							inc =  (~mantissa_z[54:45]) == 10'h0;
 						end
 				   end
 			2'b?1: begin
 						if (mantissa_z[2:0] > 4 || (mantissa_z[2:0]==4 && mantissa_z[3])) begin
+							dinc = 1;
 							mantissa = mantissa_z[54:3]+53'h1;
 							inc =  (~mantissa_z[54:3]) == 52'h0;
 						end
 				   end
 			2'b00: begin
 						if (mantissa_z[31:29] > 4 || (mantissa_z[31:29]==4 && mantissa_z[32])) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:32]+24'h1,29'bx};
 							inc =  (~mantissa_z[54:32]) == 23'h0;
 						end
@@ -392,18 +397,21 @@ module fp_add_sub(input reset, input clk,
 				casez (r_b_sz) // synthesis full_case parallel_case
 				2'b1?: begin
 						if (mantissa_z[44:42] && r_b_sign) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:45]+10'h1,42'bx};
 							inc =  (~mantissa_z[54:45]) == 10'h0;
 						end
 					   end
 				2'b?1: begin
 						if (mantissa_z[2:0] && r_b_sign) begin
+							dinc = 1;
 							mantissa = mantissa_z[54:3]+53'h1;
 							inc =  (~mantissa_z[54:3]) == 52'h0;
 						end
 		               end
 				2'b00: begin
 						if (mantissa_z[31:29] && r_b_sign) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:32]+24'h1,29'bx};
 							inc =  (~mantissa_z[54:32]) == 23'h0;
 						end
@@ -416,18 +424,21 @@ module fp_add_sub(input reset, input clk,
 				casez (r_b_sz) // synthesis full_case parallel_case
 				2'b1?: begin
 						if (mantissa_z[44:42] && !r_b_sign) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:45]+10'h1,42'bx};
 							inc =  (~mantissa_z[54:45]) == 10'h0;
 						end
 					   end
 				2'b?1: begin
 						if (mantissa_z[2:0] && !r_b_sign) begin
+							dinc = 1;
 							mantissa = mantissa_z[54:3]+53'h1;
 							inc =  (~mantissa_z[54:3]) == 52'h0;
 						end
 		               end
 				2'b00: begin
 						if (mantissa_z[31:29] && !r_b_sign) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:32]+24'h1,29'bx};
 							inc =  (~mantissa_z[54:32]) == 23'h0;
 						end
@@ -438,18 +449,21 @@ module fp_add_sub(input reset, input clk,
 			casez (r_b_sz) // synthesis full_case parallel_case
 			2'b1?: begin
 						if (mantissa_z[44:42] >= 4) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:45]+10'h1, 42'bx};
 							inc =  (~mantissa_z[54:45]) == 10'h0;
 						end
 		           end
 			2'b?1: begin
 						if (mantissa_z[2:0] >= 4) begin
+							dinc = 1;
 							mantissa = mantissa_z[54:3]+53'h1;
 							inc =  (~mantissa_z[54:3]) == 52'h0;
 						end
 		           end
 			2'b00: begin
 						if (mantissa_z[31:29] >= 4) begin
+							dinc = 1;
 							mantissa = {mantissa_z[54:32]+24'h1, 29'bx};
 							inc =  (~mantissa_z[54:32]) == 23'h0;
 						end
@@ -464,9 +478,9 @@ module fp_add_sub(input reset, input clk,
 		2'b00: nx = (calc_infinity || mantissa_z[31:29]!=0) && !r_b_infinity && !r_b_nan;
 		endcase	
 		casez (r_b_sz) // synthesis full_case parallel_case
-		2'b1?: is_zero = mantissa_z[55:45] == 0;
-		2'b?1: is_zero = mantissa_z[55:3] == 0;
-		2'b00: is_zero = mantissa_z[55:32] == 0;
+		2'b1?: is_zero = mantissa_z[55:45] == 0 && !dinc;
+		2'b?1: is_zero = mantissa_z[55:3] == 0 && !dinc;
+		2'b00: is_zero = mantissa_z[55:32] == 0 && !dinc;
 		endcase
 	end
 

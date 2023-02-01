@@ -80,17 +80,17 @@ int main(int argc, char ** argv)
 	printf("		if (shr!=0) begin\n");
         printf("			case (shr) // synthesis full_case parallel_case\n");
         printf("	      		0: mantissa_z = 57'bx;\n");
-        printf("	      		1: mantissa_z = {mantissa_n[56:3], |mantissa_n[2:0]};\n");
+        printf("	      		1: mantissa_z = {1'b0, mantissa_n[56:3], |mantissa_n[2:0]};\n");
 	for (i = 2; i < 55; i++) 
-        printf("	      		%d: mantissa_z = {%d'b0, mantissa_n[56:%d], |mantissa_n[%d:0]};\n",i,i-1, i+2,i+1);
+        printf("	      		%d: mantissa_z = {%d'b0, mantissa_n[56:%d], |mantissa_n[%d:0]};\n",i,i, i+2,i+1);
         printf("	      		default: mantissa_z = {55'b0,|mantissa_n};\n");
         printf("	      		endcase\n");
 	printf("		end else begin\n");
         printf("			case (shl) // synthesis full_case parallel_case\n");
-        printf("			0: mantissa_z = {mantissa_n[55:2], |mantissa_n[1:0]};\n");
-        printf("			1: mantissa_z = {mantissa_n[54:0]};\n");
-	for (i = 2; i < 56; i++) 
-        printf("			%d: mantissa_z = {mantissa_n[%d:0], %d'b0};\n", i,55-i, i-1);
+        printf("			0: mantissa_z = {mantissa_n[56:2], |mantissa_n[1:0]};\n");
+        printf("			1: mantissa_z = {mantissa_n[55:0]};\n");
+	for (i = 2; i < 57; i++) 
+        printf("			%d: mantissa_z = {mantissa_n[%d:0], %d'b0};\n", i,56-i, i-1);
         printf("	      		default: mantissa_z = 0;\n");
         printf("	      		endcase\n");
         printf("		end\n");

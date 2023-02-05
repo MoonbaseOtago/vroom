@@ -1635,6 +1635,14 @@ module decode(input clk,
 									end else begin
 										trap = 1;
 									end
+							7'b0010_100:
+									if (k) begin	// xperm4
+										f_bsh = 5;
+										f_sr = 1;
+										f_inv = 0;
+						       		end else begin
+										trap = 1;
+									end
 							default: trap = 1;
 							endcase
 						end
@@ -1724,6 +1732,14 @@ module decode(input clk,
 										f_sh_add = 2;
 										f_addw = 0;
 									end else begin
+										trap = 1;
+									end
+							7'b0010_100:
+									if (k) begin	// xperm8
+										f_bsh = 5;
+										f_sl = 1;
+										f_inv = 0;
+						       		end else begin
 										trap = 1;
 									end
 							7'b0100_000:

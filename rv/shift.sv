@@ -83,8 +83,8 @@ module shift(
 	//
 	//	5:3:  == 101
 	//	2:  32-bit
-	//  1-0: //00 - bmator
-	//		 //01 - bmatxor
+	//  1-0: 00 - xperm8
+	//		 01 - xperm4
 	//		 //10 - bfp
 	//		 //11 - ??
 	//

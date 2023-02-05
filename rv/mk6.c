@@ -442,6 +442,34 @@ int main(int argc, char ** argv)
 	printf("// sext.h\n");
 		printf("	12'b100_?11_??????: c_res = {{48{r1[15]}}, r1[15:0]};\n");
 
+	printf("// xperm8\n");
+	printf("	12'b101_?00_??????: begin : xperm8\n");
+	printf("				reg[7:0]p[0:7];\n");
+	for (i = 0; i < 8; i++) {
+	printf("				p[%d] = r1[%d:%d];\n", i, 8*i+7, 8*i);
+	}
+	for (i = 0; i < 64; i+=8) {
+	printf("				casez({rv32, r2[%d:%d]}) // synthesis full_case parallel_case\n", i+7, i);
+	printf("				9'b1_0000_00??,\n");
+	printf("  			    	9'b0_0000_0???: c_res[%d:%d] = p[r2[%d:%d]];\n", i+7, i, i+2, i);
+	printf("  			    	default: c_res[%d:%d] = 8'b0;\n", i+7, i);
+	printf("  			    	endcase\n");
+	}
+	printf("  			    end\n");
+	printf("// xperm4\n");
+	printf("	12'b101_?01_??????: begin : xperm4\n");
+	printf("				reg[3:0]p[0:15];\n");
+	for (i = 0; i < 16; i++) {
+	printf("				p[%d] = r1[%d:%d];\n", i, 4*i+3, 4*i);
+	}
+	for (i = 0; i < 64; i+=4) {
+	printf("				casez({rv32, r2[%d:%d]}) // synthesis full_case parallel_case\n", i+3, i);
+	printf("				5'b1_0???,\n");
+	printf("  			    	5'b0_????: c_res[%d:%d] = p[r2[%d:%d]];\n", i+3, i, i+3, i);
+	printf("  			    	default: c_res[%d:%d] = 8'b0;\n", i+3, i);
+	printf("  			    	endcase\n");
+	}
+	printf("  			    end\n");
 #ifdef NOTDEF
 	printf("// bmator\n");
 	printf("	12'b101_?00_??????: c_res = {");

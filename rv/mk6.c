@@ -245,47 +245,15 @@ int main(int argc, char ** argv)
 	printf("	                                    {r1[7:0], r1[15:8], r1[23:16], r1[31:24], r1[39:32], r1[47:40], r1[55:48], r1[63:56]});\n");
 
 
+	printf("// zip \n");
+	printf("	12'b010_010_??????: c_res = {{32{r1[31]}},");
+	for (i = 15; i >= 0; i--) printf("r1[%d], r1[%d]%s", 2*i+1, i, i==0?"};\n":",");
+	printf("// unzip \n");
+	printf("	12'b010_011_??????: c_res = {{32{r1[31]}},");
+	for (i = 31; i >= 1; i-=2) printf("r1[%d],", i);
+	for (i = 30; i >= 0; i-=2) printf("r1[%d]%s", i, i==0?"};\n":",");
+
 #ifdef NOTDEF
-	printf("// shfl \n");
-	printf("	12'b010_010_??????: begin\n");
-	printf("		reg [63:0]a0, a1, a2, a3;\n");
-	printf("		a0 = (r2[0]? {");
-	for (i = 15; i >= 0; i--)
-		printf("r1[%d], r1[%d], r1[%d], r1[%d]%s", 4*i+3, 4*i+1, 4*i+2, 4*i+0, i==0?"}:r1);\n":", ");
-	printf("		a1 = (r2[1]? {");
-	for (i = 7; i >= 0; i--)
-		printf("a0[%d:%d], a0[%d:%d], a0[%d:%d], a0[%d:%d]%s", 8*i+7, 8*i+6, 8*i+3, 8*i+2, 8*i+5, 8*i+4, 8*i+1, 8*i+0, i==0?"}:a0);\n":", ");
-	printf("		a2 = (r2[2]? {");
-	for (i = 3; i >= 0; i--)
-		printf("a1[%d:%d], a1[%d:%d], a1[%d:%d], a1[%d:%d]%s", 16*i+15, 16*i+12, 16*i+7, 16*i+4, 16*i+11, 16*i+8, 16*i+3, 16*i+0, i==0?"}:a1);\n":", ");
-	printf("		a3 = (r2[3]? {");
-	for (i = 1; i >= 0; i--)
-		printf("a2[%d:%d], a2[%d:%d], a2[%d:%d], a2[%d:%d]%s", 32*i+31, 32*i+24, 32*i+15, 32*i+8, 32*i+23, 32*i+16, 32*i+7, 32*i+0, i==0?"}:a2);\n":", ");
-	printf("		c_res = (r2[4]? {");
-	i = 0;
-		printf("a3[%d:%d], a3[%d:%d], a3[%d:%d], a3[%d:%d]%s", 64*i+63, 64*i+48, 64*i+31, 64*i+16, 64*i+47, 64*i+32, 64*i+15, 64*i+0, i==0?"}:a3);\n":", ");
-	printf("		end\n");
-
-	printf("// unshfl \n");
-	printf("	12'b010_011_??????: begin\n");
-	printf("		reg [63:0]a1, a2, a3, a4;\n");
-	printf("		a4 = (r2[4]? {");
-	i = 0;
-		printf("r1[%d:%d], r1[%d:%d], r1[%d:%d], r1[%d:%d]%s", 64*i+63, 64*i+48, 64*i+31, 64*i+16, 64*i+47, 64*i+32, 64*i+15, 64*i+0, i==0?"}:r1);\n":", ");
-	printf("		a3 = (r2[3]? {");
-	for (i = 1; i >= 0; i--)
-		printf("a4[%d:%d], a4[%d:%d], a4[%d:%d], a4[%d:%d]%s", 32*i+31, 32*i+24, 32*i+15, 32*i+8, 32*i+23, 32*i+16, 32*i+7, 32*i+0, i==0?"}:a4);\n":", ");
-	printf("		a2 = (r2[2]? {");
-	for (i = 3; i >= 0; i--)
-		printf("a3[%d:%d], a3[%d:%d], a3[%d:%d], a3[%d:%d]%s", 16*i+15, 16*i+12, 16*i+7, 16*i+4, 16*i+11, 16*i+8, 16*i+3, 16*i+0, i==0?"}:a3);\n":", ");
-	printf("		a1 = (r2[1]? {");
-	for (i = 7; i >= 0; i--)
-		printf("a2[%d:%d], a2[%d:%d], a2[%d:%d], a2[%d:%d]%s", 8*i+7, 8*i+6, 8*i+3, 8*i+2, 8*i+5, 8*i+4, 8*i+1, 8*i+0, i==0?"}:a2);\n":", ");
-	printf("		c_res = (r2[0]? {");
-	for (i = 15; i >= 0; i--)
-		printf("a1[%d], a1[%d], a1[%d], a1[%d]%s", 4*i+3, 4*i+1, 4*i+2, 4*i+0, i==0?"}:a1);\n":", ");
-	printf("		end\n");
-
 	
 
 	printf("// gorc.w \n");
@@ -652,13 +620,18 @@ int main(int argc, char ** argv)
 	printf("					c_res = (mask&datal)|(~mask&r1);\n");
 	printf("				end\n");
 
-	printf("// packh\n");
-	printf("	12'b101_?11_??????: c_res = {32'b0, 16'b0, r1[15:0]};");
 
 #endif
 
-	printf("// zext.h\n");
-	printf("	12'b110_110_??????: c_res = {48'b0, r1[15:0]};");
+	printf("// brev8\n");
+	printf("	12'b110_?01_??????: c_res = {\n");
+	for (i = 56; i >= 0; i-=8) {
+		for (j = 0; j < 8; j++) printf("r1[%d]%s", i+j, i==0&&j==7?"};\n":",");
+	}
+	printf("// zext.h / pack\n");
+	printf("	12'b110_?10_??????: c_res = (r_addw|rv32?{{32{r2[15]}}, r2[15:0], r1[15:0]}:{r2[31:0], r1[31:0]});\n");
+	printf("// packh\n");
+	printf("	12'b110_?11_??????: c_res = {48'b0, r2[7:0], r1[7:0]};\n");
 
 #ifdef NOTDEF
 
@@ -674,11 +647,6 @@ int main(int argc, char ** argv)
 	printf("// bextw\n");
 	//printf("	12'b110_101_??????: c_res = {");
 
-	printf("// pack\n");
-	printf("	12'b110_?10_??????: c_res = (r_addw|rv32?{{32{r2[15]}}, r2[15:0], r1[15:0]}:{r2[31:0], r1[31:0]});");
-	printf("// packu\n");
-	printf("	12'b110_?11_??????: c_res = (r_addw|rv32?{{32{r2[31]}}, r2[31:16], r1[31:16]}:{r2[63:32], r1[63:32]});");
-	
 	printf("// fsl\n");
 	printf("	12'b111_000_000000: c_res = r1;\n");
 	for (i = 1; i < 64; i++) 

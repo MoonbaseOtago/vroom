@@ -185,10 +185,16 @@ module csr(input clk, input reset,
 
 	wire [(NHART==1?0:LNHART-1):0]hart = HART;
 
+
 `ifdef B
 	wire b = 1;
 `else
 	wire b = 0;
+`endif
+`ifdef K
+	wire k = 1;
+`else
+	wire k = 0;
 `endif
 
     //      
@@ -3326,15 +3332,15 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		13'b?_00_11_0000_0001:		//	ISA and extensions
 					if (RV == 64) begin
 `ifdef FP
-						c_res = {r_mxl, 37'b0, 17'b0_0001_0100_0011_0001,r_hs,5'b010_11, b, 1'b1}; // 64  ACDFIMNSU
+						c_res = {r_mxl, 37'b0, 14'b0_0001_0100_0011_0, k, 2'b01,r_hs,5'b010_11, b, 1'b1}; // 64  ACDFIMNSU
 `else
-						c_res = {r_mxl, 37'b0, 17'b0_0001_0100_0011_0001,r_hs,5'b000_01, b, 1'b1}; // 64  ACIMNSU
+						c_res = {r_mxl, 37'b0, 14'b0_0001_0100_0011_0, k, 2'b01,r_hs,5'b000_01, b, 1'b1}; // 64  ACIMNSU
 `endif
 					end else begin
 `ifdef FP
-						c_res = {r_mxl, 5'b0, 17'b0_0001_0100_0011_0001_, r_hs,5'b010_01, b, 1'b1}; // 32  ACFIMNSU
+						c_res = {r_mxl, 5'b0, 14'b0_0001_0100_0011_0, k, 2'b01_, r_hs,5'b010_01, b, 1'b1}; // 32  ACFIMNSU
 `else
-						c_res = {r_mxl, 5'b0, 17'b0_0001_0100_0011_0001_, r_hs,5'b000_01, b, 1'b1}; // 32  ACIMNSU
+						c_res = {r_mxl, 5'b0, 14'b0_0001_0100_0011_0, k, 2'b01_, r_hs,5'b000_01, b, 1'b1}; // 32  ACIMNSU
 `endif
 					end
 		13'b?_00_11_0000_0010:		//  mach exception delegation reg

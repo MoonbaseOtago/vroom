@@ -54,8 +54,8 @@ SYNTH = \
 
 #B_OPT_1 =
 #B_OPT_2 = 
-B_OPT_1 = +define+B
-B_OPT_2 = -DB
+B_OPT_1 = +define+B +define+K
+B_OPT_2 = -DB -DK
 
 #NALU_1 = +define+NALU4
 #NALU_2 = -DNALU4

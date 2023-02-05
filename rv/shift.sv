@@ -64,8 +64,8 @@ module shift(
 	//	2:  32-bit
 	//  1-0: 00 - orc
 	//		 01 - rev8
-	//		 //10 - shfl
-	//		 //11 - unshfl
+	//		 10 - zip
+	//		 11 - unzip
 	//
 	//	5:3:  == 011
 	//	2:  32-bit
@@ -84,16 +84,16 @@ module shift(
 	//	5:3:  == 101
 	//	2:  32-bit
 	//  1-0: //00 - bmator
-	//		 //1 - bmatxor
-	//		 //0 - bfp
-	//		 11 - zext.h
+	//		 //01 - bmatxor
+	//		 //10 - bfp
+	//		 //11 - ??
 	//
 	//	5:3:  == 110
 	//	2:  32-bit
 	//  1-0: //00 - bdep
-	//		 //01 - bext
-	//		 //10 - pack
-	//		 //11 - packu
+	//		 01 - brev8
+	//		 10 - pack/packw / zext
+	//		 11 - packh
 	//
 	//	5:3:  == 111
 	//	2:  32-bit

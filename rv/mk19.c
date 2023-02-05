@@ -80,19 +80,22 @@ int main(int argc, char ** argv)
 
 	printf("// clmul*\n");
 	printf("`ifdef B\n");
-	printf("	wire [63:0]xr1 = {(r_b_addw_1?32'b0:r1[63:32]),r1[31:0]};\n");
+	printf("	wire [63:0]xr1 = r1;\n");
+	printf("	wire [63:0]xr2 = r2;\n");
 	for (i = 0; i < B; i += 8) {
 	printf("	reg [%d:%d]r_clm_%d;\n", B+i+6, i, i);
 	printf("	always @(posedge clk)\n");
 	printf("		r_clm_%d <= \n", i);
-	printf("			{7'b0, (xr1[%d:%d]&{%d{r2[%d]%s}})}^\n", B-1, 0, B, i+0, ((i+7) >= 32?"&~r_b_addw_1":""));
+	printf("			{7'b0, (xr1[%d:%d]&{%d{xr2[%d]%s}})}^\n", B-1, 0, B, i+0, ((i+7) >= 32?"":""));
 	for (j = 1; j < 7; j++)
-	printf("			{%d'b0, (xr1[%d:%d]&{%d{r2[%d]%s}}),%d'b0}^\n", 7-j, B-1, 0, B, i+j, ((i+j) >= 32?"&~r_b_addw_1":""),  j);
-	printf("			{(xr1[%d:%d]&{%d{r2[%d]%s}}),7'b0};\n", B-1, 0, B, i+7, ((i+7) >= 32?"&~r_b_addw_1":""));
+	printf("			{%d'b0, (xr1[%d:%d]&{%d{xr2[%d]%s}}),%d'b0}^\n", 7-j, B-1, 0, B, i+j, ((i+j) >= 32?"":""),  j);
+	printf("			{(xr1[%d:%d]&{%d{xr2[%d]%s}}),7'b0};\n", B-1, 0, B, i+7, ((i+7) >= 32?"":""));
 	}
 	printf("	wire [%d-2:0]clmul_res = {%d'b0, r_clm_0}^\n", 2*B, B-1);
 	for (i = 8; i < (B-8); i += 8) 
 	printf("	                         {%d'b0, r_clm_%d, %d'b0}^\n", B-i-1, i, i);
 	printf("	                         {r_clm_%d, %d'b0};\n", i, i);
+	printf("	wire [%d:0]clmul_res_rev = {", B-1);
+	for (i = 0; i <B; i++) printf("clmul_res[%d]%s",i,i==(B-1)?"};\n":",");
 	printf("`endif\n");
 }

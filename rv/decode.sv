@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-23 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -233,6 +233,12 @@ module decode(input clk,
 	wire b = 1;
 `else
 	wire b = 0;
+`endif
+
+`ifdef K
+	wire k = 1;
+`else
+	wire k = 0;
 `endif
 
 	reg [VA_SZ-1:1]r_pc_1;
@@ -901,7 +907,7 @@ module decode(input clk,
 
 	task decode_32;
 	input [31:0]ins;
-	input       b;
+	input       b, k;
 `ifdef FP
 	input		fp_off;
 `endif
@@ -1101,16 +1107,19 @@ module decode(input clk,
 										f_inv = 0;
 										f_bsh = 0;
 									end
-`ifdef NOTDEF
 							7'b0000_100:
-									if (b) begin // shfl	
-										f_bsh = 2;
-										f_inv = 1;
-										f_sl = 1;	
-									end else begin
-										trap = 1;
-									end
-`endif
+									casez(ins[24:0]) // synthesis full_case parallel_case
+									5'b01111:
+										if (k) begin // zip
+											trap = !rv32;
+											f_bsh = 2;
+											f_inv = 1;
+											f_sl = 1;	
+										end else begin
+											trap = 1;
+										end
+									default: trap = 1;
+									endcase
 							7'b0010_10?:
 									if (b) begin // bseti ok
 										trap = rv32&ins[25];
@@ -1229,15 +1238,20 @@ module decode(input clk,
 									end else begin
 										trap = 1;
 									end
-							7'b0000_100:
-									if (b) begin // unshfli
-										f_bsh = 2;
-										f_inv = 1;
-										f_sr = 1;	
-									end else begin
-										trap = 1;
-									end
 `endif
+							7'b0000_100:
+									casez(ins[24:0]) // synthesis full_case parallel_case
+									5'b01111:
+										if (k) begin // unzip
+											trap = !rv32;
+											f_bsh = 2;
+											f_inv = 1;
+											f_sr = 1;	
+										end else begin
+											trap = 1;
+										end
+									default: trap = 1;
+									endcase
 							7'b0010_100:
 									if (b) begin // orcb ok
 										trap = ins[24:20] != 5'b00111;
@@ -1257,7 +1271,7 @@ module decode(input clk,
 										trap = 1;
 									end
 							7'b0110_00?:
-									if (b) begin // rori ok
+									if (b|k) begin // rori ok
 										trap = rv32&ins[25];
 										f_bsh = 1;
 										f_inv = 1;
@@ -1266,14 +1280,27 @@ module decode(input clk,
 										trap = 1;
 									end
 							7'b0110_10?:
-									if (b) begin // rev8 ok
-										trap = ins[24:20]!=5'b11000 || ~(rv32^ins[25]);
-										f_bsh = 2;
-										f_inv = 0;
-										f_sr = 1;	
-									end else begin
-										trap = 1;
-									end
+									casez (ins[24:20]) // synthesis full_case parallel_case
+									5'b00111:
+										if (k) begin // brev8 ok
+											trap = ins[25];
+											f_bsh = 6;
+											f_inv = 0;
+											f_sr = 1;	
+										end else begin
+											trap = 1;
+										end
+									5'b11000:
+										if (b|k) begin // rev8 ok
+											trap = ~(rv32^ins[25]);
+											f_bsh = 2;
+											f_inv = 0;
+											f_sr = 1;	
+										end else begin
+											trap = 1;
+										end
+									default: trap = 1;
+									endcase
 							default: trap = 1;
 							endcase
 						end
@@ -1402,7 +1429,7 @@ module decode(input clk,
 									end
 `endif
 								7'b0110_000:
-									if (b) begin // rori ok
+									if (b|k) begin // rori ok
 										trap = rv32;
 										f_bsh = 1;
 										f_inv = 1;
@@ -1529,7 +1556,7 @@ module decode(input clk,
 										trap = 1;
 									end
 							7'b0110_000:
-									if (b) begin // rol ok
+									if (b|k) begin // rol ok
 										f_bsh = 1;
 										f_inv = 1;
 										f_sl = 1;	
@@ -1675,13 +1702,11 @@ module decode(input clk,
 										f_addw = 0;
 									end
 							7'b0000_100:
-									if (b) begin		// zexth ok (note different rv32/!rv32 encodings)
-										trap = !rv32;
+									if (b|k) begin		// pack and zexth ok (note different rv32/!rv32 encodings)
+														// note zexth is pack with rs0==0
 										f_sl = 1;
 										f_inv = 1;
 										f_bsh = 6;
-										f_addw = 1;
-										needs_rs2 = 0;
 									end else begin
 										trap = 1;
 									end
@@ -1702,22 +1727,12 @@ module decode(input clk,
 										trap = 1;
 									end
 							7'b0100_000:
-									if (b) begin
+									if (b|k) begin
 										f_xor = 1; // xnor ok
 										f_inv = 1;
 						       		end else begin
 										trap = 1;
 									end
-`ifdef NOTDEF
-							7'b0100_100:
-									if (b) begin //packu
-										f_sr = 1;
-										f_inv = 1;
-										f_bsh = 6;
-									end else begin
-										trap = 1;
-									end
-`endif
 							default: trap = 1;
 							endcase
 						end
@@ -1820,7 +1835,7 @@ module decode(input clk,
 									end
 `endif
 							7'b0110_000:
-									if (b) begin // ror ok
+									if (b|k) begin // ror ok
 										f_bsh = 1;
 										f_inv = 1;
 										f_sr = 1;	
@@ -1875,24 +1890,12 @@ module decode(input clk,
 										trap = 1;
 									end
 							7'b0100_000:
-									if (b) begin
+									if (b|k) begin
 										f_or = 1;// orn ok
 										f_inv = 1;
 									end else begin
 										trap = 1;
 									end
-`ifdef NOTDEF
-							7'b1000_100:
-									if (b) begin //bext  ????
-										f_mul = 1;
-										f_xmul = 0;
-										f_inv = 0;	// div/rem
-										f_sgn = 1;	// signed
-										f_addw = 0;
-									end else begin
-										trap = 1;
-									end
-`endif
 							default:trap = 1;
 							endcase
 						end
@@ -1912,16 +1915,14 @@ module decode(input clk,
 										f_sgn = 0;	// signed
 										f_addw = 0;
 									end
-`ifdef NOTDEF
 							7'b0000_100:
-									if (b) begin //packh
-										f_sl = 1;
+									if (k) begin //packh
+										f_sr = 1;
 										f_inv = 1;
-										f_bsh = 5;
+										f_bsh = 6;
 									end else begin
 										trap = 1;
 									end
-`endif
 							7'b0000_101:
 									if (b) begin // maxu ok
 										f_max = 1;
@@ -1930,7 +1931,7 @@ module decode(input clk,
 										trap = 1;
 									end
 							7'b0100_000:
-									if (b) begin
+									if (b|k) begin
 										f_and = 1; // andn	ok
 										f_inv = 1;
 									end else begin
@@ -2046,7 +2047,7 @@ module decode(input clk,
 										trap = 1;
 									end
 								7'b0110_000:
-									if (b) begin // rolw ok
+									if (b|k) begin // rolw ok
 										trap = rv32;
 										f_bsh = 1;
 										f_inv = 1;
@@ -2114,13 +2115,12 @@ module decode(input clk,
 											trap = 1;
 										end
 								7'b0000_100:
-										if (b) begin		// zexth ok (note different rv32/!rv32 encodings)
-											trap = rv32;
+										if (b|k) begin		// zexth ok (note different rv32/!rv32 encodings)
+											trap = rv32;	// also packw with r2==0
 											f_sl = 1;
 											f_inv = 1;
 											f_bsh = 6;
 											f_addw = 1;
-											needs_rs2 = 0;
 										end else begin
 											trap = 1;
 										end
@@ -2134,17 +2134,6 @@ module decode(input clk,
 										 end else begin
 											trap = 1;
 										 end
-`ifdef NOTDEF
-								7'b0100_100:
-										if (b) begin	// packuw
-											f_sr = 1;
-											f_inv = 1;
-											f_bsh = 6;
-											f_addw = 1;
-										end else begin
-											trap = 1;
-										end
-`endif
 								default: trap = 1;
 								endcase
 							end
@@ -2207,7 +2196,7 @@ module decode(input clk,
 										end
 `endif
 								7'b0110_000:
-									if (b) begin // rorw ok
+									if (b|k) begin // rorw ok
 										trap = rv32;
 										f_bsh = 1;
 										f_inv = 1;
@@ -2264,18 +2253,6 @@ module decode(input clk,
 										  end else begin
 												trap = 1;
 										  end
-`ifdef NOTDEF
-								7'b0100_100:
-										  if (b) begin	// bextw ????
-												f_mul = 1;
-												f_xmul = 0;
-												f_inv = 0;	// div/rem
-												f_sgn = 1;	// signed
-												f_addw = 1;
-										  end else begin
-												trap = 1;
-										  end
-`endif
 								default:trap = 1;
 								endcase
 						   end
@@ -3267,7 +3244,7 @@ module decode(input clk,
 		if ((!first || !pc[1]) && (partial_valid_in || (ins[1:0] == 3))) begin
 			c_short_pc = 0;
 			c_inc2_1 = partial_valid_in;
-			decode_32((partial_valid_in?{ins[15:0],partial_ins_in}:ins), b,
+			decode_32((partial_valid_in?{ins[15:0],partial_ins_in}:ins), b, k,
 `ifdef FP
 				fp_off,
 `endif

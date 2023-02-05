@@ -40,12 +40,16 @@ module alu_ffs4(input [3:0]in, output [1:0]out, output zero);
 		endcase
 	end
 endmodule
-module alu_ffr4(input [3:0]in, output [1:0]out);
+module alu_ffr4(input [3:0]in, output zero, output [1:0]out);
 	reg [1:0]o;
+	reg  z;
 	assign out = o;
+	assign zero = z;
 	always @(*) begin
+		z = 0;
 		o = 2'bxx;
 		casez (in) // synthesis fullcase parallel_case
+		4'b0000: z=1;
 		4'b1000: o=3;
 		4'b?100: o=2;
 		4'b??10: o=1;
@@ -55,7 +59,7 @@ module alu_ffr4(input [3:0]in, output [1:0]out);
 endmodule
 
 module alu_pop_count4(input [3:0]in, output [2:0]out);
-	reg [1:0]o;
+	reg [2:0]o;
 	assign out = o;
 	always @(*) begin
 		o = 3'bxx;
@@ -329,12 +333,13 @@ module alu(
 		5'b1_1001: c_r1 = {31'b0, r1[31:0], 1'b0};
 		5'b1_1010: c_r1 = {30'b0, r1[31:0], 2'b0};
 		5'b1_1011: c_r1 = {29'b0, r1[31:0], 3'b0};
-		default: c_r1 = r1;
+		5'b1_1110: c_r1 = {32'b0, r1[31:0]};
+		default:   c_r1 = r1;
 		endcase
 	end
 	wire [RV-1:0]c_r2 = (r_inv?~x_r2:x_r2);							// inverter
 	wire [RV:0]c_add64 = {1'b0,c_r1}+{1'b0,c_r2}+{64'b0,r_inv};		// main adder (+carry if r_inv)
-	wire [RV-1:0]c_add = (RV==64&&r_addw?{(r_op==12?32'b0:{32{c_add64[31]}}), c_add64[31:0]}: c_add64); // addw stuff
+	wire [RV-1:0]c_add = (RV==64&&r_addw&!r_op[3]?{(r_op==12?32'b0:{32{c_add64[31]}}), c_add64[31:0]}: c_add64); // addw stuff
 
 	wire s_lt = (RV==64 ? (c_r1[63]^x_r2[63] ? c_r1[63] : c_add64[63]) :
 					      (c_r1[31]^x_r2[31] ? c_r1[31] : c_add64[31]));
@@ -357,15 +362,15 @@ module alu(
 		end else
 `endif
 		case (r_op) // synthesis full_case parallel_case
-		0,8,9,10,11,12: c_res = c_add[RV-1:0];						// add
+		0,8,9,10,11,12, 14: c_res = c_add[RV-1:0];						// add
 		1: c_res = c_r1^c_r2;										// xor
 		2: c_res = c_r1&c_r2;										// and
 		3: c_res = c_r1|c_r2;										// or
 		4: c_res = (RV==64 ?  {63'b0, s_lt} : {31'b0, s_lt});		// lt
 		5: c_res = (RV==64 ?  {63'b0, u_lt} : {31'b0, u_lt});		// ltu
 `ifdef B
-		6: c_res = ((r_unsigned?u_lt:s_lt)?c_r1:c_r2);				// min
-		7: c_res = ((r_unsigned?u_lt:s_lt)?c_r1:c_r2);				// max
+		6: c_res = ((r_unsigned?u_lt:s_lt)?r1:r2);				// min
+		7: c_res = ((r_unsigned?u_lt:s_lt)?r2:r1);				// max
 		13:	casez ({r_addw|r_rv32, r_immed[1:0]}) // synthesis full_case parallel_case
 			3'b?_00:												// clz
 					c_res = {57'b0, fclz};
@@ -417,14 +422,15 @@ module alu(
 	alu_pop_count32 p0(.in(r1[31:0]), .out(pc0));	// pop counts
 	alu_pop_count32 p1(.in(r1[63:32]), .out(pc1));
 	
-	wire [15:0]ffz;
-	wire [1:0]ffs[0:15];
-	wire [1:0]ffr[0:15];
+	wire [15:0]ffzl;
+	wire [15:0]ffzt;
+	wire [1:0]ffl[0:15];
+	wire [1:0]fft[0:15];
 	genvar I;
 	generate
 		for (I = 0; I < 16; I=I+1) begin
-			alu_ffs4 fs(.in(r1[4*I+3:4*I]), .zero(ffz[I]), .out(ffs[I]));
-			alu_ffr4 fr(.in(r1[4*I+3:4*I]), .out(ffr[I]));
+			alu_ffs4 fs(.in(r1[4*I+3:4*I]), .zero(ffzl[I]), .out(ffl[I]));
+			alu_ffr4 fr(.in(r1[4*I+3:4*I]), .zero(ffzt[I]), .out(fft[I]));
 		end
 	endgenerate
 
@@ -433,31 +439,31 @@ module alu(
 		reg [5:0]fres_hi, fres_lo;
 
 		fxz = 0;
-		casez(ffz[15:8]) // synthesis full_case parallel_case
-		8'b0???_????:	fres_hi = ffs[15];
-		8'b10??_????:	fres_hi = 4|ffs[14];
-		8'b110?_????:	fres_hi = 8|ffs[13];
-		8'b1110_????:	fres_hi = 12|ffs[12];
-		8'b1111_0???:	fres_hi = 16|ffs[11];
-		8'b1111_10??:	fres_hi = 20|ffs[10];
-		8'b1111_110?:	fres_hi = 24|ffs[9];
-		8'b1111_1110:	fres_hi = 28|ffs[8];
+		casez(ffzl[15:8]) // synthesis full_case parallel_case
+		8'b0???_????:	fres_hi = ffl[15];
+		8'b10??_????:	fres_hi = 4|ffl[14];
+		8'b110?_????:	fres_hi = 8|ffl[13];
+		8'b1110_????:	fres_hi = 12|ffl[12];
+		8'b1111_0???:	fres_hi = 16|ffl[11];
+		8'b1111_10??:	fres_hi = 20|ffl[10];
+		8'b1111_110?:	fres_hi = 24|ffl[9];
+		8'b1111_1110:	fres_hi = 28|ffl[8];
 		8'b1111_1111:	begin fres_hi = 32; fxz = 1; end
 		endcase
-		casez(ffz[7:0]) // synthesis full_case parallel_case
-		8'b0???_????:	fres_lo = ffs[7];
-		8'b10??_????:	fres_lo = 4|ffs[6];
-		8'b110?_????:	fres_lo = 8|ffs[5];
-		8'b1110_????:	fres_lo = 12|ffs[4];
-		8'b1111_0???:	fres_lo = 16|ffs[3];
-		8'b1111_10??:	fres_lo = 20|ffs[2];
-		8'b1111_110?:	fres_lo = 24|ffs[1];
-		8'b1111_1110:	fres_lo = 28|ffs[0];
+		casez(ffzl[7:0]) // synthesis full_case parallel_case
+		8'b0???_????:	fres_lo = ffl[7];
+		8'b10??_????:	fres_lo = 4|ffl[6];
+		8'b110?_????:	fres_lo = 8|ffl[5];
+		8'b1110_????:	fres_lo = 12|ffl[4];
+		8'b1111_0???:	fres_lo = 16|ffl[3];
+		8'b1111_10??:	fres_lo = 20|ffl[2];
+		8'b1111_110?:	fres_lo = 24|ffl[1];
+		8'b1111_1110:	fres_lo = 28|ffl[0];
 		8'b1111_1111:	fres_lo = 32; 
 		endcase
 		casez ({fxz, r_addw|r_rv32}) // synthesis full_case parallel_case; 
 		2'b?1: fclz = {1'b0, fres_lo};
-		2'b10: fclz = {1'b0, fres_lo}+6'b01_0000;
+		2'b10: fclz = {1'b0, fres_lo}+7'b010_0000;
 		2'b00: fclz = {1'b0, fres_hi};
 		endcase
 	end
@@ -467,31 +473,31 @@ module alu(
 		reg [5:0]fres_hi, fres_lo;
 
 		fxz = 0;
-		casez(ffz[15:8]) // synthesis full_case parallel_case
-		8'b????_???0:	fres_hi = ffr[15];
-		8'b????_??01:	fres_hi = 4|ffr[14];
-		8'b????_?011:	fres_hi = 8|ffr[13];
-		8'b????_0111:	fres_hi = 12|ffr[12];
-		8'b???0_1111:	fres_hi = 16|ffr[11];
-		8'b??01_1111:	fres_hi = 20|ffr[10];
-		8'b?011_1111:	fres_hi = 24|ffr[9];
-		8'b0111_1111:	fres_hi = 28|ffr[8];
+		casez(ffzt[15:8]) // synthesis full_case parallel_case
+		8'b????_???0:	fres_hi = fft[8];
+		8'b????_??01:	fres_hi = 4|fft[9];
+		8'b????_?011:	fres_hi = 8|fft[10];
+		8'b????_0111:	fres_hi = 12|fft[11];
+		8'b???0_1111:	fres_hi = 16|fft[12];
+		8'b??01_1111:	fres_hi = 20|fft[13];
+		8'b?011_1111:	fres_hi = 24|fft[14];
+		8'b0111_1111:	fres_hi = 28|fft[15];
 		8'b1111_1111:	fres_hi = 32; 
 		endcase
-		casez(ffz[7:0]) // synthesis full_case parallel_case
-		8'b????_???0:	fres_lo = ffr[7];
-		8'b????_??01:	fres_lo = 4|ffr[6];
-		8'b????_?011:	fres_lo = 8|ffr[5];
-		8'b????_0111:	fres_lo = 12|ffr[4];
-		8'b???0_1111:	fres_lo = 16|ffr[3];
-		8'b??01_1111:	fres_lo = 20|ffr[2];
-		8'b?011_1111:	fres_lo = 24|ffr[1];
-		8'b0111_1111:	fres_lo = 28|ffr[0];
+		casez(ffzt[7:0]) // synthesis full_case parallel_case
+		8'b????_???0:	fres_lo = fft[0];
+		8'b????_??01:	fres_lo = 4|fft[1];
+		8'b????_?011:	fres_lo = 8|fft[2];
+		8'b????_0111:	fres_lo = 12|fft[3];
+		8'b???0_1111:	fres_lo = 16|fft[4];
+		8'b??01_1111:	fres_lo = 20|fft[5];
+		8'b?011_1111:	fres_lo = 24|fft[6];
+		8'b0111_1111:	fres_lo = 28|fft[7];
 		8'b1111_1111:	begin fres_lo = 32;  fxz = 1; end
 		endcase
 		casez ({fxz, r_addw|r_rv32}) // synthesis full_case parallel_case; 
 		2'b?1: fctz = {1'b0, fres_lo};
-		2'b10: fctz = {1'b0, fres_hi}+6'b01_0000;
+		2'b10: fctz = {1'b0, fres_hi}+7'b010_0000;
 		2'b00: fctz = {1'b0, fres_lo};
 		endcase
 	end

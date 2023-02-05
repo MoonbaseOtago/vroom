@@ -1,6 +1,6 @@
 //
 // RVOOM! Risc-V superscalar O-O
-// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com
+// Copyright (C) 2019-23 Paul Campbell - paul@taniwha.com
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ int main(int argc, char ** argv)
 	}
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
-	printf("// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com\n");
+	printf("// Copyright (C) 2019-23 Paul Campbell - paul@taniwha.com\n");
 	printf("//\n");
 	printf("// This program is free software: you can redistribute it and/or modify\n");
 	printf("// it under the terms of the GNU General Public License as published by\n");
@@ -236,54 +236,16 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	printf("// gorc \n");
-	printf("	12'b010_000_??????: begin\n");
-	printf("		reg [63:0]a1, a2, a3, a4, a5;\n");
-	printf("		a5 = (r2[5]? {");
-	for (i = 1; i >= 0; i--)
-		printf("r1[%d:%d]|r1[%d:%d]%s",32*(i)+31, 32*(i),  32*(i^1)+31, 32*(i^1), i==0?"}:r1);\n":", ");
-	printf("		a4 = (r2[4]? {");
-	for (i = 3; i >= 0; i--)
-		printf("a5[%d:%d]|a5[%d:%d]%s", 16*(i)+15, 16*(i),  16*(i^1)+15, 16*(i^1), i==0?"}:a5);\n":", ");
-	printf("		a3 = (r2[3]? {");
-	for (i = 7; i >= 0; i--)
-		printf("a4[%d:%d]|a4[%d:%d]%s", 8*(i)+7, 8*(i), 8*(i^1)+7, 8*(i^1), i==0?"}:a4);\n":", ");
-	printf("		a2 = (r2[2]? {");
-	for (i = 15; i >= 0; i--)
-		printf("a3[%d:%d]|a3[%d:%d]%s", 4*(i)+3, 4*(i), 4*(i^1)+3, 4*(i^1), i==0?"}:a3);\n":", ");
-	printf("		a1 = (r2[1]? {");
-	for (i = 31; i >= 0; i--)
-		printf("a2[%d:%d]|a2[%d:%d]%s", 2*(i)+1, 2*(i), 2*(i^1)+1, 2*(i^1), i==0?"}:a2);\n":", ");
-	printf("		c_res = (r2[0]? {");
-	for (i = 63; i >= 0; i--)
-		printf("a1[%d]|a1[%d]%s", i, (i^1), i==0?"}:a1);\n":", ");
-	printf("		end\n");
+	printf("// orc \n");
+	printf("	12'b010_000_??????: c_res = {");
+	for (i = 7; i >= 0; i--) printf("{{8{|r1[%d:%d]}}}%s", 8*i+7,8*i, i==0?"};\n":",");
 
-	printf("// grev \n");
-	printf("	12'b010_001_??????: begin\n");
-	printf("		reg [63:0]a1, a2, a3, a4, a5;\n");
-	printf("		a5 = (r2[5]? {");
-	for (i = 1; i >= 0; i--)
-		printf("r1[%d:%d]%s", 32*(i^1)+31, 32*(i^1), i==0?"}:r1);\n":", ");
-	printf("		a4 = (r2[4]? {");
-	for (i = 3; i >= 0; i--)
-		printf("a5[%d:%d]%s", 16*(i^1)+15, 16*(i^1), i==0?"}:a5);\n":", ");
-	printf("		a3 = (r2[3]? {");
-	for (i = 7; i >= 0; i--)
-		printf("a4[%d:%d]%s", 8*(i^1)+7, 8*(i^1), i==0?"}:a4);\n":", ");
-	printf("		a2 = (r2[2]? {");
-	for (i = 15; i >= 0; i--)
-		printf("a3[%d:%d]%s", 4*(i^1)+3, 4*(i^1), i==0?"}:a3);\n":", ");
-	printf("		a1 = (r2[1]? {");
-	for (i = 31; i >= 0; i--)
-		printf("a2[%d:%d]%s", 2*(i^1)+1, 2*(i^1), i==0?"}:a2);\n":", ");
-	printf("		c_res = (r2[0]? {");
-	for (i = 63; i >= 0; i--)
-		printf("a1[%d]%s", (i^1), i==0?"}:a1);\n":", ");
-	printf("		end\n");
+	printf("// rev8 \n");
+	printf("	12'b010_001_??????: c_res = (rv32 ? {32'bx, r1[7:0], r1[15:8], r1[23:16], r1[31:24]}:\n");
+	printf("	                                    {r1[7:0], r1[15:8], r1[23:16], r1[31:24], r1[39:32], r1[47:40], r1[55:48], r1[63:56]});\n");
 
 
-
+#ifdef NOTDEF
 	printf("// shfl \n");
 	printf("	12'b010_010_??????: begin\n");
 	printf("		reg [63:0]a0, a1, a2, a3;\n");
@@ -401,12 +363,12 @@ int main(int argc, char ** argv)
 	for (i = 7; i >= 0; i--)
 		printf("a1[%d], a1[%d], a1[%d], a1[%d]%s", 4*i+3, 4*i+1, 4*i+2, 4*i+0, i==0?"}:a1)};\n":", ");
 	printf("		end\n");
-
+#endif
 	
 
 
 	
-	printf("// sbclr \n");
+	printf("// bclr \n");
 	for (i = 0; i < B; i++) {
 		printf("	12'b011_000_%s: c_res = {", bin(i, 6));
 		for (j = 0; j < B; j++) {
@@ -417,7 +379,7 @@ int main(int argc, char ** argv)
 			}
 		}
 	}
-	printf("// sbset \n");
+	printf("// bset \n");
 	for (i = 0; i < B; i++) {
 		printf("	12'b011_001_%s: c_res = {", bin(i, 6));
 		for (j = 0; j < B; j++) {
@@ -428,7 +390,7 @@ int main(int argc, char ** argv)
 			}
 		}
 	}
-	printf("// sbinv \n");
+	printf("// binv \n");
 	for (i = 0; i < B; i++) {
 		printf("	12'b011_010_%s: c_res = {", bin(i, 6));
 		for (j = 0; j < B; j++) {
@@ -439,12 +401,12 @@ int main(int argc, char ** argv)
 			}
 		}
 	}
-	printf("// sbext \n");
+	printf("// bext \n");
 	for (i = 0; i < B; i++) {
 		printf("	12'b011_011_%s: c_res = {", bin(i, 6));
 		printf("63'b0, r1[%d]};\n", i);
 	}
-	printf("// sbclr.w \n");
+	printf("// bclr.w \n");
 	for (i = 0; i < B/2; i++) {
 		printf("	12'b011_100_?%s: c_res = {r1[63:32],", bin(i, 5));
 		for (j = 0; j < B/2; j++) {
@@ -455,7 +417,7 @@ int main(int argc, char ** argv)
 			}
 		}
 	}
-	printf("// sbset.w \n");
+	printf("// bset.w \n");
 	for (i = 0; i < B/2; i++) {
 		printf("	12'b011_101_?%s: c_res = {r1[63:32],", bin(i, 5));
 		for (j = 0; j < B/2; j++) {
@@ -466,7 +428,7 @@ int main(int argc, char ** argv)
 			}
 		}
 	}
-	printf("// sbinv.w \n");
+	printf("// binv.w \n");
 	for (i = 0; i < B/2; i++) {
 		printf("	12'b011_110_?%s: c_res = {r1[63:32],", bin(i, 5));
 		for (j = 0; j < B/2; j++) {
@@ -477,25 +439,26 @@ int main(int argc, char ** argv)
 			}
 		}
 	}
-	printf("// sbext.w \n");
+	printf("// bext.w \n");
 	for (i = 0; i < B/2; i++) {
 		printf("	12'b011_111_?%s: c_res = {", bin(i, 5));
 		printf("63'b0, r1[%d]};\n", i);
 	}
 
 	printf("// sllu.w\n");
-	for (i = 0; i < (B/2); i++) {
+	for (i = 0; i < (B); i++) {
 		printf("	12'b100_100_?%s: c_res = {", bin(i, 5));
-		for (j = 0; j < (B/2); j++) 
-			printf("1'b0,");
-		for (j = 0; j < (B/2); j++) {
-			if (((B/2-1)-i-j) <0) {
-				printf("1'b0%s", j == (B/2-1)?"};\n":",");
-			} else {
-				printf("r1[%d]%s", (B/2-1)-i-j, j == (B/2-1)?"};\n":",");
-			}
+		if (i < (B/2)) 
+			printf("%d'b0,", B/2-i);
+		if (i < (B/2)) {
+			printf("r1[31:0]%s",i==0?"};\n":",");
+		} else {
+			printf("r1[%d:0],", i < B/2?31:B-i-1);
 		}
+		if (i > 0)
+			printf("%d'b0};\n",i);
 	}
+#ifdef NOTDEF
 	printf("// bmatflip\n");
 		printf("	12'b100_?01_??????: c_res = {r1[63], r1[55], r1[47], r1[39], r1[31], r1[23], r1[15], r1[7],\n");
 		printf("				     r1[62], r1[54], r1[46], r1[38], r1[30], r1[22], r1[14], r1[6],\n");
@@ -505,12 +468,13 @@ int main(int argc, char ** argv)
 		printf("				     r1[58], r1[50], r1[42], r1[34], r1[26], r1[18], r1[10], r1[2],\n");
 		printf("				     r1[57], r1[49], r1[41], r1[33], r1[25], r1[17], r1[9], r1[1],\n");
 		printf("				     r1[56], r1[48], r1[40], r1[32], r1[24], r1[16], r1[8], r1[0]};\n");
+#endif
 	printf("// sext.b\n");
 		printf("	12'b100_?10_??????: c_res = {{56{r1[7]}}, r1[7:0]};\n");
 	printf("// sext.h\n");
 		printf("	12'b100_?11_??????: c_res = {{48{r1[15]}}, r1[15:0]};\n");
 
-
+#ifdef NOTDEF
 	printf("// bmator\n");
 	printf("	12'b101_?00_??????: c_res = {");
 	printf("		(r1[56]&r2[7])|(r1[57]&r2[15])|(r1[58]&r2[23])|(r1[59]&r2[31])|(r1[60]&r2[39])|(r1[61]&r2[47])|(r1[62]&r2[55])|(r1[63]&r2[63]),\n");
@@ -689,7 +653,14 @@ int main(int argc, char ** argv)
 	printf("				end\n");
 
 	printf("// packh\n");
-	printf("	12'b101_?11_??????: c_res = {32'b0, 16'b0, r2[7:0], r1[7:0]};");
+	printf("	12'b101_?11_??????: c_res = {32'b0, 16'b0, r1[15:0]};");
+
+#endif
+
+	printf("// zext.h\n");
+	printf("	12'b110_110_??????: c_res = {48'b0, r1[15:0]};");
+
+#ifdef NOTDEF
 
 	// 
 	// 	bdep/bext are not single cycle instructions, for the moment we will emulate
@@ -728,6 +699,7 @@ int main(int argc, char ** argv)
 	printf("	12'b111_?10_??????: c_res = (r1&r2)|(r3&~r2);\n");
 	printf("// cmov\n");
 	printf("	12'b111_?11_??????: c_res = ((rv32 ?(r2[31:0]!=0):(r2!=0))?r1:r3);\n");
+#endif
 	printf("`endif\n");
 	printf("	endcase \n");
 }

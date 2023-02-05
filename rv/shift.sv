@@ -62,46 +62,45 @@ module shift(
 	//
 	//	5:3:  == 010
 	//	2:  32-bit
-	//  1-0: 00 - gorc
-	//		 01 - grev
-	//		 10 - shfl
-	//		 11 - unshfl
+	//  1-0: 00 - orc
+	//		 01 - rev8
+	//		 //10 - shfl
+	//		 //11 - unshfl
 	//
 	//	5:3:  == 011
 	//	2:  32-bit
-	//  1-0: 00 - sbclr
-	//		 01 - sbset
-	//		 10 - sbinv
-	//		 11 - sbext
+	//  1-0: 00 - bclr
+	//		 01 - bset
+	//		 10 - binv
+	//		 11 - bext
 	//
 	//	5:3:  == 100
 	//	2:  32-bit
 	//  1-0: 00 - slliu bit 2==1
-	//		 01 - bmatflp
+	//	     //01 - bmatflp
 	//		 10 - sext.b
 	//		 11 - sext.h
 	//
 	//	5:3:  == 101
 	//	2:  32-bit
-	//  1-0: 00 - bmator
-	//		 01 - bmatxor
-	//		 10 - bfp
-	//		 11 - packh
+	//  1-0: //00 - bmator
+	//		 //1 - bmatxor
+	//		 //0 - bfp
+	//		 11 - zext.h
 	//
 	//	5:3:  == 110
 	//	2:  32-bit
-	//  1-0: 00 - bdep
-	//		 01 - bext
-	//		 10 - pack
-	//		 11 - packu
-
+	//  1-0: //00 - bdep
+	//		 //01 - bext
+	//		 //10 - pack
+	//		 //11 - packu
+	//
 	//	5:3:  == 111
 	//	2:  32-bit
-	//  1-0: 00 - fsl
-	//		 01 - fsr
-	//		 10 - cmix
-	//		 11 - cmov 
-
+	//  1-0: //00 - fsl
+	//		 //01 - fsr
+	//		 //10 - cmix
+	//		 //11 - cmov 
 	//
 	
 

@@ -74,17 +74,17 @@ module mul(
 	//
 	//	0  0    0  0	clmulr
 	//	0  0    0  1	clmul
-	//	0  1    0  0	clmulh
+	//	0  1    0  1	clmulh
 	//
-	//	1  0    0  0	clmulrw
-	//	1  0    0  1	clmulw
-	//	1  1    0  0	clmulhw
-	//	1  1    0  1	crc.*    type in immed[24:20]
+	//	//1  0    0  0	clmulrw
+	//	//1  0    0  1	clmulw
+	//	//1  1    0  0	clmulhw
+	//	//1  1    0  1	crc.*    type in immed[24:20]
 
-	//	0  0    1  0	bdep
-	//	0  0    1  1	bext
-	//	1  0    1  0	bdepw
-	//	1  0    1  1	bextw
+	//	//0  0    1  0	bdep
+	//	//0  0    1  1	bext
+	//	//1  0    1  0	bdepw
+	//	//1  0    1  1	bextw
 
 	reg [RV-1:0]r_res, c_res;
 	assign result = r_res;
@@ -183,10 +183,10 @@ module mul(
 `endif
 		if (enable && (mul || bopt)) begin
 			c_mul_hart = hart;
+			c_mul_rd = rd;
 		end
 		if (enable && mul && !bopt) begin
 			c_mul_busy_1 = !commit_kill_0[rd];
-			c_mul_rd = rd;
 			c_mul_makes_rd = makes_rd && !commit_kill_0[rd];
 			c_mul_addw = addw;
 			c_mul_sgn = sgn;
@@ -287,10 +287,10 @@ module mul(
 				c_res_makes_rd[r_mul_hart2] = r_mul_makes_rd2 && !commit_kill_0[r_mul_rd2];
 			end 
 `ifdef B
-		4'b?1?1:begin
+		4'b?11?:begin
 				c_res = c_res_clmul;
 				c_res_rd = r_mul_rd2;
-				c_res_makes_rd[r_mul_hart2] = r_mul_makes_rd2 && !commit_kill_0[r_mul_rd2];
+				c_res_makes_rd[r_mul_hart2] = !commit_kill_0[r_mul_rd2];
 			end
 `endif
 		4'b1?00:begin
@@ -511,61 +511,44 @@ module mul(
 `ifdef B
 	reg r_b_busy_1, c_b_busy_1;
 	reg             c_b_busy_2;
-	reg r_b_addw_1, c_b_addw_1;
-	reg r_b_addw_2;
+//	reg r_b_addw_1, c_b_addw_1;
+//	reg r_b_addw_2;
 
 	always @(*) begin
 		c_b_busy_1 = 0;
 		c_b_busy_2 = 0;
 		
 		if (enable && bopt) begin
-			c_b_busy_1 = 1;
-			c_b_addw_1 = addw;
+			c_b_busy_1 = makes_rd && !commit_kill_0[rd];
+//			c_b_addw_1 = addw;
 		end
 		if (r_b_busy_1) begin
-			c_b_busy_2 = 1;
+			c_b_busy_2 = !commit_kill_0[r_mul_rd];
 		end
 	end
 		
 	always @(posedge clk) begin
-		r_b_addw_1 <= c_b_addw_1;
-		r_b_addw_2 <= r_b_addw_1;
+//		r_b_addw_1 <= c_b_addw_1;
+//		r_b_addw_2 <= r_b_addw_1;
 		r_b_busy_1 <= c_b_busy_1;
 		r_b_busy_2 <= c_b_busy_2;
 	end
 
 `include "mk19_64.inc"
 
-	reg [3:0]r_clm_ctrl_1, r_clm_ctrl_2;
+	reg [1:0]r_clm_ctrl_1, r_clm_ctrl_2;
 	always @(posedge clk) begin
-		r_clm_ctrl_1 <= {sgn[0], addw, inv, mul};
+		r_clm_ctrl_1 <= {inv, mul};
 		r_clm_ctrl_2 <= r_clm_ctrl_1;
 	end
 
-	wire [63:0]ext_dep_res;
-
 	always @(*)
 	casez (r_clm_ctrl_2) // synthesis full_case parallel_case
-	4'b0_0_00: c_res_clmul = clmul_res[126:63];        // clrmulr 
-	4'b0_0_01: c_res_clmul = clmul_res[63:0];         // clrmul 
-	4'b0_0_10: c_res_clmul = {1'b0, clmul_res[126:64]};// clrmulh 
-	4'b0_1_00: c_res_clmul = {{32{clmul_res[62]}}, clmul_res[62:30]}; // clrmulrw 
-	4'b0_1_01: c_res_clmul = {{32{clmul_res[31]}}, clmul_res[31:0]};          // clrmulw 
-	4'b0_1_10: c_res_clmul = {33'b0, clmul_res[62:32]};// clrmulhw 
-	4'b1_0_??: c_res_clmul = ext_dep_res;
-	4'b1_1_??: c_res_clmul = {{32{ext_dep_res[31]}}, ext_dep_res[31:0]};
+	4'b00: c_res_clmul = clmul_res[126:63]; 		// clrmulr 
+	4'b01: c_res_clmul = clmul_res[63:0];			// clrmul 
+	4'b11: c_res_clmul = {1'b0, clmul_res[126:64]};	// clrmulh 
 	default: c_res_clmul = 'bx;
 	endcase
-
-
-	bextdep64p2	bextdep(.clock(clk),
-			.reset(reset),
-			.din_value(r1),
-			.din_mode({1'b0, ~r_clm_ctrl_1[0]}),
-			.din_valid(r_b_busy_1&r_clm_ctrl_1[3]),
-			.din_mask(r2),
-			.dout_ready(1'b1),
-			.dout_result(ext_dep_res));
 
 `endif
 
@@ -573,8 +556,8 @@ module mul(
 endmodule
 
 `ifdef B
-`include "bextdep.v"
-`include "bextdep_pps.v"
+//`include "bextdep.sv"
+//`include "bextdep_pps.sv"
 `endif
 
 /* For Emacs:

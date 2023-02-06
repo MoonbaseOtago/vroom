@@ -1506,6 +1506,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 					.line_busy(q_line_busy[I]),
 					.line_busy_trans(q_line_busy_index[I]),
 					.dc_raddr_req(dc_raddr_req&dc_raddr_ack),
+					.dc_raddr_cancel(dc_raddr_snoop==RSNOOP_READ_CANCEL),
 					.dc_raddr(dc_raddr),
 					.dc_raddr_trans(dc_raddr_trans),
 					.dc_rdata_req(dc_rdata_req&dc_rdata_ack),
@@ -2117,6 +2118,7 @@ module ldstq(
 	input					  line_busy,
 	input [$clog2(NLDSTQ)-1:0]line_busy_trans,
 	input					  dc_raddr_req,
+	input					  dc_raddr_cancel,
 	input [NPHYS-1:ACACHE_LINE_SIZE]dc_raddr,
 	input [$clog2(NLDSTQ)-1:0]dc_raddr_trans,
 	input				      dc_rdata_req,
@@ -2344,9 +2346,12 @@ module ldstq(
 			c_waiting_line_busy = (line_busy && !io) && !(dc_rdata_req && line_busy_trans==dc_rdata_trans);
 			c_waiting_line_index = line_busy_trans;
 		end else
-		if (dc_raddr_req && r_valid && !r_fence && !r_io && dc_raddr==r_addr[NPHYS-1:ACACHE_LINE_SIZE] && dc_raddr_trans != ADDR) begin
+		if (dc_raddr_req && !dc_raddr_cancel && r_valid && !r_fence && !r_io && dc_raddr==r_addr[NPHYS-1:ACACHE_LINE_SIZE] && dc_raddr_trans != ADDR) begin
 			c_waiting_line_busy = 1;
 			c_waiting_line_index = dc_raddr_trans;
+		end else
+		if (dc_raddr_req && dc_raddr_cancel && r_valid && !r_fence && !r_io && r_waiting_line_index == dc_raddr_trans) begin
+			c_waiting_line_busy = 0;
 		end
 	end
 

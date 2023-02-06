@@ -247,6 +247,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	
 	wire	  [31:0]u_debug[0:NHART-1];
 
+	wire       [1:0]seed_sec[0:NHART-1];
 	PMP         #(.NUM_PMP(NUM_PMP), .NPHYS(NPHYS))pmp[0:1]();	// PMP interface
 assign pmp[1].valid=0;
 
@@ -812,6 +813,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					.tvm(tvm[H]),
 					.tsr(tsr[H]),
 					.hyper(hyper[H]),
+					.seed_sec(seed_sec[H]),
 `ifdef FP
 					.fp_off(fp_off[H]),
 `endif
@@ -2262,6 +2264,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.rv32(rv32[H]),
 				.tsr(tsr[H]),
 				.tvm(tvm[H]),
+				.seed_sec(seed_sec[H]),
 `ifdef FP
 				.fp_off(fp_off[H]),
 				.fp_rounding(fp_rounding[H]),

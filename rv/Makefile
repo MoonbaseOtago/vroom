@@ -164,45 +164,45 @@ MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX
 all:	svv
 
 # note icarus verilog is no longer viable as it doesn't support interfaces
-sv:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES)
+sv:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv
 	iverilog -g 2012 -D SIMV  $(VSYNTH2) -o sv test.sv $(SRC) $(DRAM) $(MXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(OPT_FLAG_2)
 	iverilog -g 2012 -D SIMV $(VSYNTH2) -D SIMD  -o svd test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(OPT_FLAG_2)
 
-svb:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES)
+svb:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv
 	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -D B -o svb test.sv $(SRC) $(DRAM) $(MXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(OPT_FLAG_2)
 	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD -D B -o svdb test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(OPT_FLAG_2)
 
-svf:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES)
+svf:	test.sv $(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES) aes.sv
 	iverilog -g 2005-sv -D SIMV  $(VSYNTH2) -D FP -o svf test.sv $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF2) $(UART)  $(SYNTH) $(FPU) $(OPT_FLAG_2)
 	iverilog -g 2005-sv -D SIMV $(VSYNTH2) -D SIMD -D FP -o svdf test.sv $(SRC) $(DRAM) $(FMXREG) $(UART_DEF2)  $(UART) $(SYNTH) $(FPU) $(OPT_FLAG_2)
 
-svx:	test.sv $(SRC) $(MXA) $(UART)  $(SYNTH)  $(DRAM) $(INCLUDES)
+svx:	test.sv $(SRC) $(MXA) $(UART)  $(SYNTH)  $(DRAM) $(INCLUDES) aes.sv
 	iverilog -g 2005-sv -D SIMV $(VSYNTH2)  -o svx test.sv $(SRC) $(DRAM) $(MXREG) $(UART_DEF2) $(UART) $(SYNTH) -pfileline=1  $(OPT_FLAG_2)
 
 svv:	obj_dir/svv
 svv-lint:	obj_dir/svv-lint
 
-obj_dir/svv-lint:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES)
+obj_dir/svv-lint:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES) aes.sv
 	$(VERILATOR) -cc  --threads 7  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" +1800-2017ext+sv -o svv-lint  +define+SIMV +define+SIMD $(VSYNTH1) $(SRC) $(DRAM) $(MXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) --assert --clk clk  --trace  -sv --compiler gcc -exe testbench.cpp
 
-obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES)
+obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES) aes.sv
 	$(VERILATOR) -cc  --threads 7  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o svv  +define+SIMV +define+SIMD $(VSYNTH1) $(SRC) $(DRAM) $(MXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) --assert --clk clk  --trace  -sv --compiler gcc -exe testbench.cpp
 	make -j 16  -C obj_dir -f Vchip.mk svv
 
 fvv:	fobj_dir/fvv
-fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES)
+fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES) aes.sv
 	$(VERILATOR) -cc  --threads 7 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
 	make -j 16 -C fobj_dir -f Vchip.mk fvv
 
-svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES)
+svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv
 	$(VERILATOR) -lint-only +1800-2005ext+sv --top-module chip $(VSYNTH1) -o svv $(SRC) $(DRAM) $(MXREG) $(UART_DEF1)  $(UART) $(SYNTH) $(OPT_FLAG_1)
 
-tv:	aws-test/test.sv $(SRC) $(MXA) $(UART)  $(SYNTH) $(XTEST) aws-test/test_devices.sv $(INCLUDES)
+tv:	aws-test/test.sv $(SRC) $(MXA) $(UART)  $(SYNTH) $(XTEST) aws-test/test_devices.sv $(INCLUDES) aes.sv
 	iverilog -g 2005-sv -D SIMV  $(XSYNTH2) -o tv aws-test/test.sv aws-test/test_devices.sv $(SRC) $(XTEST) $(MXREG)  $(UART_DEF2) $(UART)  $(OPT_FLAG_2)
 	iverilog -g 2005-sv -D SIMV  $(XSYNTH2) -o tvd -D SIMD aws-test/test.sv aws-test/test_devices.sv $(SRC) $(XTEST) $(MXREG)  $(UART_DEF2) $(UART)  $(OPT_FLAG_2)
 
 tvv:	obj_dir/tvv 
-obj_dir/tvv:	$(SRC) $(MXA) $(UART) aws-test/xtestbench.cpp $(SYNTH)  $(XTEST) aws-test/test.sv aws-test/test_devices.sv $(INCLUDES)
+obj_dir/tvv:	$(SRC) $(MXA) $(UART) aws-test/xtestbench.cpp $(SYNTH)  $(XTEST) aws-test/test.sv aws-test/test_devices.sv $(INCLUDES) aes.sv
 	$(VERILATOR) -cc  --threads 7  --top-module test --autoflush -CFLAGS "-g" -LDFLAGS "-g" $(OPT_FLAG_1) -Wno-lint +1800-2017ext+sv -o tvv  +define+AWS_VERILATOR  +define+VSYNTH2 +define+SIMV +define+SIMD aws-test/test.sv aws-test/test_devices.sv $(XSYNTH1) $(SRC) $(MXREG)  $(UART_DEF1)  $(UART) $(XTEST) --assert --clk clk_main_a0  --trace  -sv --compiler gcc --Mdir awsobj_dir -exe aws-test/xtestbench.cpp
 	make -j 16 -C awsobj_dir -f Vtest.mk tvv
 

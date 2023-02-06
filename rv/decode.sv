@@ -137,6 +137,7 @@ module decode(input clk,
 		input	tvm,
 		input	tsr,
 		input	hyper,
+		input [1:0]seed_sec,
 
 		output	jumping_stall,	// stall PC until woken
 
@@ -824,6 +825,7 @@ module decode(input clk,
 
 			12'b00_11_1010_00??,		//  Physical memory config
 			12'b00_11_1011_????,		//  Physical memory protection address reg
+			12'b01_11_0100_0111,		//	mseccfg
 `ifdef SIMV
 			12'b10_00_1111_0000,	// simulator putchar
 			12'b10_00_1111_0001,	// simulator write word
@@ -1108,7 +1110,7 @@ module decode(input clk,
 										f_bsh = 0;
 									end
 							7'b0000_100:
-									casez(ins[24:0]) // synthesis full_case parallel_case
+									casez(ins[24:20]) // synthesis full_case parallel_case
 									5'b01111:
 										if (k) begin // zip
 											trap = !rv32;
@@ -1120,6 +1122,35 @@ module decode(input clk,
 										end
 									default: trap = 1;
 									endcase
+							7'b0001_000:
+									casez(ins[24:20]) // synthesis full_case parallel_case
+									5'b00000,	// sha256sum0
+									5'b00001,	// sha256sum1
+									5'b00010,	// sha256sig0
+									5'b00011,	// sha256sig1
+									5'b00100,	// sha512sum0
+									5'b00101,	// sha512sum1
+									5'b00110,	// sha512sig0
+									5'b00111:	// sha512sig0
+										if (k) begin 
+											f_bsh = 5;
+											f_inv = 1;
+											f_sr = 1;	
+										end else begin
+											trap = 1;
+										end
+									5'b01000,	// smp3p0	01000
+									5'b01001:	// smp3p1	01001
+										if (k) begin 
+											f_bsh = 4;
+											f_inv = 0;
+											f_sr = 1;	
+										end else begin
+											trap = 1;
+										end
+									default: trap = 1;
+									endcase
+		
 							7'b0010_10?:
 									if (b) begin // bseti ok
 										trap = rv32&ins[25];
@@ -1129,6 +1160,28 @@ module decode(input clk,
 									end else begin
 										trap = 1;
 									end
+							7'b0011_000:
+									casez(ins[24:20]) // synthesis full_case parallel_case
+									5'b1????:
+										if (k) begin	// aes64ks1i
+											trap = rv32|(ins[23:20]>10);
+											f_bsh = 6;
+											f_inv = 0; 
+											f_sl = 1;	
+										end else begin
+											trap = 1;
+										end
+									5'b00000:
+										if (k) begin	// aes64im
+											trap = rv32;
+											f_bsh = 6;
+											f_inv = 0; 
+											f_sl = 1;	
+										end else begin
+											trap = 1;
+										end
+									default: trap = 1;
+									endcase
 							7'b0100_10?:
 									if (b) begin // bclri ok
 										trap = rv32&ins[25];
@@ -1150,6 +1203,7 @@ module decode(input clk,
 										trap = 1;
 								   end
 `endif
+								
 							7'b0110_000:
 								if (b) begin
 									case (ins[24:20])
@@ -1458,7 +1512,7 @@ module decode(input clk,
 					needs_rs2 = 1;
 					case (ins[14:12]) // synthesis full_case parallel_case
 					3'b000: begin
-							case ({ins[31:25]}) // synthesis full_case parallel_case
+							casez ({ins[31:25]}) // synthesis full_case parallel_case
 							7'b0000_000:
 								begin
 									// add
@@ -1481,6 +1535,125 @@ module decode(input clk,
 									f_sh_add = 0;
 									f_inv = 1;
 								end
+							7'b0101_000,		// sha512sum0r
+							7'b0101_001,		// sha512sum1r
+							7'b0101_010,		// sha512sig0l
+							7'b0101_011,		// sha512sig1l
+							7'b0101_110,		// sha512sig0h
+							7'b0101_111:		// sha512sig1h	
+								if (k) begin	
+									trap = !rv32;
+									imm = {{28{1'bx}},1'b1, ins[27:25]};
+									f_bsh = 5;
+									f_sr = 1;
+									f_inv = 1;
+								end else begin
+									trap = 1;
+								end
+							7'b??10_001:
+								if (k) begin	// aes32esi
+									trap = !rv32;
+									imm = {{30{1'bx}}, ins[31:30]};
+									f_bsh = 7;
+									f_sl = 1;
+									f_inv = 0;
+								end else begin
+									trap = 1;
+								end
+							7'b??10_011:
+								if (k) begin	// aes32esmi
+									trap = !rv32;
+									imm = {{30{1'bx}}, ins[31:30]};
+									f_bsh = 7;
+									f_sr = 1;
+									f_inv = 0;
+								end else begin
+									trap = 1;
+								end
+							7'b??10_101:
+								if (k) begin	// aes32dsi
+									trap = !rv32;
+									imm = {{30{1'bx}}, ins[31:30]};
+									f_bsh = 7;
+									f_sl = 1;
+									f_inv = 1;
+								end else begin
+									trap = 1;
+								end
+							7'b??10_111:
+								if (k) begin	// aes32dsmi
+									trap = !rv32;
+									imm = {{30{1'bx}}, ins[31:30]};
+									f_bsh = 7;
+									f_sr = 1;
+									f_inv = 1;
+								end else begin
+									trap = 1;
+								end
+							7'b??11_000:		// sm4ed
+								if (k) begin	
+									imm = {{27{1'bx}}, 1'b1, ins[26], 1'bx, ins[31:30]};	 // 100xx
+									f_bsh = 4;
+									f_sr = 1;
+									f_inv = 0;
+								end else begin
+									trap = 1;
+								end
+							7'b0011_001:
+								if (k) begin	// aes64es
+									trap = rv32;
+									f_bsh = 7;
+									f_sl = 1;
+									f_inv = 0;
+								end else begin
+									trap = 1;
+								end
+							7'b??11_010:		// sm4ks
+								if (k) begin
+									imm = {{27{1'bx}}, 1'b1, ins[26], 1'bx, ins[31:30]};	 // 110xx
+									f_bsh = 4;
+									f_sr = 1;
+									f_inv = 0;
+								end else begin
+									trap = 1;
+								end
+							7'b0011_011:
+								if (k) begin	// aes64esm
+									trap = rv32;
+									f_bsh = 7;
+									f_sr = 1;
+									f_inv = 0;
+								end else begin
+									trap = 1;
+								end
+							7'b0011_101:
+								if (k) begin	// aes64ds
+									trap = rv32;
+									f_bsh = 7;
+									f_sl = 1;
+									f_inv = 1;
+								end else begin
+									trap = 1;
+								end
+							7'b0011_111:
+								if (k) begin	// aes64dsm
+									trap = rv32;
+									f_bsh = 7;
+									f_sr = 1;
+									f_inv = 1;
+								end else begin
+									trap = 1;
+								end
+							7'b0111_111:
+								if (k) begin	// aes64ks2
+									trap = rv32;
+									f_bsh = 5;
+									f_sl = 1;
+									f_inv = 1;
+								end else begin
+									trap = 1;
+								end
+	
 							default: trap = 1;
 							endcase
 						end
@@ -1602,7 +1775,7 @@ module decode(input clk,
 							endcase
 						end
 					3'b010: begin	
-							case (ins[31:25]) // synthesis full_case parallel_case
+							casez (ins[31:25]) // synthesis full_case parallel_case
 							7'b0000_000:
 									begin
 										f_slt = 1; // slt
@@ -1647,7 +1820,7 @@ module decode(input clk,
 							endcase
 						end
 					3'b011: begin
-							case (ins[31:25]) // synthesis full_case parallel_case
+							casez (ins[31:25]) // synthesis full_case parallel_case
 							7'b0000_000:
 									begin
 										f_sltu = 1;	// sltu
@@ -1695,7 +1868,7 @@ module decode(input clk,
 							endcase
 						end
 					3'b100: begin
-							case (ins[31:25]) // synthesis full_case parallel_case
+							casez (ins[31:25]) // synthesis full_case parallel_case
 							7'b0000_000:
 									begin
 										f_xor = 1; // xor
@@ -1862,7 +2035,7 @@ module decode(input clk,
 							endcase
 						end
 					3'b110: begin	// or
-							case (ins[31:25]) // synthesis full_case parallel_case
+							casez (ins[31:25]) // synthesis full_case parallel_case
 							7'b0000_000:
 									begin
 										f_or = 1;// or
@@ -1916,7 +2089,7 @@ module decode(input clk,
 							endcase
 						end
 					3'b111: begin	
-							case (ins[31:25]) // synthesis full_case parallel_case
+							casez (ins[31:25]) // synthesis full_case parallel_case
 							7'b0000_000:
 									begin
 										f_and = 1; // and
@@ -2696,6 +2869,9 @@ module decode(input clk,
 							imm = {20'bx,ins[31:20]};
 							makes_rd = rd !=0;
 							// cpu_mode 0 usr 1 sup 3 mach
+							if (imm[11:0] == 12'h015) begin	// 
+								trap = hyper || !seed_sec[1]&cpu_mode[1] || !seed_sec[0]&cpu_mode[0]; // something here for virtual instruction exceptions
+							end else
 							trap = (enc_cpu_mode < imm[9:8]) | (imm[11:10]==2'b11) | badcsr(imm[11:0], rv32, tvm&(cpu_mode[1]), hyper) |
 								((imm[11:2] == 10'b11_00_0000_00) & 
 									(((imm[1:0]==0) & (((cpu_mode[0]) & (~timer_prot[3]|~timer_prot[0])) |

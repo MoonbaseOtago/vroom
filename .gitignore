@@ -118,3 +118,4 @@ test
 .*.swo
 .*.swn
 *.vcd.fst
+__pycache__

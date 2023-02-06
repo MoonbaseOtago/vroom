@@ -137,6 +137,7 @@ module csr(input clk, input reset,
 		output	[2:0]pmp_prot_13,
 		output	[2:0]pmp_prot_14,
 		output	[2:0]pmp_prot_15,
+		output  [1:0]seed_sec,
 
 		output			clic_m_enable,
 		output			clic_h_enable,
@@ -1435,7 +1436,7 @@ module csr(input clk, input reset,
 		end
 	end
 
-	assign rv32 = (RV==32?1:(cpu_mode[0]&&r_uxl==1)||(cpu_mode[1]&&r_sxl==1)||(cpu_mode[3]&&r_mxl==3));
+	assign rv32 = (RV==32?1:(cpu_mode[0]&&r_uxl==1)||(cpu_mode[1]&&r_sxl==1)||(cpu_mode[3]&&r_mxl==1));
 
 	always @(posedge clk)
 		r_hs <= 0; 
@@ -2699,16 +2700,20 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 			assign pmp.aend[I]  = c_pmp_end[I];
 			assign pmp.prot[I]  = r_pmp_prot[I];	
 		end
-		
+	
+		wire [NUM_PMP-1:0]sec_pmp_lock_all;
+		wire sec_pmp_lock = |sec_pmp_lock_all;
 		for (I = 0; I < NUM_PMP; I=I+1) begin: pmps
 			wire locked;
 			if (I == (NUM_PMP-1)) begin
-				assign locked = r_pmp_locked[I];
+				assign locked = r_pmp_locked[I]&!r_sec_rlb;
 			end else begin
-				assign locked = r_pmp_locked[I]|(r_pmp_locked[I+1]&(r_pmp_a[I+1]==2'b01));
+				assign locked = (r_pmp_locked[I]|(r_pmp_locked[I+1]&(r_pmp_a[I+1]==2'b01)))&!r_sec_rlb;
 			end
 			if ((I&8)!=0) begin
 				if ((I&4)!=0) begin
+					assign sec_pmp_lock_all[I] = locked && csr_write &&
+							(r_immed[11:0] == 12'h3a2||r_immed[11:0] == 12'h3a3 || r_immed[11:0] == (12'h3b0+I));
 					always @(posedge clk) 
 					if (reset) r_pmp_locked[I] <= 0; else 
 					if (csr_write && !locked)
@@ -2721,6 +2726,7 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 						if (r_control[1]) r_pmp_locked[I] <= r_pmp_locked[I]|in[((I&3)*8)+7]; else
 						if (r_control[2]) r_pmp_locked[I] <= r_pmp_locked[I]&~in[((I&3)*8)+7]; else r_pmp_locked[I] <= in[((I&3)*8)+7];
 					end
+					
 
 					always @(posedge clk) 
 					if (reset) r_pmp_a[I] <= 0; else 
@@ -2748,6 +2754,8 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 					end
 
 				end else begin
+					assign sec_pmp_lock_all[I] = locked && csr_write &&
+							(r_immed[11:0] == 12'h3a2 || r_immed[11:0] == (12'h3b0+I));
 					always @(posedge clk) 
 					if (reset) r_pmp_locked[I] <= 0; else 
 					if (csr_write && !locked && (r_immed[11:0] == 12'h3a2)) 
@@ -2766,6 +2774,8 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 				end
 			end else begin
 				if ((I&4)!=0) begin
+					assign sec_pmp_lock_all[I] = locked && csr_write &&
+							(r_immed[11:0] == 12'h3a0 || r_immed[11:0] == 12'h3a1 || r_immed[11:0] == (12'h3b0+I));
 					always @(posedge clk) 
 					if (reset) r_pmp_locked[I] <= 0; else 
 					if (csr_write && !locked)
@@ -2805,6 +2815,8 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 					end
 
 				end else begin
+					assign sec_pmp_lock_all[I] = locked && csr_write &&
+							(r_immed[11:0] == 12'h3a0 || r_immed[11:0] == (12'h3b0+I));
 					always @(posedge clk) 
 					if (reset) r_pmp_locked[I] <= 0; else 
 					if (csr_write && !locked && (r_immed[11:0] == 12'h3a0)) 
@@ -2948,20 +2960,50 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	endgenerate
 
 
+	assign seed_sec = {r_sseed, r_useed};
+	// mseccfg reg
+	reg r_sseed, r_useed, r_sec_rlb, r_sec_mmwp, r_sec_mml;
+	reg r_sec_rlb_locked;
+
+	always @(posedge clk) 
+	if (reset) r_sseed <= 0; else // 0 turns it off
+	if (csr_write && (r_immed[11:0] == 12'h747)) 
+	if (r_control[1]) r_sseed <= r_sseed|in[9]; else
+	if (r_control[2]) r_sseed <= r_sseed&~in[9]; else r_sseed <= in[9];
+
+	always @(posedge clk) 
+	if (reset) r_useed <= 0; else // 0 turns it off
+	if (csr_write && (r_immed[11:0] == 12'h747)) 
+	if (r_control[1]) r_useed <= r_useed|in[8]; else
+	if (r_control[2]) r_useed <= r_useed&~in[8]; else r_useed <= in[8];
+
+	always @(posedge clk)
+	if (reset) r_sec_rlb_locked <= 0; else
+	if (sec_pmp_lock) r_sec_rlb_locked <= 1;
+
+	always @(posedge clk) 
+	if (reset) r_sec_rlb <= 0; else // 0 turns it off
+	if (sec_pmp_lock) r_sec_rlb <= 0; else
+	if (csr_write && (r_immed[11:0] == 12'h747) && !r_sec_rlb_locked) 
+	if (r_control[1]) r_sec_rlb <= r_sec_rlb|in[2]; else
+	if (r_control[2]) r_sec_rlb <= r_sec_rlb&~in[2]; else r_sec_rlb <= in[2];
+
+	always @(posedge clk) 
+	if (reset) r_sec_mmwp <= 0; else // 0 turns it off
+	if (csr_write && (r_immed[11:0] == 12'h747)) 
+	if (r_control[1]) r_sec_mmwp <= r_sec_mmwp|in[1]; else	// note sticky bit can only be reset by reset
+	if (r_control[2]) r_sec_mmwp <= r_sec_mmwp; else r_sec_mmwp <= r_sec_mmwp|in[1];
+
+	always @(posedge clk) 
+	if (reset) r_sec_mml <= 0; else // 0 turns it off
+	if (csr_write && (r_immed[11:0] == 12'h747)) 
+	if (r_control[1]) r_sec_mml <= r_sec_mml|in[0]; else // note sticky bit can only be reset by rese t
+	if (r_control[2]) r_sec_mml <= r_sec_mml; else r_sec_mml <= r_sec_mml|in[0];
+
 	//
 	//	Moonbase specific registers
 	//
 
-	reg		[31:0]r_pseudo_random;
-	assign	orand = r_pseudo_random[31];
-	always @(posedge clk) 
-	if (reset) r_pseudo_random <= 0; else // 0 turns it off
-	if (csr_write && (r_immed[11:0] == 12'hbf8)) begin	// pseudo seed - used for cache randomisation
-		r_pseudo_random <= in[31:0];
-	end else begin
-		r_pseudo_random <= {r_pseudo_random[30:0], r_pseudo_random[31]^r_pseudo_random[28]};
-	end
-	
 	reg		r_unified_asid;
 	assign unified_asid = r_unified_asid;
 	always @(posedge clk) 
@@ -3076,6 +3118,9 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 					end else begin
 						c_res = {r_u_tvt[RV-1:3+$clog2(NINTERRUPTS)], {3+$clog2(NINTERRUPTS){1'b0}}};
 					end
+
+		13'b?_00_00_0001_0101:		//  seed csr
+				c_res = 0;
 
 		13'b?_00_00_0100_0000:		//  scratch reg for trap handlers
 					c_res = r_u_scratch;
@@ -3441,6 +3486,10 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		13'b?_00_11_1011_1111:		//  Physical memory protection address reg
 					c_res = {10'b0, x_pmp_addr[15]};
 
+		13'b?_01_11_0100_0111:		//  mseccfg 
+					c_res = { 54'b0,r_sseed, r_useed, 5'b0,r_sec_rlb, r_sec_mmwp, r_sec_mml};
+		13'b?_01_11_0101_0111:		//  mseccfg hi
+					c_res = 64'h0;
 		13'b?_01_11_1010_0000,		//  mach tselect
 		13'b?_01_11_1010_0001,		//  mach data1
 		13'b?_01_11_1010_0010,		//  mach data2
@@ -3470,8 +3519,6 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 		//
 
 
-		13'b?_10_11_1111_1000:		//	pseudo random 
-					c_res = {32'b0, r_pseudo_random};
 		13'b?_10_11_1111_1001:		//	options
 					c_res = {55'b0, r_trace_scale, r_trace_enable, r_unified_asid};
 		13'b?_10_11_1111_1010:		//	all reset

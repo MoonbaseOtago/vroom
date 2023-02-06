@@ -77,7 +77,10 @@ module shift(
 	//	5:3:  == 100
 	//	2:  32-bit
 	//  1-0: 00 - slliu bit 2==1
-	//	     //01 - bmatflp
+	//	     01 - r_imm[4:0] 100xx	sm4ed
+	//		      r_imm[4:0] 110xx	sm4ks
+	//		      r_imm[4:0] 01000	sm3p0
+	//		      r_imm[4:0] 01001	sm3p1
 	//		 10 - sext.b
 	//		 11 - sext.h
 	//
@@ -85,22 +88,23 @@ module shift(
 	//	2:  32-bit
 	//  1-0: 00 - xperm8
 	//		 01 - xperm4
-	//		 //10 - bfp
-	//		 //11 - ??
+	//		 10 - aes64ks2 
+	//		 11 - sha256/512 sig/sum
 	//
 	//	5:3:  == 110
 	//	2:  32-bit
-	//  1-0: //00 - bdep
+	//  1-0: 00 r_imm[4] 0 - aes64ks1i
+	//			r_imm[4] 1 - aes64ks1i
 	//		 01 - brev8
 	//		 10 - pack/packw / zext
 	//		 11 - packh
 	//
 	//	5:3:  == 111
 	//	2:  32-bit
-	//  1-0: //00 - fsl
-	//		 //01 - fsr
-	//		 //10 - cmix
-	//		 //11 - cmov 
+	//  1-0: 00 - aes32esi/aes64es
+	//		 01 - aes32esmi/aes64esm
+	//		 10 - aes32dsi/aes64ds
+	//		 11 - aes32dsmi/aes64dsm 
 	//
 	
 
@@ -158,6 +162,14 @@ module shift(
 
 	wire fill = r_arith&r1[63];
 	wire fill32 = r_arith&r1[31];
+
+
+`ifdef K
+
+`include "aes.sv"
+
+`endif
+
 `include "mk6_64.inc"
 
 endmodule

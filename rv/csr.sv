@@ -1427,7 +1427,7 @@ module csr(input clk, input reset,
 	reg [1:0]r_mxl;
 	always @(posedge clk)
 	if (reset) r_mxl <= (RV==64?2:1); else
-	if (csr_write && r_immed[11:0] == 12'h300 || r_immed[11:0] == 12'h345 || r_immed[11:0] == 12'h100 || r_immed[11:0] == 12'h145)
+	if (csr_write && r_immed[11:0] == 12'h301 || r_immed[11:0] == 12'h345 || r_immed[11:0] == 12'h101 || r_immed[11:0] == 12'h145)
 	if (RV==64) begin
 		if (r_mxl == 2) begin
 			if (!r_control[1]&&!r_control[2]&&((in[63:62]==1)||(in[63:62]==2))) r_mxl <= in[63:62]; 

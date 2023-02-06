@@ -223,12 +223,14 @@ FN_WriteA0_common:
 //    j write_tohost;
 
 //
-// go into 32-bit mode
+// go into 32-bit mode - thus needs to be 32-bit code that runs in 32-bit
 #define RVMODEL_BOOT \
 	csrr	a0, misa;\
-	li	a1, 0x7fffffff;\
-	and	a0, a0, a1;\
+	sll	a0, a0, 1;\
+	srl	a0, a0, 1;\
 	li	a1, 0x40000000;\
+	sll	a1, a1, 16;\
+	sll	a1, a1, 16;\
 	or	a0, a0, a1;\
 	csrw	misa, a0
 

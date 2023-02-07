@@ -80,7 +80,7 @@ int main(int argc, char ** argv)
 
 	printf("// clmul*\n");
 	printf("`ifdef B\n");
-	printf("	wire [63:0]xr1 = r1;\n");
+	printf("	wire [63:0]xr1 = (r_rv32?{32'b0,r1[31:0]}:r1);\n");
 	printf("	wire [63:0]xr2 = r2;\n");
 	for (i = 0; i < B; i += 8) {
 	printf("	reg [%d:%d]r_clm_%d;\n", B+i+6, i, i);
@@ -95,7 +95,11 @@ int main(int argc, char ** argv)
 	for (i = 8; i < (B-8); i += 8) 
 	printf("	                         {%d'b0, r_clm_%d, %d'b0}^\n", B-i-1, i, i);
 	printf("	                         {r_clm_%d, %d'b0};\n", i, i);
-	printf("	wire [%d:0]clmul_res_rev = {", B-1);
-	for (i = 0; i <B; i++) printf("clmul_res[%d]%s",i,i==(B-1)?"};\n":",");
+	printf("	wire [%d-2:0]clmul_res_32 = {%d'b0, r_clm_0}^\n", B, B/2-1);
+	for (i = 8; i < (B/2-8); i += 8) 
+	printf("	                         {%d'b0, r_clm_%d, %d'b0}^\n", B/2-i-1, i, i);
+	printf("	                         {r_clm_%d, %d'b0};\n", i, i);
+	//printf("	wire [%d:0]clmul_res_rev = {", B-1);
+	//for (i = 0; i <B; i++) printf("clmul_res[%d]%s",i,i==(B-1)?"};\n":",");
 	printf("`endif\n");
 }

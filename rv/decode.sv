@@ -242,6 +242,10 @@ module decode(input clk,
 	wire k = 0;
 `endif
 
+	reg r_rv32;
+	always @(posedge clk)
+		r_rv32 <= rv32;
+
 	reg [VA_SZ-1:1]r_pc_1;
 	wire [VA_SZ-1:1]c_pc_1;
 	reg [VA_SZ-1:BDEC]r_pc_2;
@@ -908,6 +912,7 @@ module decode(input clk,
 	endfunction
 
 	task decode_32;
+    input       rv32;
 	input [31:0]ins;
 	input       b, k;
 `ifdef FP
@@ -1131,7 +1136,7 @@ module decode(input clk,
 									5'b00100,	// sha512sum0
 									5'b00101,	// sha512sum1
 									5'b00110,	// sha512sig0
-									5'b00111:	// sha512sig0
+									5'b00111:	// sha512sig1
 										if (k) begin 
 											f_bsh = 5;
 											f_inv = 1;
@@ -1294,7 +1299,7 @@ module decode(input clk,
 									end
 `endif
 							7'b0000_100:
-									casez(ins[24:0]) // synthesis full_case parallel_case
+									casez(ins[24:20]) // synthesis full_case parallel_case
 									5'b01111:
 										if (k) begin // unzip
 											trap = !rv32;
@@ -2986,6 +2991,7 @@ module decode(input clk,
 
 
 	task decode_16;
+    input   rv32;
 	input [15:0]ins;
 `ifdef FP
 	input 	fp_off;
@@ -3436,7 +3442,7 @@ module decode(input clk,
 		if ((!first || !pc[1]) && (partial_valid_in || (ins[1:0] == 3))) begin
 			c_short_pc = 0;
 			c_inc2_1 = partial_valid_in;
-			decode_32((partial_valid_in?{ins[15:0],partial_ins_in}:ins), b, k,
+			decode_32(r_rv32, (partial_valid_in?{ins[15:0],partial_ins_in}:ins), b, k,
 `ifdef FP
 				fp_off,
 `endif
@@ -3462,7 +3468,7 @@ module decode(input clk,
 				c_rs1_fp_1, c_rs2_fp_1, c_rs3_fp_1, c_rd_fp_1);
 
 			if (partial_valid_in && (ins[17:16] != 3)) begin
-				decode_16(ins[31:16], 
+				decode_16(r_rv32, ins[31:16], 
 `ifdef FP
 					fp_off,
 `endif
@@ -3523,7 +3529,7 @@ module decode(input clk,
 			c_inc2_1 = 1;
 			c_min_1 = 0;
 			c_max_1 = 0;
-			decode_16(ins[15:0], 
+			decode_16(r_rv32, ins[15:0], 
 `ifdef FP
 				fp_off,
 `endif
@@ -3550,7 +3556,7 @@ module decode(input clk,
 			c_xmul_1 = 0;
 			c_sgn_1 = 2'bxx;
 			if (ins[31:16] != 3) begin
-				decode_16(ins[31:16], 
+				decode_16(r_rv32, ins[31:16], 
 `ifdef FP
 					fp_off,
 `endif

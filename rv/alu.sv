@@ -341,11 +341,11 @@ module alu(
 	wire [RV:0]c_add64 = {1'b0,c_r1}+{1'b0,c_r2}+{64'b0,r_inv};		// main adder (+carry if r_inv)
 	wire [RV-1:0]c_add = (RV==64&&r_addw&!r_op[3]?{(r_op==12?32'b0:{32{c_add64[31]}}), c_add64[31:0]}: c_add64); // addw stuff
 
-	wire s_lt = (RV==64 ? (c_r1[63]^x_r2[63] ? c_r1[63] : c_add64[63]) :
-					      (c_r1[31]^x_r2[31] ? c_r1[31] : c_add64[31]));
+	wire s_lt = (!r_rv32 ? (c_r1[63]^x_r2[63] ? c_r1[63] : c_add64[63]) :
+					       (c_r1[31]^x_r2[31] ? c_r1[31] : c_add64[31]));
 						  //c_add64[63]^((c_add64[63]&~c_r1[63]&~c_r2[63])|(~c_add64[64]&c_r1[63]&c_r2[63])) :
 			              //c_add64[31]^((c_add64[31]&~c_r1[31]&~c_r2[31])|(~c_add64[32]&c_r1[31]&c_r2[31])));
-	wire u_lt = (RV==64 ? ~c_add64[64] : ~c_add64[32]);
+	wire u_lt = (!r_rv32 ? ~c_add64[64] : ~c_add64[32]);
 
 `ifdef B
 	reg [5:0]pc0, pc1;
@@ -389,14 +389,19 @@ module alu(
 
 	wire signed [RV-1:0]s1 = r1;
 	wire signed [RV-1:0]s2 = r2;
+	wire signed [31:0]ss1 = r1[31:0];
+	wire signed [31:0]ss2 = r2[31:0];
 
    always @(*) begin
         need_jmp = 1'bx;
         // note: check that only 1 adder is used here
-        case (r_tp) // synthesis full_case parallel_case
-        0: need_jmp = r1==r2;   // eq
-        2: need_jmp = s1 < s2;      // signed lt
-        3: need_jmp = r1 < r2;  // unsigned lt
+        casez ({r_rv32,r_tp}) // synthesis full_case parallel_case
+        3'b0_00: need_jmp = r1==r2;   // eq
+        3'b0_10: need_jmp = s1 < s2;  // signed lt
+        3'b0_11: need_jmp = r1 < r2;  // unsigned lt
+        3'b1_00: need_jmp = r1[31:0]==r2[31:0];   // eq
+        3'b1_10: need_jmp = ss1 < ss2;  // signed lt
+        3'b1_11: need_jmp = r1[31:0] < r2[31:0];  // unsigned lt
         default: need_jmp = 1'bx;
         endcase
         make_jmp = r_is_branch && (r_cjmp?r_predicted^r_inv^need_jmp:!r_tp[0]&(!r_predicted|!match));

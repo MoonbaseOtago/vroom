@@ -117,8 +117,11 @@ module shift(
     assign res_makes_rd = r_res_makes_rd;            
 	wire    right, arith;
 	wire	addw;
+	reg		r_rv32;
+	always @(posedge clk)
+		r_rv32 <= rv32;
 	reg [2:0] r_op, op;
-	assign addw = rv32|control[2];
+	assign addw = r_rv32|control[2];
 	assign right = control[0];
 	assign arith = control[1];
 	assign op = control[5:3];
@@ -126,7 +129,7 @@ module shift(
 	reg	r_addw, r_needs_rs2;
 	reg [5:0]r_immed;
 
-    wire [5:0]sr2 = (r_needs_rs2?r2[5:0]:r_immed[5:0])&{~rv32,5'b11111};
+    wire [5:0]sr2 = (r_needs_rs2?r2[5:0]:r_immed[5:0])&{~r_rv32,5'b11111};
 
 
     always @(posedge clk) begin                     

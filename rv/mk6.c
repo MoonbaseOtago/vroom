@@ -237,19 +237,19 @@ int main(int argc, char ** argv)
 	}
 
 	printf("// orc \n");
-	printf("	12'b010_000_??????: c_res = {");
+	printf("	12'b010_?00_??????: c_res = {");
 	for (i = 7; i >= 0; i--) printf("{{8{|r1[%d:%d]}}}%s", 8*i+7,8*i, i==0?"};\n":",");
 
 	printf("// rev8 \n");
-	printf("	12'b010_001_??????: c_res = (rv32 ? {32'bx, r1[7:0], r1[15:8], r1[23:16], r1[31:24]}:\n");
+	printf("	12'b010_?01_??????: c_res = (r_rv32 ? {{32{r1[7]}}, r1[7:0], r1[15:8], r1[23:16], r1[31:24]}:\n");
 	printf("	                                    {r1[7:0], r1[15:8], r1[23:16], r1[31:24], r1[39:32], r1[47:40], r1[55:48], r1[63:56]});\n");
 
 
 	printf("// zip \n");
-	printf("	12'b010_010_??????: c_res = {{32{r1[31]}},");
-	for (i = 15; i >= 0; i--) printf("r1[%d], r1[%d]%s", 2*i+1, i, i==0?"};\n":",");
+	printf("	12'b010_?10_??????: c_res = {{32{r1[31]}},");
+	for (i = 15; i >= 0; i--) printf("r1[%d],r1[%d]%s", 16+i, i, i==0?"};\n":",");
 	printf("// unzip \n");
-	printf("	12'b010_011_??????: c_res = {{32{r1[31]}},");
+	printf("	12'b010_?11_??????: c_res = {{32{r1[31]}},");
 	for (i = 31; i >= 1; i-=2) printf("r1[%d],", i);
 	for (i = 30; i >= 0; i-=2) printf("r1[%d]%s", i, i==0?"};\n":",");
 
@@ -370,7 +370,7 @@ int main(int argc, char ** argv)
 	printf("				p[%d] = r1[%d:%d];\n", i, 8*i+7, 8*i);
 	}
 	for (i = 0; i < 64; i+=8) {
-	printf("				casez({rv32, r2[%d:%d]}) // synthesis full_case parallel_case\n", i+7, i);
+	printf("				casez({r_rv32, r2[%d:%d]}) // synthesis full_case parallel_case\n", i+7, i);
 	printf("				9'b1_0000_00??,\n");
 	printf("  			    	9'b0_0000_0???: c_res[%d:%d] = p[r2[%d:%d]];\n", i+7, i, i+2, i);
 	printf("  			    	default: c_res[%d:%d] = 8'b0;\n", i+7, i);
@@ -384,7 +384,7 @@ int main(int argc, char ** argv)
 	printf("				p[%d] = r1[%d:%d];\n", i, 4*i+3, 4*i);
 	}
 	for (i = 0; i < 64; i+=4) {
-	printf("				casez({rv32, r2[%d:%d]}) // synthesis full_case parallel_case\n", i+3, i);
+	printf("				casez({r_rv32, r2[%d:%d]}) // synthesis full_case parallel_case\n", i+3, i);
 	printf("				5'b1_0???,\n");
 	printf("  			    	5'b0_????: c_res[%d:%d] = p[r2[%d:%d]];\n", i+3, i, i+3, i);
 	printf("  			    	default: c_res[%d:%d] = 8'b0;\n", i+3, i);
@@ -426,7 +426,7 @@ int main(int argc, char ** argv)
 	printf("			    		c_res = {{32{a[31]}}, a};\n");
 	printf("			    	    end\n");
 	printf("			    	9: begin //sha512sum1r\n");
-	printf("			    		a = {r1[8:0],23'b0}^{14'b0,r1[31:14]}^{18'b0, r1[31:18]}^{r2[22:0],9'b0}^{r2[14:0], 18'b0}^{r2[18:0],14'b0};\n");
+	printf("			    		a = {r1[8:0],23'b0}^{14'b0,r1[31:14]}^{18'b0, r1[31:18]}^{9'b0, r2[31:9]}^{r2[13:0], 18'b0}^{r2[17:0],14'b0};\n");
 	printf("			    		c_res = {{32{a[31]}}, a};\n");
 	printf("			    	    end\n");
 	printf("			    	10: begin //sha512sig0l\n");
@@ -437,11 +437,11 @@ int main(int argc, char ** argv)
 	printf("			    		a = {r1[28:0], 3'b0}^{6'b0, r1[31:6]}^{19'b0, r1[31:19]}^{29'b0, r2[31:29]}^{r2[18:0],13'b0}^{r2[5:0],26'b0};\n");
 	printf("			    		c_res = {{32{a[31]}}, a};\n");
 	printf("			    	    end\n");
-	printf("			    	12: begin //sha512sig0h\n");
+	printf("			    	14: begin //sha512sig0h\n");
 	printf("			    		a = {1'b0, r1[31:1]}^{7'b0, r1[31:7]}^{8'b0, r1[31:8]}^{r2[0:0],31'b0}^{r2[7:0],24'b0};\n");
 	printf("			    		c_res = {{32{a[31]}}, a};\n");
 	printf("			    	    end\n");
-	printf("			    	13: begin //sha512sig1h\n");
+	printf("			    	15: begin //sha512sig1h\n");
 	printf("			    		a = {r1[28:0], 3'b0}^{6'b0, r1[31:6]}^{19'b0, r1[31:19]}^{29'b0, r2[31:29]}^{r2[19:0],13'b0};\n");
 	printf("			    		c_res = {{32{a[31]}}, a};\n");
 	printf("			    	    end\n");
@@ -582,7 +582,7 @@ int main(int argc, char ** argv)
 	printf("		(r1[0]&r2[0])^(r1[1]&r2[8])^(r1[2]&r2[16])^(r1[3]&r2[24])^(r1[4]&r2[32])^(r1[5]&r2[40])^(r1[6]&r2[48])^(r1[7]&r2[56])};\n");
 
 	printf("// bfp/bfpw\n");
-	printf("	12'b101_?10_??????:	if (rv32|r_addw) begin\n");
+	printf("	12'b101_?10_??????:	if (r_rv32|r_addw) begin\n");
 	printf("					reg [15:0]mask;\n");
 	printf("					reg [31:0]maskl;\n");
 	printf("					reg [31:0]datal;\n");
@@ -636,18 +636,18 @@ int main(int argc, char ** argv)
 		for (j = 0; j < 8; j++) printf("r1[%d]%s", i+j, i==0&&j==7?"};\n":",");
 	}
 	printf("// zext.h / pack\n");
-	printf("	12'b110_?10_??????: c_res = (r_addw|rv32?{{32{r2[15]}}, r2[15:0], r1[15:0]}:{r2[31:0], r1[31:0]});\n");
+	printf("	12'b110_?10_??????: c_res = (r_addw|r_rv32?{{32{r2[15]}}, r2[15:0], r1[15:0]}:{r2[31:0], r1[31:0]});\n");
 	printf("// packh\n");
 	printf("	12'b110_?11_??????: c_res = {48'b0, r2[7:0], r1[7:0]};\n");
 
 	printf("// aes32esi/aes64es  \n");
-	printf("	12'b111_?00_??????: c_res = (rv32? {{32{aes32[7]}}, aes32}: aes64_e_end);\n");
+	printf("	12'b111_?00_??????: c_res = (r_rv32? {{32{aes32[31]}}, aes32}: aes64_e_end);\n");
 	printf("// aes32esmi/aes64esm  \n");
-	printf("	12'b111_?01_??????: c_res = (rv32? {{32{aes32[7]}}, aes32}: aes64_e_mid);\n");
+	printf("	12'b111_?01_??????: c_res = (r_rv32? {{32{aes32[31]}}, aes32}: aes64_e_mid);\n");
 	printf("// aes32dsi/aes64ds  \n");
-	printf("	12'b111_?10_??????: c_res = (rv32? {{32{aes32[7]}}, aes32}: aes64_d_end);\n");
+	printf("	12'b111_?10_??????: c_res = (r_rv32? {{32{aes32[31]}}, aes32}: aes64_d_end);\n");
 	printf("// aes32dsmi/aes64dsm  \n");
-	printf("	12'b111_?11_??????: c_res = (rv32? {{32{aes32[7]}}, aes32}: aes64_d_mid);\n");
+	printf("	12'b111_?11_??????: c_res = (r_rv32? {{32{aes32[31]}}, aes32}: aes64_d_mid);\n");
 	printf("`endif\n");
 	printf("	endcase \n");
 }

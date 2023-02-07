@@ -554,21 +554,21 @@
 	end
 	endfunction
 	
-	function [7:0] aes_mixcolumn_byte_inv(input [7:0]in);
+	function [31:0] aes_mixcolumn_byte_fwd(input [7:0]in);
 	begin
 		reg[7:0]x2;
 		x2 = xt2(in);
-		aes_mixcolumn_byte_inv = {in^x2, in, in, x2};
+		aes_mixcolumn_byte_fwd = {in^x2, in, in, x2};
 	end
 	endfunction
 
-	function [7:0] aes_mixcolumn_byte_fwd(input [7:0]in);
+	function [31:0] aes_mixcolumn_byte_inv(input [7:0]in);
 	begin
 		reg[7:0]x2, x4, x8;
 		x2 = xt2(in);
 		x4 = xt2(x2);
 		x8 = xt2(x4);
-		aes_mixcolumn_byte_fwd = {in^x8^x2, in^x8^x4, in^x8, x8^x4^x2};
+		aes_mixcolumn_byte_inv = {in^x8^x2, in^x8^x4, in^x8, x8^x4^x2};
 	end
 	endfunction
 
@@ -632,28 +632,28 @@
 	end
 	endfunction
 
-	reg [32:0]aes32;
+	reg [31:0]aes32;
 	always @(*) begin
 		reg [7:0]si, so;
 		reg [31:0]mixed;
 		case(r_immed[1:0]) // synthesis full_case parallel_case
-		0: si = r1[7:0];
-		1: si = r1[15:8];
-		2: si = r1[23:16];
-		3: si = r1[31:24];
+		0: si = r2[7:0];
+		1: si = r2[15:8];
+		2: si = r2[23:16];
+		3: si = r2[31:24];
 		endcase
 		if (r_arith) begin
 			so = aes_sbox_inv_table(si);	// aes32d
-			if (r_right) begin
+			if (r_right) begin				// aes32dsmi
 				mixed =  aes_mixcolumn_byte_inv(so);
-			end else begin
+			end else begin					// aes32dsi
 				mixed = {24'b0, so};
 			end
 		end else begin
 			so = aes_sbox_fwd_table(si);	// aes32e
-			if (r_right) begin
+			if (r_right) begin				// aes32esmi
 				mixed = aes_mixcolumn_byte_fwd(so);
-			end else begin
+			end else begin					// aes32esi
 				mixed = {24'b0, so};
 			end
 		end

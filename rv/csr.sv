@@ -813,6 +813,8 @@ module csr(input clk, input reset,
 				12'b00_00_0000_0011:
 								c_trap_br_enable = r_frm != new_rm;
 `endif
+				12'b00_11_0000_0001:		//	ISA and extensions
+								c_trap_br_enable = r_mxl != new_mxl && !reset;
 				default: ;
 				endcase
 			end
@@ -1425,14 +1427,20 @@ module csr(input clk, input reset,
 	if (!r_control[1]&&!r_control[2]&&((in[33:32]==1)||(in[33:32]==2))) r_uxl <= in[33:32]; 
 
 	reg [1:0]r_mxl;
+	reg [1:0]new_mxl;
+	
 	always @(posedge clk)
-	if (reset) r_mxl <= (RV==64?2:1); else
-	if (csr_write && r_immed[11:0] == 12'h301 || r_immed[11:0] == 12'h345 || r_immed[11:0] == 12'h101 || r_immed[11:0] == 12'h145)
-	if (RV==64) begin
-		if (r_mxl == 2) begin
-			if (!r_control[1]&&!r_control[2]&&((in[63:62]==1)||(in[63:62]==2))) r_mxl <= in[63:62]; 
-		end else begin
-			if (!r_control[1]&&!r_control[2]&&((in[31:30]==1)||(in[31:30]==2))) r_mxl <= in[31:30]; 
+		r_mxl <= new_mxl;
+	always @(*) begin
+		new_mxl = r_mxl;
+		if (reset) new_mxl = (RV==64?2:1); else
+		if (csr_write && r_immed[11:0] == 12'h301 || r_immed[11:0] == 12'h345 || r_immed[11:0] == 12'h101 || r_immed[11:0] == 12'h145)
+		if (RV==64) begin
+			if (r_mxl == 2) begin
+				if (!r_control[1]&&!r_control[2]&&((in[63:62]==1)||(in[63:62]==2))) new_mxl = in[63:62]; 
+			end else begin
+				if (!r_control[1]&&!r_control[2]&&((in[31:30]==1)||(in[31:30]==2))) new_mxl = in[31:30]; 
+			end
 		end
 	end
 

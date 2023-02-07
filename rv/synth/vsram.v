@@ -176,6 +176,61 @@ module tc2_combined(input [7:0]addra,
 
 endmodule
 
+module mul32(input clk, input [31:0]a, input [31:0]b, output[63:0]p);
+
+
+	reg [63:0]pp[0:6];
+	assign p = pp[0];
+	wire unsigned [63:0]ua={32'b0,a};
+	wire unsigned [63:0]ub={32'b0,b};
+	always @(posedge clk)
+ 		pp[0] <= ua*ub;
+//	genvar I;
+//	generate
+//		for (I = 1; I < 1; I=I+1) begin
+//			always @(posedge clk)
+ //				pp[I] <= pp[I-1];
+//		end
+//	endgenerate
+endmodule
+
+module smul32(input clk, input [31:0]a, input [31:0]b, output[63:0]p);
+
+	// 7 clock delay
+
+	reg signed [63:0]pp[0:6];
+	assign p = pp[0];
+	wire signed [63:0]sa = {{32{a[31]}},a};
+	wire signed [63:0]sb = {{32{b[31]}},b};
+	always @(posedge clk)
+ 		pp[0] <= sa*sb;
+//	genvar I;
+//	generate
+//		for (I = 1; I < 7; I=I+1) begin
+//			always @(posedge clk)
+ //				pp[I] <= pp[I-1];
+//		end
+//	endgenerate
+endmodule
+module sumul32(input clk, input [31:0]a, input [31:0]b, output[63:0]p);
+
+	// 7 clock delay
+
+	reg [63:0]pp[0:6];
+	assign p = pp[0];
+	wire signed [63:0]sa = {{32{a[31]}},a};
+	wire unsigned [63:0]ub = {32'b0,b};
+	always @(posedge clk)
+ 		pp[0] <= sa*ub;
+//	genvar I;
+//	generate
+//		for (I = 1; I < 7; I=I+1) begin
+//			always @(posedge clk)
+ //				pp[I] <= pp[I-1];
+//		end
+//	endgenerate
+endmodule
+
 module mul64(input clk, input [63:0]a, input [63:0]b, output[127:0]p);
 
 	// 7 clock delay

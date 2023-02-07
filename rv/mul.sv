@@ -142,11 +142,22 @@ module mul(
 	reg			r_mul_addw2, c_mul_addw2;
 	reg	   [1:0]r_mul_sgn2, c_mul_sgn2;
 	reg			r_mul_inv2, c_mul_inv2;
+
+	//
+	//	in real implementations all these multipliers are
+	//	likely implemented by variations on a single 64-bit 
+	//	multiplier
+	//
 	wire [127:0]sp;
 	wire [127:0]p, sup;
 	smul64	smul(.clk(clk), .a(r1), .b(r2), .p(sp));
 	sumul64	sumul(.clk(clk), .a(r1), .b(r2), .p(sup));
 	mul64	umul(.clk(clk), .a(r1), .b(r2), .p(p));
+	wire [63:0]sp32;
+	wire [63:0]p32, sup32;
+	smul32	smul32(.clk(clk), .a(r1[31:0]), .b(r2[31:0]), .p(sp32));
+	sumul32	sumul32(.clk(clk), .a(r1[31:0]), .b(r2[31:0]), .p(sup32));
+	mul32	umul32(.clk(clk), .a(r1[31:0]), .b(r2[31:0]), .p(p32));
 `endif
 
 	assign divide_busy = r_div_busy;
@@ -158,6 +169,10 @@ module mul(
 `else
 	wire r_b_busy_2 = 0;
 `endif
+
+	reg r_rv32;
+	always @(posedge clk)
+		r_rv32 <= rv32;
 
 	always @(*) begin
 		c_mul_busy_1 = 0;
@@ -194,7 +209,7 @@ module mul(
 		end
 		if (r_mul_busy_1) begin 
 `ifndef VSYNTH
-			if (rv32) begin :mm32
+			if (r_rv32) begin :mm32
 				reg [63:0] u1, u2;
 				reg signed [63:0] s1, s2;
 				reg signed [63:0]tmp;
@@ -205,19 +220,19 @@ module mul(
 				casez  ({r_mul_inv, r_mul_sgn})		// synthesis full_case parallel_case
 				3'b0_??:begin						// mul
 							tmp = s1*s2;
-							c_mul_res = tmp[31:0];
+							c_mul_res = {32{tmp[31]}}, tmp[31:0]};
 						end 
 				3'b1_00:begin						// mulh
 							tmp = s1*s2;
-							c_mul_res = tmp[63:32];
+							c_mul_res = {32{tmp[63]}}, tmp[63:32]};
 						end
 				3'b1_01:begin						// mulhsu
-							tmp = s1*r2;
-							c_mul_res = tmp[63:32];
+							tmp = s1*u2;
+							c_mul_res = {32{tmp[63]}}, tmp[63:32]};
 						end
 				3'b1_10:begin						// mulhu
-							tmp = r1*r2;
-							c_mul_res = tmp[63:32];
+							tmp = u1*u2;
+							c_mul_res = {{32{tmp[63]}}, tmp[63:32]};
 						end
 				default: c_mul_res = 'bx;
 				endcase
@@ -262,24 +277,42 @@ module mul(
 		4'b?01?: c_res = 'bx;
 		4'b?1?1:begin
 `ifdef VSYNTH
-				casez  ({r_mul_addw2, r_mul_inv2, r_mul_sgn2})		// synthesis full_case parallel_case
-				4'b0_0_??:begin						// mul
-							c_res = sp[63:0];
-						end 
-				4'b0_1_00:begin						// mulh
-							c_res = rv32?sp[63:32]:sp[127:64];
-						end
-				4'b0_1_01:begin						// mulhsu
-							c_res = rv32?sup[63:32]:sup[127:64];
-						end
-				4'b0_1_10:begin						// mulhu
-							c_res = rv32?p[63:32]:p[127:64];
-						end
-				4'b1_0_??:begin						// mulw
-							c_res = {{32{sp[31]}}, sp[31:0]};
-						end
-				default: c_res = 'bx;
-				endcase
+				if (r_rv32) begin
+					casez  ({r_mul_inv2, r_mul_sgn2})		// synthesis full_case parallel_case
+					3'b0_??:begin						// mul
+								c_res = sp32[63:0];
+							end 
+					3'b1_00:begin						// mulh
+								c_res = sp32[63:32];
+							end
+					3'b1_01:begin						// mulhsu
+								c_res = sup32[63:32];
+							end
+					3'b1_10:begin						// mulhu
+								c_res = p32[63:32];
+							end
+					default: c_res = 'bx;
+					endcase
+				end else begin
+					casez  ({r_mul_addw2, r_mul_inv2, r_mul_sgn2})		// synthesis full_case parallel_case
+					4'b0_0_??:begin						// mul
+								c_res = sp[63:0];
+							end 
+					4'b0_1_00:begin						// mulh
+								c_res = sp[127:64];
+							end
+					4'b0_1_01:begin						// mulhsu
+								c_res = sup[127:64];
+							end
+					4'b0_1_10:begin						// mulhu
+								c_res = p[127:64];
+							end
+					4'b1_0_??:begin						// mulw
+								c_res = {{32{sp[31]}}, sp[31:0]};
+							end
+					default: c_res = 'bx;
+					endcase
+				end
 `else
 				c_res = r_mul_res;
 `endif
@@ -350,7 +383,7 @@ module mul(
 					c_div_makes_rd = 0;
 				  end
 		6'b01????:begin			// save RF data, set up registers
-					if (r_div_addw || rv32) begin
+					if (r_div_addw || r_rv32) begin
 						c_div_sign = r_div_sign&(r1[31]^r2[31]);
 						c_divisor = {32'b0, r_div_sign&r2[31]?(~r2[31:0])+32'b1:r2[31:0]};
 						c_remainder = {63'b0, (r_div_sign&r1[31]?(~r1[31:0])+32'b1:r1[31:0]), 33'b0};
@@ -543,10 +576,13 @@ module mul(
 	end
 
 	always @(*)
-	casez (r_clm_ctrl_2) // synthesis full_case parallel_case
-	4'b00: c_res_clmul = clmul_res[126:63]; 		// clrmulr 
-	4'b01: c_res_clmul = clmul_res[63:0];			// clrmul 
-	4'b11: c_res_clmul = {1'b0, clmul_res[126:64]};	// clrmulh 
+	casez ({r_rv32, r_clm_ctrl_2}) // synthesis full_case parallel_case
+	3'b0_00: c_res_clmul = clmul_res[126:63]; 		// clrmulr 
+	3'b0_01: c_res_clmul = clmul_res[63:0];			// clrmul 
+	3'b0_11: c_res_clmul = {1'b0, clmul_res[126:64]};	// clrmulh 
+	3'b1_00: c_res_clmul = {{32{clmul_res_32[62]}}, clmul_res_32[62:31]}; 		// clrmulr 
+	3'b1_01: c_res_clmul = {{32{clmul_res_32[31]}}, clmul_res_32[31:0]};			// clrmul 
+	3'b1_11: c_res_clmul = {33'b0, clmul_res_32[62:32]};	// clrmulh 
 	default: c_res_clmul = 'bx;
 	endcase
 

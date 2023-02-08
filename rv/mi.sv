@@ -600,7 +600,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 			end
 			assign match_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_indir[M] && (r_pending_mem_read_addr[M]==mem_raddr_out);
 			assign match_snoop_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] && !r_pending_mem_read_indir[M] && |r_snoop_addr_req &&  (r_pending_mem_read_addr[M]==r_snoop_addr);
-			assign match_pending_done[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] &&  mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans;
+			assign match_pending_done[M] = r_pending_mem_read_valid[M] && mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans;
 			assign match_snoop_pending_done[M] = match_snoop_pending[M] && match_pending_done[M];
 
 			always @(posedge clk) begin

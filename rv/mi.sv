@@ -454,6 +454,7 @@ wire [1:0]r_write_pending_1=r_write_pending[1];
 
 	parameter NMEM_RTRANS=8;
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_valid, c_pending_mem_read_valid;
+	reg [NMEM_RTRANS-1:0]r_pending_mem_read_cancel, c_pending_mem_read_cancel;
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_exclusive, c_pending_mem_read_exclusive;
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_indir, c_pending_mem_read_indir;
 	reg [NPHYS-1:0]r_pending_mem_read_addr[0:NMEM_RTRANS-1];
@@ -499,7 +500,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 			wire [NMEM_RTRANS-1:0]macc;
 
 			for (M = 0; M < NMEM_RTRANS; M=M+1) begin
-				assign macc[M] = r_pending_mem_read_valid[M] && r_raddr[I] == r_pending_mem_read_addr[M] && r_pending_mem_read_trans[M] == mem_rdata_trans && mem_rdata_req;
+				assign macc[M] = r_pending_mem_read_valid[M] && r_raddr[I] == r_pending_mem_read_addr[M] && r_pending_mem_read_trans[M] == mem_rdata_trans && !r_pending_mem_read_cancel[M] && mem_rdata_req;
 			end
 
 			assign mem_addr_matches_done[I] = |macc;
@@ -518,6 +519,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 			always @(*) begin
 				mem_raddr_req_ok_x[M] = 0;
 				c_pending_mem_read_valid[M] = r_pending_mem_read_valid[M];
+				c_pending_mem_read_cancel[M] = r_pending_mem_read_cancel[M];
 				c_pending_mem_read_addr[M] = r_pending_mem_read_addr[M];
 				c_pending_mem_read_exclusive[M] = r_pending_mem_read_exclusive[M];
 				c_pending_mem_read_trans[M] = r_pending_mem_read_trans[M];
@@ -525,10 +527,12 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 				c_pending_mem_read_indir[M] = r_pending_mem_read_indir[M];
 				if (reset) begin
 					c_pending_mem_read_valid[M] = 0;
+					c_pending_mem_read_cancel[M] = 0;
 				end else
 				if (mem_raddr_req_out && mem_raddr_ack && !r_pending_mem_read_valid[M]) begin
 					if (next_rtrans[M]) begin
 						c_pending_mem_read_valid[M] = 1;
+						c_pending_mem_read_cancel[M] = 0;
 						c_pending_mem_read_addr[M] = mem_raddr_out;
 						c_pending_mem_read_itrans[M] = mem_raddr_trans;
 						casez (match_pending) // synthesis full_case parallel_case
@@ -584,21 +588,24 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 						c_pending_mem_read_exclusive[M] = 0;
 					end
 				end else
-				if ((mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans &&  mem_rdata_ack_out[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]]) ||
-						(raddr_req[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && r_raddr_ack[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && raddr_cancel[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && r_pending_mem_read_itrans[M][TRANS_ID_SIZE-1:0] == raddr_trans[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]]) ) begin
+				if ((mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans &&  mem_rdata_ack_out[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]])) begin
 					c_pending_mem_read_valid[M] = 0;
+				end else
+				if (r_pending_mem_read_valid[M] && raddr_req[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && r_raddr_ack[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && raddr_cancel[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && r_pending_mem_read_itrans[M][TRANS_ID_SIZE-1:0] == raddr_trans[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]])  begin
+					c_pending_mem_read_cancel[M] = 1;
 				end else
 				if (mem_raddr_req_out && mem_raddr_ack && match_pending[M]) begin
 					c_pending_mem_read_exclusive[M] = 0;
 				end
 			end
 			assign match_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_indir[M] && (r_pending_mem_read_addr[M]==mem_raddr_out);
-			assign match_snoop_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_indir[M] && |r_snoop_addr_req &&  (r_pending_mem_read_addr[M]==r_snoop_addr);
-			assign match_pending_done[M] = r_pending_mem_read_valid[M] && mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans;
+			assign match_snoop_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] && !r_pending_mem_read_indir[M] && |r_snoop_addr_req &&  (r_pending_mem_read_addr[M]==r_snoop_addr);
+			assign match_pending_done[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] &&  mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans;
 			assign match_snoop_pending_done[M] = match_snoop_pending[M] && match_pending_done[M];
 
 			always @(posedge clk) begin
 				r_pending_mem_read_valid[M] <= c_pending_mem_read_valid[M];
+				r_pending_mem_read_cancel[M] <= c_pending_mem_read_cancel[M];
 				r_pending_mem_read_exclusive[M] <= c_pending_mem_read_exclusive[M];
 				r_pending_mem_read_addr[M] <= c_pending_mem_read_addr[M];
 				r_pending_mem_read_trans[M] <= c_pending_mem_read_trans[M];

@@ -59,26 +59,26 @@ module chip (input ireset,
 	output		cl_sh_ddr_awvalid,
     input		sh_cl_ddr_awready,
     output[55:6]cl_sh_ddr_awaddr,
-    output [TSIZE-1:0]cl_sh_ddr_awid,
+    output [WTSIZE-1:0]cl_sh_ddr_awid,
 
     output		cl_sh_ddr_wvalid,
     input		sh_cl_ddr_wready,
-    output [TSIZE-1:0]cl_sh_ddr_wid,
+    output [WTSIZE-1:0]cl_sh_ddr_wid,
     output[511:0]cl_sh_ddr_wdata,
 
-    input[TSIZE-1:0] sh_cl_ddr_bid,
+    input[WTSIZE-1:0] sh_cl_ddr_bid,
     input[1:0] sh_cl_ddr_bresp,
     input sh_cl_ddr_bvalid,
     output  cl_sh_ddr_bready,
 
     output		cl_sh_ddr_arvalid,
     input		sh_cl_ddr_arready,
-	output [TSIZE-1:0]cl_sh_ddr_arid,
+	output [RTSIZE-1:0]cl_sh_ddr_arid,
     output[55:6]cl_sh_ddr_araddr,
 
     output		cl_sh_ddr_rready,
     input		sh_cl_ddr_rvalid,
-	input  [TSIZE-1:0]sh_cl_ddr_rid,
+	input  [RTSIZE-1:0]sh_cl_ddr_rid,
     input[511:0]sh_cl_ddr_rdata
 
 `endif
@@ -109,7 +109,9 @@ module chip (input ireset,
 	parameter NCOMMIT=32;
 	parameter TRANS_ID_SIZE=6;	// 6 for i/tcaches must be >= $clog2(NLDSTQ)
 	parameter NI=NCPU*2;
-	parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
+	//parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
+	parameter RTSIZE=8;
+	parameter WTSIZE=TRANS_ID_SIZE+$clog2(NI);
 	parameter RV=64;
 	parameter NINTERRUPTS=20;
 
@@ -352,25 +354,25 @@ module chip (input ireset,
 
     wire  [NPHYS-1:ACACHE_LINE_SIZE]mem_raddr;
     wire        mem_raddr_ack;
-    wire   [TSIZE-1:0]mem_raddr_trans;
+    wire   [RTSIZE-1:0]mem_raddr_trans;
     wire        mem_raddr_req;
     wire [CACHE_LINE_SIZE-1:0]mem_rdata;
-    wire   [TSIZE-1:0]mem_rdata_trans;
+    wire   [RTSIZE-1:0]mem_rdata_trans;
     wire        mem_rdata_ack;
     wire        mem_rdata_req;
     wire  [NPHYS-1:ACACHE_LINE_SIZE]mem_waddr;
     wire [CACHE_LINE_SIZE-1:0]mem_wdata;
-    wire   [TSIZE-1:0]mem_waddr_trans;
+    wire   [WTSIZE-1:0]mem_waddr_trans;
     wire        mem_waddr_req;
     wire        mem_waddr_ack;
-    wire   [TSIZE-1:0]mem_wdata_trans;
+    wire   [WTSIZE-1:0]mem_wdata_trans;
     wire        mem_wdata_done;
 
 `ifdef AWS_DEBUG
     wire mi_trig_out, mi_trig_out_ack;
 `endif
 
-	mem_interconnect #(.NPHYS(NPHYS), .NLDSTQ(NLDSTQ), .TRANS_ID_SIZE(TRANS_ID_SIZE), .TSIZE(TSIZE), .NI(NI), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .CACHE_LINE_SIZE(CACHE_LINE_SIZE))inter_connect(.clk(clk), .reset(reset),
+	mem_interconnect #(.NPHYS(NPHYS), .NLDSTQ(NLDSTQ), .TRANS_ID_SIZE(TRANS_ID_SIZE), .RTSIZE(RTSIZE), .WTSIZE(WTSIZE), .NI(NI), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .CACHE_LINE_SIZE(CACHE_LINE_SIZE))inter_connect(.clk(clk), .reset(reset),
 `ifdef AWS_DEBUG
          .trig_in(cpu_trig[0]),
          .trig_in_ack(cpu_trig_ack[0]),
@@ -439,7 +441,7 @@ module chip (input ireset,
 		.dummy(1'b0)
 		);
 
-	mem_interface #(.NPHYS(NPHYS), .NLDSTQ(NLDSTQ), .TRANS_ID_SIZE(TRANS_ID_SIZE), .TSIZE(TSIZE), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .CACHE_LINE_SIZE(CACHE_LINE_SIZE))mem(.clk(clk), .reset(reset),
+	mem_interface #(.NPHYS(NPHYS), .NLDSTQ(NLDSTQ), .TRANS_ID_SIZE(TRANS_ID_SIZE), .RTSIZE(RTSIZE), .WTSIZE(WTSIZE), .ACACHE_LINE_SIZE(ACACHE_LINE_SIZE), .CACHE_LINE_SIZE(CACHE_LINE_SIZE))mem(.clk(clk), .reset(reset),
 `ifdef AWS_DEBUG
 		.xxtrig(xxtrig),
 `endif

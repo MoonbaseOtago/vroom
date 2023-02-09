@@ -24,22 +24,22 @@ module mem_interface(
 `endif
 
 	input [NPHYS-1:ACACHE_LINE_SIZE]mem_raddr,
-	input  [TSIZE-1:0]mem_raddr_trans,
+	input  [RTSIZE-1:0]mem_raddr_trans,
 	input	    mem_raddr_req,
 	output	    mem_raddr_ack,
 
 	output [CACHE_LINE_SIZE-1:0]mem_rdata,
-	output   [TSIZE-1:0]mem_rdata_trans,
+	output   [RTSIZE-1:0]mem_rdata_trans,
 	output 	      mem_rdata_req,
 	input 	      mem_rdata_ack,
 
 	input [NPHYS-1:ACACHE_LINE_SIZE]mem_waddr,
-	input  [TSIZE-1:0]mem_waddr_trans,
+	input  [WTSIZE-1:0]mem_waddr_trans,
 	input	    mem_waddr_req,
 	output	    mem_waddr_ack,
 	input [CACHE_LINE_SIZE-1:0]mem_wdata,
 
-	output   [TSIZE-1:0]mem_wdata_trans,
+	output   [WTSIZE-1:0]mem_wdata_trans,
 	output 	     mem_wdata_done
 
 	);
@@ -49,7 +49,8 @@ module mem_interface(
 	parameter CACHE_LINE_SIZE=64*8;
 	parameter ACACHE_LINE_SIZE=$clog2(CACHE_LINE_SIZE/8);
 	parameter MEM_SIZE=8*1024*1024;
-	parameter TSIZE=5;
+	parameter RTSIZE=8;
+	parameter WTSIZE=5;
 
 	reg r_mem_raddr_ack;
 	assign mem_raddr_ack = r_mem_raddr_ack;
@@ -59,12 +60,12 @@ module mem_interface(
 	assign mem_waddr_ack = r_mem_waddr_ack;
 	reg [CACHE_LINE_SIZE-1:0]r_mem_rdata;
 	assign mem_rdata = r_mem_rdata;
-	reg [TSIZE-1:0]r_mem_rdata_trans;
+	reg [RTSIZE-1:0]r_mem_rdata_trans;
 	assign mem_rdata_trans = r_mem_rdata_trans;
 
 	reg	r_mem_wdata_done;
 	assign mem_wdata_done = r_mem_wdata_done;
-	reg [TSIZE-1:0]r_mem_wdata_trans;
+	reg [WTSIZE-1:0]r_mem_wdata_trans;
 	assign mem_wdata_trans = r_mem_wdata_trans; 
 
 	reg [CACHE_LINE_SIZE-1:0]mem[0:MEM_SIZE-1];
@@ -72,12 +73,12 @@ module mem_interface(
 
 	parameter NRTRANS=3;
 	reg [NPHYS-1:ACACHE_LINE_SIZE]tr_raddr[0:NRTRANS-1];
-	reg [TSIZE-1:0]tr_rtrans[0:NRTRANS-1];
+	reg [RTSIZE-1:0]tr_rtrans[0:NRTRANS-1];
 	reg [7:0]tr_rcount[0:NRTRANS-1];
 	reg [NRTRANS-1:0]tr_rbusy;
 
 	parameter NWTRANS=3;
-	reg [TSIZE-1:0]tr_wtrans[0:NWTRANS-1];
+	reg [WTSIZE-1:0]tr_wtrans[0:NWTRANS-1];
 	reg [7:0]tr_wcount[0:NWTRANS-1];
 	reg [NWTRANS-1:0]tr_wbusy;
 

@@ -92,21 +92,21 @@ module mem_interconnect(	// interconnect
 
 	output [NPHYS-1:ACACHE_LINE_SIZE]mem_raddr,
     output       mem_raddr_req,
-	output  [TSIZE-1:0]mem_raddr_trans,
+	output  [RTSIZE-1:0]mem_raddr_trans,
     input        mem_raddr_ack,
 
     input [CACHE_LINE_SIZE-1:0]mem_rdata,
-	input   [TSIZE-1:0]mem_rdata_trans,
+	input   [RTSIZE-1:0]mem_rdata_trans,
     output       mem_rdata_ack,
     input        mem_rdata_req,
 
     output [NPHYS-1:ACACHE_LINE_SIZE]mem_waddr,
     output      [CACHE_LINE_SIZE-1:0]mem_wdata,
-	output				  [TSIZE-1:0]mem_waddr_trans,
+	output				 [WTSIZE-1:0]mem_waddr_trans,
     output							 mem_waddr_req,
     input							 mem_waddr_ack,
 
-	input   [TSIZE-1:0]mem_wdata_trans,
+	input  [WTSIZE-1:0]mem_wdata_trans,
 	input			   mem_wdata_done,
 
 		dummy);
@@ -119,7 +119,8 @@ module mem_interconnect(	// interconnect
 	parameter ACACHE_LINE_SIZE = 6;
 	parameter NLDSTQ = 8;
 	parameter TRANS_ID_SIZE = 6;
-	parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
+	parameter RTSIZE=8;
+	parameter WTSIZE=TRANS_ID_SIZE+$clog2(NI);
 
 	// --------------------------------
 	
@@ -422,7 +423,8 @@ wire [CACHE_LINE_SIZE-1:0]r_wdata_1=r_wdata[1];
 	
 	reg [NPHYS-1:ACACHE_LINE_SIZE]mem_raddr_out;
 	assign mem_raddr = mem_raddr_out;
-	reg [TSIZE-1:0]mem_raddr_trans_out;
+	reg [RTSIZE-1:0]mem_raddr_trans_out;
+	reg [TSIZE-1:0]mem_raddr_req_trans;
 	assign mem_raddr_trans = mem_raddr_trans_out;
 	reg    mem_raddr_req_out;
 	wire    mem_raddr_req_ok;
@@ -433,7 +435,7 @@ wire [CACHE_LINE_SIZE-1:0]r_wdata_1=r_wdata[1];
 	
 	reg [NPHYS-1:ACACHE_LINE_SIZE]mem_waddr_out;
 	assign mem_waddr = mem_waddr_out;
-	reg [TSIZE-1:0]mem_waddr_trans_out;
+	reg [WTSIZE-1:0]mem_waddr_trans_out;
 	assign mem_waddr_trans = mem_waddr_trans_out;
 	reg    mem_waddr_req_out;
 	assign mem_waddr_req = mem_waddr_req_out;
@@ -452,15 +454,17 @@ wire [CACHE_LINE_SIZE-1:0]r_wdata_1=r_wdata[1];
 wire [1:0]r_write_pending_1=r_write_pending[1];
 	reg [NI-1:0]r_rd_mem_pending, c_rd_mem_pending;
 
-	parameter NMEM_RTRANS=8;
+	//parameter NMEM_RTRANS=8;
+	parameter NMEM_RTRANS=RTSIZE;
+	parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_valid, c_pending_mem_read_valid;
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_cancel, c_pending_mem_read_cancel;
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_exclusive, c_pending_mem_read_exclusive;
 	reg [NMEM_RTRANS-1:0]r_pending_mem_read_indir, c_pending_mem_read_indir;
 	reg [NPHYS-1:0]r_pending_mem_read_addr[0:NMEM_RTRANS-1];
 	reg [NPHYS-1:0]c_pending_mem_read_addr[0:NMEM_RTRANS-1];
-	reg [TSIZE-1:0]r_pending_mem_read_trans[0:NMEM_RTRANS-1];
-	reg [TSIZE-1:0]c_pending_mem_read_trans[0:NMEM_RTRANS-1];
+	reg [RTSIZE-1:0]r_pending_mem_read_trans[0:NMEM_RTRANS-1];
+	reg [RTSIZE-1:0]c_pending_mem_read_trans[0:NMEM_RTRANS-1];
 	reg [TSIZE-1:0]r_pending_mem_read_itrans[0:NMEM_RTRANS-1];
 wire [TSIZE-1:0]pending_mem_read_itrans_0 = r_pending_mem_read_itrans[0];
 wire [TSIZE-1:0]pending_mem_read_itrans_1 = r_pending_mem_read_itrans[1];
@@ -477,9 +481,25 @@ wire [TSIZE-1:0]pending_mem_read_trans_3 = r_pending_mem_read_trans[3];
 	always @(posedge clk)
 		r_snoop_retry <= !reset&&|match_snoop_pending_done;
 	wire snoop_retry = |match_snoop_pending_done | r_snoop_retry;
-	wire snoop_collision =	|r_rdata_req && |r_snoop_addr_req && ic0_snoop_addr == r_pending_mem_read_addr[mem_rdata_trans];
+	reg [NPHYS-1:0]data_mem_read_addr;
+	if (RTSIZE == 8) begin
+		always @(*)
+		casez(mem_rdata_trans) // synthesis full_case parallel_case
+		8'b????_???1: data_mem_read_addr = r_pending_mem_read_addr[0];
+		8'b????_??1?: data_mem_read_addr = r_pending_mem_read_addr[1];
+		8'b????_?1??: data_mem_read_addr = r_pending_mem_read_addr[2];
+		8'b????_1???: data_mem_read_addr = r_pending_mem_read_addr[3];
+		8'b???1_????: data_mem_read_addr = r_pending_mem_read_addr[4];
+		8'b??1?_????: data_mem_read_addr = r_pending_mem_read_addr[5];
+		8'b?1??_????: data_mem_read_addr = r_pending_mem_read_addr[6];
+		8'b1???_????: data_mem_read_addr = r_pending_mem_read_addr[7];
+		endcase
+	end
+	wire snoop_collision =	|r_rdata_req && |r_snoop_addr_req && ic0_snoop_addr == data_mem_read_addr;
 	wire [NMEM_RTRANS-1:0]match_pending;
+	wire [NMEM_RTRANS-1:0]match_pending_not_cancelled;
 	wire [NMEM_RTRANS-1:0]match_pending_done;
+	wire [NMEM_RTRANS-1:0]match_pending_done_not_cancelled;
 	reg [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface[0:NI-1];
 wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_0 = interface_rdone_trans_interface[0];
 wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_trans_interface[1];
@@ -500,7 +520,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 			wire [NMEM_RTRANS-1:0]macc;
 
 			for (M = 0; M < NMEM_RTRANS; M=M+1) begin
-				assign macc[M] = r_pending_mem_read_valid[M] && r_raddr[I] == r_pending_mem_read_addr[M] && r_pending_mem_read_trans[M] == mem_rdata_trans && !r_pending_mem_read_cancel[M] && mem_rdata_req;
+				assign macc[M] = r_pending_mem_read_valid[M] && r_raddr[I] == r_pending_mem_read_addr[M] && |(mem_rdata_trans&r_pending_mem_read_trans[M]) && !r_pending_mem_read_cancel[M] && mem_rdata_req;
 			end
 
 			assign mem_addr_matches_done[I] = |macc;
@@ -534,8 +554,8 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 						c_pending_mem_read_valid[M] = 1;
 						c_pending_mem_read_cancel[M] = 0;
 						c_pending_mem_read_addr[M] = mem_raddr_out;
-						c_pending_mem_read_itrans[M] = mem_raddr_trans;
-						casez (match_pending) // synthesis full_case parallel_case
+						c_pending_mem_read_itrans[M] = mem_raddr_req_trans;
+						casez (match_pending_not_cancelled) // synthesis full_case parallel_case
 						8'b1???_????:begin
 										c_pending_mem_read_exclusive[M] = 0;
 										c_pending_mem_read_trans[M] = r_pending_mem_read_trans[7];
@@ -577,7 +597,8 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 										c_pending_mem_read_indir[M] = 1;
 									end
 						8'b0000_0000: begin
-									c_pending_mem_read_trans[M] = mem_raddr_trans;
+									c_pending_mem_read_trans[M] = mem_raddr_trans_out;
+									//c_pending_mem_read_exclusive[M] = mem_raddr_trans_out[TRANS_ID_SIZE];
 									c_pending_mem_read_exclusive[M] = mem_raddr_trans_out[TRANS_ID_SIZE];
 									c_pending_mem_read_indir[M] = 0;
 									mem_raddr_req_ok_x[M] = 1;
@@ -588,7 +609,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 						c_pending_mem_read_exclusive[M] = 0;
 					end
 				end else
-				if ((mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans &&  mem_rdata_ack_out[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]])) begin
+				if ((mem_rdata_req && |(mem_rdata_trans&r_pending_mem_read_trans[M]) &&  (mem_rdata_ack_out[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]]|| r_pending_mem_read_cancel[M]))) begin
 					c_pending_mem_read_valid[M] = 0;
 				end else
 				if (r_pending_mem_read_valid[M] && raddr_req[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && r_raddr_ack[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && raddr_cancel[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]] && r_pending_mem_read_itrans[M][TRANS_ID_SIZE-1:0] == raddr_trans[r_pending_mem_read_itrans[M][TSIZE-1:TRANS_ID_SIZE]])  begin
@@ -599,8 +620,10 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 				end
 			end
 			assign match_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_indir[M] && (r_pending_mem_read_addr[M]==mem_raddr_out);
+			assign match_pending_not_cancelled[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] && !r_pending_mem_read_indir[M] && (r_pending_mem_read_addr[M]==mem_raddr_out);
 			assign match_snoop_pending[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] && !r_pending_mem_read_indir[M] && |r_snoop_addr_req &&  (r_pending_mem_read_addr[M]==r_snoop_addr);
-			assign match_pending_done[M] = r_pending_mem_read_valid[M] && mem_rdata_req && r_pending_mem_read_trans[M] == mem_rdata_trans;
+			assign match_pending_done[M] = r_pending_mem_read_valid[M] && mem_rdata_req && |(mem_rdata_trans&r_pending_mem_read_trans[M]);
+			assign match_pending_done_not_cancelled[M] = r_pending_mem_read_valid[M] && !r_pending_mem_read_cancel[M] && mem_rdata_req && |(mem_rdata_trans&r_pending_mem_read_trans[M]);
 			assign match_snoop_pending_done[M] = match_snoop_pending[M] && match_pending_done[M];
 
 			always @(posedge clk) begin
@@ -618,7 +641,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 
 		for (I = 0; I < NI; I=I+1) begin
 			always @(*)	begin // FIXME
-				interface_rdone_pending[I] = |(match_pending_done&
+				interface_rdone_pending[I] = |(match_pending_done_not_cancelled&
 											{(r_pending_mem_read_itrans[7][TSIZE-1:TRANS_ID_SIZE]==I),
                                              (r_pending_mem_read_itrans[6][TSIZE-1:TRANS_ID_SIZE]==I),
                                              (r_pending_mem_read_itrans[5][TSIZE-1:TRANS_ID_SIZE]==I),
@@ -628,7 +651,8 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
                                              (r_pending_mem_read_itrans[1][TSIZE-1:TRANS_ID_SIZE]==I),
                                              (r_pending_mem_read_itrans[0][TSIZE-1:TRANS_ID_SIZE]==I)});
 				interface_rdone_trans_interface[I] = 'bx;
-				casez(match_pending_done&{ (r_pending_mem_read_itrans[7][TSIZE-1:TRANS_ID_SIZE]==I),
+				casez(match_pending_done_not_cancelled&
+										 { (r_pending_mem_read_itrans[7][TSIZE-1:TRANS_ID_SIZE]==I),
 										   (r_pending_mem_read_itrans[6][TSIZE-1:TRANS_ID_SIZE]==I),
 										   (r_pending_mem_read_itrans[5][TSIZE-1:TRANS_ID_SIZE]==I),
 										   (r_pending_mem_read_itrans[4][TSIZE-1:TRANS_ID_SIZE]==I),
@@ -655,13 +679,15 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 		c_rmem_next = (reset?0:r_rmem_next);
 		mem_raddr_out = 50'bx;
 		mem_raddr_trans_out = 'bx;
+		mem_raddr_req_trans = 'bx;
 		casez ({r_rmem_next, mem_raddr_ack, c_mem_rd_req}) // synthesis full_case parallel_case
 		4'b?_0_??,	// do nothing
 		4'b?_?_00:	;
 
 		4'b0_1_?1,	// issue for channel 0
 		4'b1_1_01:	begin
-						mem_raddr_trans_out = {3'b0, r_raddr_trans[0]};
+						mem_raddr_trans_out = next_rtrans; //{3'b0, r_raddr_trans[0]};
+						mem_raddr_req_trans = {3'b0, r_raddr_trans[0]};
 						mem_raddr_out = r_raddr[0];
 						mem_raddr_req_out = !(snoop_rd_ack[0] && mem_addr_matches_done[0] && !(r_rdata_req[0] &&rdata_ack[0] && r_raddr_trans[0] == r_rdata_trans[0]));
 						mem_rd_ack = 2'b01;
@@ -670,9 +696,9 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 		
 		4'b0_1_10,	// issue for channel 1
 		4'b1_1_1?:	begin
-						mem_raddr_trans_out = {3'b1, r_raddr_trans[1]};
+						mem_raddr_trans_out = next_rtrans; //{3'b1, r_raddr_trans[1]};
+						mem_raddr_req_trans = {3'b1, r_raddr_trans[1]};
 						mem_raddr_out = r_raddr[1];
-						mem_raddr_req_out = 1;
 						mem_raddr_req_out = !(snoop_rd_ack[1] && mem_addr_matches_done[1] && !(r_rdata_req[1] &&rdata_ack[1] && r_raddr_trans[1] == r_rdata_trans[1]));
 						mem_rd_ack = 2'b10;
 						c_rmem_next = r_rmem_next+1; // FIXME
@@ -836,13 +862,13 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 					endcase
 				end 
 				if (snoop_rd_ack[I]) begin // && ((r_snoop_addr_req&snoop_addr_ack) == r_snoop_addr_req) && !snoop_retry) begin
-					if (c_mem_rd_req[I] && (!mem_raddr_ack || mem_raddr_trans[TSIZE-1:TRANS_ID_SIZE] != I)) begin
+					if (c_mem_rd_req[I] && (!mem_raddr_ack || mem_raddr_req_trans[TSIZE-1:TRANS_ID_SIZE] != I)) begin
 						c_rd_mem_pending[I] = 1;
 					end else begin
 						c_raddr_ack[I] = 1;
 					end
 				end else
-				if (r_rd_mem_pending[I] && mem_raddr_ack && mem_raddr_trans[TSIZE-1:TRANS_ID_SIZE] == I) begin
+				if (r_rd_mem_pending[I] && mem_raddr_ack && mem_raddr_req_trans[TSIZE-1:TRANS_ID_SIZE] == I) begin
 					c_raddr_ack[I] = 1;
 					c_rd_mem_pending[I] = 0;
 				end else

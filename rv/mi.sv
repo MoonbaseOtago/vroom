@@ -599,7 +599,7 @@ wire [TRANS_ID_SIZE-1:0]interface_rdone_trans_interface_1 = interface_rdone_tran
 						8'b0000_0000: begin
 									c_pending_mem_read_trans[M] = mem_raddr_trans_out;
 									//c_pending_mem_read_exclusive[M] = mem_raddr_trans_out[TRANS_ID_SIZE];
-									c_pending_mem_read_exclusive[M] = mem_raddr_trans_out[TRANS_ID_SIZE];
+									c_pending_mem_read_exclusive[M] = mem_raddr_req_trans[TRANS_ID_SIZE];
 									c_pending_mem_read_indir[M] = 0;
 									mem_raddr_req_ok_x[M] = 1;
 								 end

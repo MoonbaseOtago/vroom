@@ -265,7 +265,7 @@ function filter_table(elem) {
 
 </script>
     <h1></h1>
-    <p>Report generated on 2023-02-01 11:49 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
+    <p>Report generated on 2023-02-09 11:46 GMT by <a href="https://pypi.python.org/pypi/riscof">riscof</a> v</p>
     <h2>Environment</h2>
     <table id="environment">
       <tr>
@@ -282,7 +282,7 @@ function filter_table(elem) {
         <td>sail c simulator</td></tr>
       <tr>
         <td>ISA</td>
-        <td>RV64IMAFDCSUZicsr_Zifencei</td></tr>
+        <td>RV64IMAFDCSUZicsr_Zifencei_Zba_Zbb_Zbc_Zbkb_Zbkc_Zbkx_Zbs_Zknd_Zkne_Zknh_Zksed_Zksh</td></tr>
       <tr>
         <td>User Spec Version</td>
         <td>2.3</td></tr>
@@ -304,7 +304,8 @@ function filter_table(elem) {
             <td class="extra" colspan="1">
               <div class="log">hart_ids: [0]
 hart0:
-    ISA: RV64IMAFDCSUZicsr_Zifencei
+#  ISA: RV64IMAFDCSUZicsr_Zifencei_Zba_Zbb_Zbc_Zbs
+    ISA: RV64IMAFDCSUZicsr_Zifencei_Zba_Zbb_Zbc_Zbkb_Zbkc_Zbkx_Zbs_Zknd_Zkne_Zknh_Zksed_Zksh
     physical_addr_sz: 54
     User_Spec_Version: '2.3'
     supported_xlen:
@@ -5200,7 +5201,7 @@ zicbo_cache_block_sz:
     <p>Please visit <a href="https://riscv-config.readthedocs.io/en/latest/yaml-specs.html">YAML specifications</a> for more information. </p>
 
     <h2>Summary</h2>
-    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">161Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">0Failed</span>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">230Passed</span>, <input checked="true" class="filter" data-test-result="failed" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">0Failed</span>
     <h2>Results</h2>
     <table id="results-table">
       <thead id="results-table-head">
@@ -5210,6 +5211,626 @@ zicbo_cache_block_sz:
           <th col="path">Path</th>
           </tr>
         </thead>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/add.uw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/add.uw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/andn-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/andn-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/bclr-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/bclr-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/bclri-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/bclri-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/bext-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/bext-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/bexti-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/bexti-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/binv-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/binv-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/binvi-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/binvi-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/bset-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/bset-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/bseti-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/bseti-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/clmul-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/clmul-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/clmulh-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/clmulh-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/clmulr-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/clmulr-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/clz-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/clz-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/clzw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/clzw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/cpop-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/cpop-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/cpopw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/cpopw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/ctz-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/ctz-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/ctzw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/ctzw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/max-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/max-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/maxu-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/maxu-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/min-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/min-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/minu-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/minu-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/orcb_64-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/orcb_64-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/orn-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/orn-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/rev8-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/rev8-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:81c7a2b769baa2f33f40bc5455299b1362b5d125
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/rol-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/rol-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/rolw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/rolw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/ror-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/ror-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/rori-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/rori-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/roriw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/roriw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/rorw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/rorw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sext.b-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sext.b-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sext.h-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sext.h-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sh1add-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sh1add-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sh1add.uw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sh1add.uw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sh2add-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sh2add-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sh2add.uw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sh2add.uw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sh3add-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sh3add-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/sh3add.uw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/sh3add.uw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/slli.uw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/slli.uw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/xnor-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/xnor-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/zext.h-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/zext.h-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/B/src/zext.h_64-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/B/src/zext.h_64-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
         
         <tbody class= "passed  results-table-row" >
         <tr>
@@ -6930,6 +7551,385 @@ XLEN=64</br></div></td>
           <td class="extra" colspan="4">
             <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
 MACROS:
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64ds-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64ds-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64dsm-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64dsm-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64es-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64es-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64esm-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64esm-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64im-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64im-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64ks1i-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64ks1i-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/aes64ks2-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/aes64ks2-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/brev8-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/brev8-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:81c7a2b769baa2f33f40bc5455299b1362b5d125
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/pack-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/pack-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/packh-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/packh-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/packw-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/packw-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha256sig0-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha256sig0-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha256sig1-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha256sig1-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha256sum0-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha256sum0-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha256sum1-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha256sum1-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha512sig0-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha512sig0-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha512sig1-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha512sig1-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha512sum0-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha512sum0-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sha512sum1-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sha512sum1-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sm3p0-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sm3p0-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sm3p1-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sm3p1-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:16602105bbbc785671c86605bfa650bd4d14f383
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sm4ed-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sm4ed-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/sm4ks-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/sm4ks-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/xperm4-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/xperm4-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
+XLEN=64</br></div></td>
+        </tr></tbody>
+        
+        <tbody class= "passed  results-table-row" >
+        <tr>
+          <td class="col-name">/home/paul/vroom2/rv/compliance/riscv-arch-test/riscv-test-suite/rv64i_m/K/src/xperm8-01.S</td>
+          <td class="col-result">Passed</td>
+          <td class="col-path">/home/paul/vroom2/rv/compliance/riscof_work/K/src/xperm8-01.S</td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">commit_id:b91f98f3a0e908bad4680c2e3901fbc24b63a563
+MACROS:
+TEST_CASE_1=True
+TEST_CASE_1=True
+TEST_CASE_1=True
 TEST_CASE_1=True
 XLEN=64</br></div></td>
         </tr></tbody>

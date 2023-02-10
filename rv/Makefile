@@ -39,7 +39,8 @@ IO = mi.sv \
 	dtbrom.sv \
 	rviodtb.sv \
 	rvsd.sv \
-	rvgpio.sv
+	rvgpio.sv \
+	random_source.sv
 
 
 SRC = $(CPU) chip.sv $(IO) 

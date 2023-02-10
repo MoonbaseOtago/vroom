@@ -160,6 +160,15 @@ module chip (input ireset,
 	always @(posedge clk)
 		r_reset <= {r_reset[1:0],xreset};
    
+	wire[(NCPU*NHART)-1:0]rand_valid;
+	wire				  rand_data; 
+	wire				  rand_dead; 
+
+	
+	random_source #(.NRAND(NCPU*NHART))random(.clk(clk), .reset(reset),
+				.rand_valid(rand_valid),
+				.rand_data(rand_data),
+				.rand_dead(rand_dead));
 
 
     wire  [NPHYS-1:ACACHE_LINE_SIZE]ic_raddr[0:NCPU-1];
@@ -270,6 +279,10 @@ module chip (input ireset,
 				.trig_in_ack(trig_in_ack[I]),
 				.xxtrig(xxtrig),
 `endif
+				.rand_valid(rand_valid[(I*NHART)+NHART-1:I*NHART]),
+				.rand_data(rand_data),
+				.rand_dead(rand_dead),
+
 
 				.ic_raddr(ic_raddr[I]),
 				.ic_raddr_req(ic_raddr_req[I]),

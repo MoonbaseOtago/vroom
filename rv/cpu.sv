@@ -86,6 +86,10 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	output [2:0]dc_snoop_data_resp,
 	output[CACHE_LINE_SIZE-1:0]dc_snoop_data,
 
+	input   [NHART-1:0]rand_valid,
+	input			   rand_data, 
+	input			   rand_dead, 
+
 	output	           io_cpu_addr_req,
 	input	           io_cpu_addr_ack,
 	output	[NPHYS-1:0]io_cpu_addr,
@@ -2280,6 +2284,10 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.u_debug(u_debug[H]),
 				.csr_wfi_pause(|csr_wfi_pause[H]),
 				.csr_wfi_wake(csr_wfi_wake[H]),
+
+				.rand_valid(rand_valid[H]),
+				.rand_data(rand_data),
+				.rand_dead(rand_dead),
 
 				.pmp(pmp[H]),
 

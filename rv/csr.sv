@@ -86,6 +86,10 @@ module csr(input clk, input reset,
 		input			csr_wfi_pause,
 		output			csr_wfi_wake,
 
+		input			rand_valid,
+		input			rand_data, 
+		input			rand_dead, 
+
 		PMP			pmp,
 		output [NUM_PMP-1:0]pmp_valid,		// sadly arrays of buses aren't well supported 
 		output [NUM_PMP-1:0]pmp_locked,		// so we need to get verbose - unused wires will be optimised
@@ -2985,6 +2989,59 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	if (r_control[1]) r_useed <= r_useed|in[8]; else
 	if (r_control[2]) r_useed <= r_useed&~in[8]; else r_useed <= in[8];
 
+	reg		 [1:0]r_seed_state;
+
+	//
+	//	The	lfsr feeds the random seed, it runs continually and is fed with the global random
+	//	data, the rand_valid input is unique to each hart and gates the data to each harts LFSR 
+	//  so it's different, the lfsr runs all the time so that when (in time) the seed is sampled is
+	//  also part of the random state. We also feed in some internal somewhat random state, we don't
+	//  count it as 'valid' entropy. 
+	//
+	//	Remember that the main goal here is to produce a seed value is hard to predict
+	//
+	reg [23:0]r_seed_lfsr;
+	assign orand = r_seed_lfsr[23]^rand_data^rand_valid;	// random tap to caches/etc
+	always @(posedge clk) begin
+		if (reset) begin	
+			r_seed_lfsr <= 24'h80_00_00;
+		end else begin
+			r_seed_lfsr <= {r_seed_lfsr[22:0], r_seed_lfsr[23]^r_seed_lfsr[22]^r_seed_lfsr[21]^r_seed_lfsr[16]^(!rand_valid&rand_data)^seed_sample}^num_branches_predicted^num_branches_retired^num_retired;
+		end
+	end
+	wire seed_sample = csr_write && r_immed[11:0] == 12'h015;
+	reg [4:0]r_seed_valid;
+	wire [1:0]seed_state = ((cpu_mode[3] || cpu_mode[1]&r_sseed || cpu_mode[0]&r_useed) ? r_seed_state :0);
+	wire [15:0]seed = ((cpu_mode[3] || cpu_mode[1]&r_sseed || cpu_mode[0]&r_useed) ? r_seed_lfsr[15:0] : 0);
+	always @(posedge clk) begin
+		if (reset) begin
+			r_seed_state <= 0;	// BIST
+		end else
+		if (rand_dead) begin
+			r_seed_state <= 3;	// DEAD
+		end else
+		if (r_seed_state != 0 || rand_valid)
+		if (&r_seed_valid && !rand_dead) begin
+			r_seed_state <= 2;	// ES16
+		end else begin
+			r_seed_state <= 1; // WAIT
+		end
+	end
+
+	//
+	//	seed valid counts 32 valid bits before tagging data as valid and can be sampled (could be smaller
+	//	 but must be at least 16)
+	//
+	always @(posedge clk) begin
+		if (reset) r_seed_valid <= 0; else
+		if (seed_sample && (cpu_mode[3] || cpu_mode[1]&r_sseed || cpu_mode[0]&r_useed)) r_seed_valid <= 0; else 
+		if (rand_valid && ! &r_seed_valid) 
+			r_seed_valid <= r_seed_valid+1;
+	end
+	//
+	//
+	
+
 	always @(posedge clk)
 	if (reset) r_sec_rlb_locked <= 0; else
 	if (sec_pmp_lock) r_sec_rlb_locked <= 1;
@@ -3128,7 +3185,7 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 					end
 
 		13'b?_00_00_0001_0101:		//  seed csr
-				c_res = 0;
+				c_res = {32'b0, seed_state, 30'b0, seed};
 
 		13'b?_00_00_0100_0000:		//  scratch reg for trap handlers
 					c_res = r_u_scratch;

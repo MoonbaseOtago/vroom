@@ -234,6 +234,8 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	wire [NHART-1:0]reset_out_h;
 	assign			reset_out = |reset_out_h;
 	wire       [3:0]mprv[0:NHART-1];
+	wire [NHART-1:0]mml;
+	wire [NHART-1:0]mmwp;
 	wire [NHART-1:0]hyper;
 	wire [NHART-1:0]tsr;
 	wire      [43:0]sup_ppn[0:NHART-1];
@@ -337,6 +339,8 @@ assign pmp[1].valid=0;
 			.sup_asid_1(16'b0),
 			.sup_ppn_1(44'b0),
 
+			.mml(mml),
+			.mmwp(mmwp),
 			.pmp_0(pmp[0]),
 			.pmp_1(pmp[1]),
 
@@ -1900,6 +1904,9 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 			.ls_trig(ls_trig),
 `endif
 
+			.mml(mml),
+			.mmwp(mmwp),
+
 			.cpu_mode_0(cpu_mode[0]),
 			.sup_vm_mode_0(sup_vm_mode[0]),
 			.sup_asid_0(sup_asid[0]),
@@ -2277,6 +2284,8 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.fp_written(fp_written[H]),
 `endif 
 				.mprv(mprv[H]),
+				.mml(mml[H]),
+				.mmwp(mmwp[H]),
 				.hyper(hyper[H]),
 				.trap_ins(trap_ins[H]),
 				.cpu_id(cpu_id),

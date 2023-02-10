@@ -90,7 +90,10 @@ module csr(input clk, input reset,
 		input			rand_data, 
 		input			rand_dead, 
 
+		output			mml,
+		output			mmwp,
 		PMP			pmp,
+`ifdef NOTDEF
 		output [NUM_PMP-1:0]pmp_valid,		// sadly arrays of buses aren't well supported 
 		output [NUM_PMP-1:0]pmp_locked,		// so we need to get verbose - unused wires will be optimised
 		output [NPHYS-1:2]pmp_start_0,		// out during synthesis
@@ -141,6 +144,8 @@ module csr(input clk, input reset,
 		output	[2:0]pmp_prot_13,
 		output	[2:0]pmp_prot_14,
 		output	[2:0]pmp_prot_15,
+`endif
+
 		output  [1:0]seed_sec,
 
 		output			clic_m_enable,
@@ -2975,6 +2980,8 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	assign seed_sec = {r_sseed, r_useed};
 	// mseccfg reg
 	reg r_sseed, r_useed, r_sec_rlb, r_sec_mmwp, r_sec_mml;
+	assign mml = r_sec_mml;
+	assign mmwp = r_sec_mmwp;
 	reg r_sec_rlb_locked;
 
 	always @(posedge clk) 
@@ -3040,28 +3047,23 @@ wire [NPHYS-1:2]r_pmp_addr_0=r_pmp_addr[0];
 	end
 	//
 	//
-	
-
-	always @(posedge clk)
-	if (reset) r_sec_rlb_locked <= 0; else
-	if (sec_pmp_lock) r_sec_rlb_locked <= 1;
 
 	always @(posedge clk) 
 	if (reset) r_sec_rlb <= 0; else // 0 turns it off
 	if (sec_pmp_lock) r_sec_rlb <= 0; else
-	if (csr_write && (r_immed[11:0] == 12'h747) && !r_sec_rlb_locked) 
+	if (csr_write && (r_immed[11:0] == 12'h747) && (! |r_pmp_locked || r_sec_rlb)) 
 	if (r_control[1]) r_sec_rlb <= r_sec_rlb|in[2]; else
 	if (r_control[2]) r_sec_rlb <= r_sec_rlb&~in[2]; else r_sec_rlb <= in[2];
 
 	always @(posedge clk) 
 	if (reset) r_sec_mmwp <= 0; else // 0 turns it off
-	if (csr_write && (r_immed[11:0] == 12'h747)) 
+	if (csr_write && (r_immed[11:0] == 12'h747) && !r_sec_mmwp) 
 	if (r_control[1]) r_sec_mmwp <= r_sec_mmwp|in[1]; else	// note sticky bit can only be reset by reset
 	if (r_control[2]) r_sec_mmwp <= r_sec_mmwp; else r_sec_mmwp <= r_sec_mmwp|in[1];
 
 	always @(posedge clk) 
 	if (reset) r_sec_mml <= 0; else // 0 turns it off
-	if (csr_write && (r_immed[11:0] == 12'h747)) 
+	if (csr_write && (r_immed[11:0] == 12'h747) && !r_sec_mml) 
 	if (r_control[1]) r_sec_mml <= r_sec_mml|in[0]; else // note sticky bit can only be reset by rese t
 	if (r_control[2]) r_sec_mml <= r_sec_mml; else r_sec_mml <= r_sec_mml|in[0];
 

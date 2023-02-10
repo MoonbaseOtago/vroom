@@ -19,9 +19,11 @@
 `include "lstypes.si"
 
 module pmp_checker(
-	input		m,
-	input		su,
-	input		mprv,
+	input		m,				// machine mode
+	input		su,				// supervisor/user modes
+	input		mmwp,			// machine mode whitelist policy
+	input		mml,			// machine mode lockdown
+	input		mprv,		
 	input	[NPHYS-1:2]addr,
 	input	[1:0]sz,			// 0: 1-4, 1: 8, 2: 16
 	
@@ -68,8 +70,15 @@ module pmp_checker(
 					hi1 = addr <= pmp.aend[I];
 					hi2 = nd <= pmp.aend[I];
 					match[I] = pmp.valid[I] && !((!lo1&&!lo2) || (!hi1&&!hi2));	// neither enclosed 
-					bad[I] = (!(lo1&&hi2) || ((pmp.prot[I]&{check_x, check_w, check_r}) == 0)) && (pmp.locked[I] || su || m&mprv);
-					//          1         ||         1                                                0              1
+					casez({mml, pmp.locked[I], pmp.prot[I]}) // synthesis full_case parallel_case
+					5'b1_1111:	bad[I] = !(lo1&&hi2) || check_w || check_x;
+					5'b1_??10:	bad[I] = (!(lo1&&hi2) ||
+										(pmp.locked[I] ? (check_w || check_r&!m) : check_x || check_w&!m&pmp.prot[I][1]));
+											
+					default:	bad[I] = (!(lo1&&hi2) || 
+										((pmp.prot[I]&{check_x, check_w, check_r}) == 0)) &&
+										(mml? (pmp.locked[I]? !m : !su) : (pmp.locked[I] || su || m&mprv));
+					endcase
 				end
 				assign mx[I] = match[I];
 				assign b[I] = bad[I];
@@ -100,7 +109,7 @@ module pmp_checker(
 		16'b??10_0000_0000_0000: f = b[13];
 		16'b?100_0000_0000_0000: f = b[14];
 		16'b1000_0000_0000_0000: f = b[15];
-		16'b0000_0000_0000_0000: f = su&!su_default;
+		16'b0000_0000_0000_0000: f = m ? mmwp : su&!su_default;
 		endcase
 	end
 

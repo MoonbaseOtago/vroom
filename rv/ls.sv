@@ -129,6 +129,8 @@ module load_store(
 	input		irand,
 	output		orand,
 
+	input  [NHART-1:0]mml,	
+	input  [NHART-1:0]mmwp,	
 	PMP			pmp_0,				// PMP  per HART
 	//PMP		pmp_1,			
 
@@ -620,6 +622,8 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 					pmp_checker #(.NPHYS(NPHYS), .NUM_PMP(NUM_PMP))pmp_check(
 						.m(mprv[H][3]),
 						.su(mprv[H][1]|mprv[H][0]),
+						.mmwp(mmwp[H]),
+						.mml(mml[H]),
 						.mprv(1'b0),
 						.addr(addr_p[A][NPHYS-1:2]),
 						.sz({1'b0,r_addr_control[A][1:0]==3?1'b1:1'b0}),

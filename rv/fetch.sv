@@ -99,6 +99,8 @@ module fetch(
 	input		irand,
 
 	
+	input [NHART-1:0]mml,
+	input [NHART-1:0]mmwp,
 	PMP		pmp_0,
 	PMP		pmp_1,
 
@@ -380,6 +382,8 @@ wire [NITOTAL-1:0]loading_0=loading[0];
 				pmp_checker #(.NPHYS(NPHYS), .NUM_PMP(NUM_PMP))pmp_check(
 					.m(cpu_mode_0[3]),
 					.su(cpu_mode_0[1]|cpu_mode_0[0]),
+					.mml(mml[H]),
+					.mmwp(mmwp[H]),
 					.sz(2'h2),
 					.mprv(1'b0),
 					.addr({c_paddr[H][NPHYS-1:BDEC], {BDEC-2{1'b0}}}),
@@ -394,6 +398,8 @@ wire [NITOTAL-1:0]loading_0=loading[0];
 				pmp_checker #(.NPHYS(NPHYS), .NUM_PMP(NUM_PMP))pmp_check(
 					.m(cpu_mode_1[3]),
 					.su(cpu_mode_1[1]|cpu_mode_1[0]),
+					.mml(mml[H]),
+					.mmwp(mmwp[H]),
 					.mprv(1'b0),
 					.sz(2'h2),
 					.addr({c_paddr[H][NPHYS-1:BDEC], {BDEC-2{1'b0}}}),
@@ -749,6 +755,8 @@ wire [NITOTAL-1:0]loading_0=loading[0];
 				.m(tcache_addr_hart?cpu_mode_1[3]:cpu_mode_0[3]),
 				.su(tcache_addr_hart?(cpu_mode_1[1]|cpu_mode_1[0]):(cpu_mode_0[1]|cpu_mode_0[0])),
 				.sz(tcache_addr_sz?2'h1:2'h0),	// 8 or 4
+				.mml(/*tcache_addr_hart?mml[1]:*/mml[0]),		// FIXME
+				.mmwp(/*tcache_addr_hart?mmwp[1]:*/mmwp[0]),	// FIXME
 				.mprv(1'b0),
 				.addr(tcache_addr),
 				.check_x(1'b0),

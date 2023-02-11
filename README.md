@@ -3,20 +3,20 @@
 ![Moonbase Logo](https://moonbaseotago.github.io/talk/assets/moonbase_small.png)
 
 ## A new high-end RISC-V implementation
-Paul Campbell - October 2021
+Paul Campbell - Feb 2023
 
 paul@taniwha.com @moonbaseotago
 
-(C) Copyright Moonbase Otago 2021-22
+(C) Copyright Moonbase Otago 2021-23
 
 ## Executive summary
 * Very high end RISC-V implementation – goal cloud server class
 * Out of order, super scalar, speculative
-* RV64-IMAFDCHB(V)
+* RV64-IMAFDCHBK(V)
 * Up to 8 IPC (instructions per clock) peak, goal ~4 average on ALU heavy work
 * 2-way simultaneous multithreading capable
 * Multi-core
-* Current dhrystone numbers: ~6.5 DMips/MHz - still a work in progress. 
+* Current dhrystone numbers: ~6.75 DMips/MHz - still a work in progress. 
 * Currently boots Linux on an AWS-FPGA instance
 * GPL3 – dual licensing possible
 

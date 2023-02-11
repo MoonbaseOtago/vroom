@@ -318,4 +318,19 @@ hpmcounter7 = 126064
 
 IPC = 2.63
 BTC hit rate = %99
+==================================
+11/2/23 simulator m-mode - 644 ld/st unit - fixed bug that added a clock to every load
+Microseconds for one run through Dhrystone: 3.17
+Dhrystones per Second:                      314887
+DMips:                                      179.2
+DMips/(25)MHZ:                              7.16
+mcycle = 158823
+minstret = 444031
+hpmcounter4 = 82003
+hpmcounter5 = 81990
+hpmcounter6 = 444231
+hpmcounter7 = 126058
+
+IPC = 2.79
+BTC hit rate = %99
 

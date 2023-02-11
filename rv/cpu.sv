@@ -563,6 +563,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 	LS_ADDR  #(.CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT), .NADDR(NADDR), .RV(RV))ls();
 	LS_VM_ACK #(.NHART(NHART), .LNHART(LNHART), .LNCOMMIT(LNCOMMIT))vm_ack();
 	LD_DATA_WB  #(.NHART(NHART), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .RV(RV))ld_wb();
+	LD_DATA_EARLY_WB  #(.NHART(NHART), .LNCOMMIT(LNCOMMIT), .NLOAD(NLOAD), .RV(RV))ld_early_wb();
 	ST_DATA #(.RV(RV), .NSTORE(NSTORE), .NHART(NHART), .LNCOMMIT(LNCOMMIT), .LNHART(LNHART))st_data();
 
 
@@ -1396,7 +1397,7 @@ end
 `include "mk5_16.inc"
 				end 
 
-				reg      this_load_done, this_divide_busy;
+				reg      this_load_done, this_load_early_done, this_divide_busy;
 				reg		 this_addr_done;
 				reg		 this_vm_pause;
 				reg		 this_vm_stall;
@@ -1517,6 +1518,7 @@ end
 					.commit_vm_done_pmp(vm_ack.pmp),
 
 					.commit_load_done(this_load_done),
+					.commit_load_early_done(this_load_early_done),
 					.commit_addr_done(this_addr_done),
 					.commit_addr_trap_type(this_trap_type),
 					.commit_divide_busy(this_divide_busy),
@@ -1923,6 +1925,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 			.ls(ls),
 			.vm_ack(vm_ack),
 			.ld_wb(ld_wb),
+			.ld_early_wb(ld_early_wb),
 			.st(st_data),
 
 			.store_commit_0(commit_store_ack[0]),

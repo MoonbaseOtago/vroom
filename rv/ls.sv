@@ -39,7 +39,8 @@ module load_store(
 
 	LS_VM_ACK   vm_ack,		// VM req done
 	
-	LD_DATA_WB	ld_wb,	// load data done
+	LD_DATA_WB	      ld_wb,	// load data done
+	LD_DATA_EARLY_WB  ld_early_wb,
 
 	ST_DATA		st, 
 
@@ -380,7 +381,7 @@ module load_store(
 	reg [(NHART==1?0:LNHART-1):0]r_load_res_hart[0:NLOAD-1];
 	reg [LNCOMMIT-1:0]r_load_res_rd[0:NLOAD-1];
 	reg [NLOAD-1:0]r_load_res_makes_rd;
-	reg [NLOAD-1:0]r_load_res_done;
+	reg [NLOAD-1:0]r_load_res_done, c_load_res_done;
 	reg [RV-1:0]load_snoop_result[0:NLOAD-1];
 	wire [NLDSTQ-1:0]load_snoop_hit_mask[0:NLOAD-1];
 
@@ -1059,20 +1060,28 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 		for (L = 0; L < NLOAD; L=L+1) begin : load
 			if ( NHART == 1) begin
 				assign ld_wb.wb[L].hart = r_load_res_done[L];
+				assign ld_early_wb.wb[L].hart = c_load_res_done[L];
 			end else begin
-				reg [NHART-1:0]res;
+				reg [NHART-1:0]res, early_res;
 				always @(*) begin
 					res = 0;
 					if (r_load_res_done[L])
 						res[r_load_res_hart[L]] = 1;
 				end
 				assign ld_wb.wb[L].hart = res;
+				always @(*) begin
+					early_res = 0;
+					if (c_load_res_done[L])
+						early_res[r_load_hart[L]] = 1;
+				end
+				assign ld_early_wb.wb[L].hart = early_res;
 			end
 `ifdef FP
 			assign ld_wb.wb[L].fp = r_load_control[L][3];
 `endif
 			assign ld_wb.wb[L].result = r_load_res_data[L];
 			assign ld_wb.wb[L].rd = r_load_res_rd[L];
+			assign ld_early_wb.wb[L].rd = r_load_rd[L];
 			assign ld_wb.wb[L].makes_rd = r_load_res_makes_rd[L];
 			assign dc_load.req[L].addr = r_load_paddr[L][NPHYS-1:$clog2(RV/8)];
 
@@ -1252,12 +1261,14 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 				r_load_fence[L] <= c_load_fence[L];
 				r_load_paddr[L] <= c_load_paddr[L];
 
-				r_load_res_done[L] <= reset?0:(r_load_enable[L]&&!commit_kill[r_load_hart[L]][r_load_rd[L]]&&(r_load_queued[L]?(dc_load.ack[L].hit||r_load_io[L]|r_load_fence[L]):!load_allocate[L]));
+				r_load_res_done[L] <= reset?0:c_load_res_done[L];
 				r_load_res_makes_rd[L] <= r_load_makes_rd[L];
 				r_load_res_rd[L] <= r_load_rd[L];
 				r_load_res_hart[L] <= r_load_hart[L];
 				
 			end
+			always @(*)
+				c_load_res_done[L] = (r_load_enable[L]&&!commit_kill[r_load_hart[L]][r_load_rd[L]]&&(r_load_queued[L]?(dc_load.ack[L].hit||r_load_io[L]|r_load_fence[L]):!load_allocate[L]));
 
 			if (NHART == 1) begin
 				always @(posedge clk) 

@@ -96,6 +96,15 @@ interface LD_DATA_WB #(parameter NHART=1, LNCOMMIT=5, NLOAD, RV=64);
 	LD_DATA wb[0:NLOAD-1];
 endinterface
 
+
+interface LD_DATA_EARLY_WB #(parameter NHART=1, LNCOMMIT=5, NLOAD, RV=64);
+	typedef struct packed {
+		bit [NHART-1:0]hart;
+		bit [LNCOMMIT-1:0]rd;
+	} LD_EARLY_DATA;
+	LD_EARLY_DATA wb[0:NLOAD-1];
+endinterface
+
 interface ST_DATA #(parameter RV=64, NSTORE=2, LNCOMMIT=5, NHART=1, LNHART=0);
 	typedef struct packed { // store data
     	bit [(NHART==1?0:LNHART-1):0]hart;

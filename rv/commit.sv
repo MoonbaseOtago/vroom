@@ -311,6 +311,7 @@ module commit(input clk,
 	input   [1:0]commit_addr_trap_type,					// valid when commit_addr_done is true
 
 	input		 commit_load_done,
+	input		 commit_load_early_done,
 
 	input		 commit_vm_stall,					// true if this load or store is stalled
 	input		 commit_vm_pause,					// true if this load or store is pause (just resched)
@@ -1110,7 +1111,7 @@ module commit(input clk,
 		r_commit_store_req <= c_commit_store_req&!commit_ended&!commit_kill&!reset;
 		r_done <= c_done&c_valid&&!commit_ended&!commit_kill;
 		r_valid <= c_valid&!commit_ended&!commit_kill;
-		r_completed <= c_completed&!commit_ended&!commit_kill;
+		r_completed <= (c_completed || (r_unit_type==3 && r_addr_done && r_busy && !r_busy2 && commit_load_early_done))&!commit_ended&!commit_kill;
 		r_control <= c_control;
 		r_addr_done <= c_addr_done;
 		r_unit_type <= c_unit_type;

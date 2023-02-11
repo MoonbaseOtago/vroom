@@ -97,6 +97,9 @@ err:
 		printf("(ls.ack[%d].hart[H]&&(ls.ack[%d].rd==C))%s",i,i, i==naddr-1?";\n":"||");
 	printf("	end\n");	
 	printf("	always @(*) begin\n");	
+	printf("		this_load_early_done = ");
+	for (i = 0; i < nload; i++) 
+		printf("(ld_early_wb.wb[%d].hart[H]&&(ld_early_wb.wb[%d].rd==C))%s",i,i,i==nload-1?";\n":"||");
 	printf("		this_load_done = ");
 	for (i = 0; i < naddr; i++) 
 		printf("(ls.ack[%d].hart[H]&&(ls.ack[%d].rd==C)&&(ls.ack[%d].trap_type!=0))||",i,i,i);

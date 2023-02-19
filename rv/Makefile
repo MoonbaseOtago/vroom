@@ -53,6 +53,12 @@ SYNTH = \
 	synth/vsram.v
 
 
+#N64_OPT_1 = +define+N32 
+#N64_OPT_2 = -DN32
+N64_OPT_1 = +define+N64 
+N64_OPT_2 = -DN64
+
+
 #B_OPT_1 =
 #B_OPT_2 = 
 B_OPT_1 = +define+B +define+K
@@ -95,8 +101,8 @@ CB_2 = -DCOMBINED_BRANCH
 # ------
 
 
-OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1) $(RENAME_OPT_1) $(B_OPT_1)
-OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2) $(RENAME_OPT_2) $(B_OPT_2)
+OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1) $(RENAME_OPT_1) $(B_OPT_1) $(N64_OPT_1)
+OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2) $(RENAME_OPT_2) $(B_OPT_2) $(N64_OPT_2)
 XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
 XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(OPT_FLAG_1)
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
@@ -120,29 +126,36 @@ MX3 = mk3_4.inc mk3_8.inc mk3_16.inc
 MX4 = mk4_16.inc mk4_32.inc mk4_64.inc
 MX5 = mk5_4.inc mk5_8.inc mk5_16.inc
 MX6 = mk6_64.inc 
-MX7 = mk7_4_4_32.inc mk7_8_4_32.inc mk7_16_4_32.inc mk7_4_8_32.inc mk7_8_8_32.inc mk7_16_8_32.inc
+MX7 = mk7_4_4_32.inc mk7_8_4_32.inc mk7_16_4_32.inc mk7_4_8_32.inc mk7_8_8_32.inc mk7_16_8_32.inc \
+      mk7_4_4_64.inc mk7_8_4_64.inc mk7_16_4_64.inc mk7_4_8_64.inc mk7_8_8_64.inc mk7_16_8_64.inc
 MX8 = mk8_4.inc mk8_8.inc mk8_16.inc
 MX9 = mk9_4.inc mk9_8.inc mk9_16.inc
 MX10 = mk10_2.inc mk10_4.inc mk10_8.inc mk10_16.inc
 MX11 = mk11_4_2.inc mk11_8_2.inc mk11_16_2.inc mk11_32_2.inc mk11_64_2.inc mk11_4_3.inc mk11_8_3.inc mk11_16_3.inc mk11_32_3.inc mk11_64_3.inc mk11_32_4.inc
 MX12 = mk12_16.inc mk12_32.inc mk12_64.inc
-MX13 = mk13_8_2_1.inc mk13_16_2_1.inc mk13_32_2_1.inc mk13_8_2_2.inc mk13_16_2_2.inc mk13_32_2_2.inc mk13_16_4_4.inc mk13_32_4_4.inc 
+MX13 = mk13_8_2_1.inc mk13_16_2_1.inc mk13_32_2_1.inc mk13_8_2_2.inc mk13_16_2_2.inc mk13_32_2_2.inc mk13_16_4_4.inc mk13_32_4_4.inc \
+	mk13_64_4_4.inc mk13_64_2_2.inc
 MX14 = mk14_6_4_4_1_1.inc mk14_4_2_2_1_1.inc mk14_6_4_4_1_0.inc mk14_4_2_2_1_0.inc
 MX15 = mk15_10_2.inc mk15_11_2.inc mk15_12_2.inc mk15_15_2.inc mk15_14_2.inc \
 	mk15_10_1.inc mk15_11_1.inc mk15_12_1.inc mk15_15_1.inc mk15_14_1.inc \
-	mk15_16_1.inc mk15_16_2.inc
-MX16 = mk16_8.inc mk16_16.inc mk16_32.inc
+	mk15_16_1.inc mk15_16_2.inc mk15_17_1.inc
+MX16 = mk16_8.inc mk16_16.inc mk16_32.inc mk16_64.inc 
 MX17 = mk17_1_6.inc mk17_1_5.inc  mk17_1_4.inc
 MX19 = mk19_64.inc 
-MX20 = mk20_32_8.inc mk20_32_16.inc
-MX21 = mk21_32_6_4_4_16.inc mk21_32_4_2_2_16.inc mk21_32_6_4_4_32.inc mk21_32_4_2_2_32.inc
+MX20 = mk20_32_8.inc mk20_32_16.inc mk20_64_8.inc mk20_64_16.inc mk20_64_32.inc
+MX21 = mk21_32_6_4_4_16.inc mk21_32_4_2_2_16.inc mk21_32_6_4_4_32.inc mk21_32_4_2_2_32.inc \
+       mk21_64_6_4_4_16.inc mk21_64_4_2_2_16.inc \
+       mk21_64_6_4_4_32.inc mk21_64_4_2_2_32.inc \
+       mk21_64_6_4_4_64.inc mk21_64_4_2_2_64.inc
 MX22 = mk22_16_8.inc mk22_32_8.inc mk22_48_8.inc  mk22_64_8.inc mk22_128_8.inc mk22_96_8.inc
 MX23 = mk23_8.inc 
 #MXREG = rfile_13_3_6_2_8_32_1.sv 
 #MXREG = rfile_15_3_7_2_8_32_1.sv
 #MXREG = rfile_19_3_8_2_8_32_2.sv
 MXREGX = rfile_15_3_6_2_8_32_2.sv
-FMXREG = rfile_22_1_10_1_8_32_7.sv
+#FMXREG = rfile_22_1_10_1_8_32_7.sv
+FMXREG = rfile_22_1_10_1_8_64_7.sv	# for 3 ALUs
+#FMXREG = rfile_24_1_11_1_8_64_7.sv	# for 4 ALUS
 #FMXREG = rfile_14_3_7_2_8_32_4.sv # rfile_16_3_8_2_8_32_4.sv
 #MXREG = rfile_16_3_7_2_8_32.sv
 MXREGINC =  rfile_16_3_7_2_4_32_1.inc rfile_16_3_7_2_8_32_1.inc rfile_13_3_6_2_4_32_1.inc rfile_13_3_6_2_8_32_1.inc \
@@ -150,16 +163,22 @@ MXREGINC =  rfile_16_3_7_2_4_32_1.inc rfile_16_3_7_2_8_32_1.inc rfile_13_3_6_2_4
 	   rfile_14_3_7_2_4_32_4.inc rfile_14_3_7_2_4_32_1.inc rfile_14_3_7_2_8_32_4.inc rfile_16_3_8_2_8_32_4.inc \
 	  rfile_15_3_7_2_4_32_1.inc rfile_15_3_7_2_8_32_1.inc rfile_15_3_6_2_8_32_2.inc rfile_15_3_6_2_4_32_2.inc \
 		rfile_19_3_8_2_8_32_2.inc  rfile_19_1_8_1_8_32_2.inc rfile_21_1_9_1_8_32_4.inc rfile_23_1_10_1_8_32_4.inc \
-	rfile_22_1_10_1_8_32_7.inc rfile_22_1_10_1_8_32_7.inc rfile_24_1_11_1_8_32_7.inc rfile_20_1_9_1_8_32_7.inc rfile_20_1_9_1_4_32_7.inc
+	rfile_22_1_10_1_8_32_7.inc rfile_22_1_10_1_8_32_7.inc rfile_24_1_11_1_8_32_7.inc rfile_20_1_9_1_8_32_7.inc rfile_20_1_9_1_4_32_7.inc rfile_20_1_9_1_4_64_7.inc rfile_20_1_9_1_8_64_7.inc rfile_22_1_10_1_8_64_7.inc rfile_24_1_11_1_8_64_7.inc
 		
 MXCTRL = alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc  alu_ctrl_core_4_1_32_2_1_1_1_0.inc  alu_ctrl_inst_4_1_32_2_1_1_1_0.inc   alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc \
 	alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc alu_ctrl_core_4_1_32_2_1_1_1_1.inc alu_ctrl_inst_4_1_32_2_1_1_1_1.inc alu_ctrl_inst_4_1_32_3_1_1_1_0.inc alu_ctrl_core_4_1_32_3_1_1_1_0.inc \
 	alu_ctrl_inst_4_1_32_2_1_0_1_1.inc alu_ctrl_inst_4_1_32_3_1_0_1_0.inc alu_ctrl_inst_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_core_4_1_32_2_1_0_1_1.inc alu_ctrl_core_4_1_32_3_1_0_1_0.inc alu_ctrl_core_4_1_32_2_1_0_1_0.inc \
+	alu_ctrl_inst_4_1_64_3_1_0_1_0.inc alu_ctrl_hdr_4_1_64_3_1_0_1_0.inc alu_ctrl_core_4_1_64_3_1_0_1_0.inc \
+	alu_ctrl_inst_4_1_64_2_1_0_1_0.inc alu_ctrl_hdr_4_1_64_2_1_0_1_0.inc alu_ctrl_core_4_1_64_2_1_0_1_0.inc \
+	alu_ctrl_inst_4_1_64_2_1_0_1_1.inc alu_ctrl_hdr_4_1_64_2_1_0_1_1.inc alu_ctrl_core_4_1_64_2_1_0_1_1.inc \
 	alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc \
 	alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc alu_ctrl_core_4_1_32_4_1_0_1_0.inc alu_ctrl_inst_4_1_32_4_1_0_1_0.inc \
 	alu_ctrl_inst_4_1_32_3_1_0_1_1.inc alu_ctrl_hdr_4_1_32_3_1_0_1_1.inc alu_ctrl_core_4_1_32_3_1_0_1_1.inc \
-	alu_ctrl_inst_4_1_32_4_1_0_1_1.inc alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc alu_ctrl_core_4_1_32_4_1_0_1_1.inc
+	alu_ctrl_inst_4_1_32_4_1_0_1_1.inc alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc alu_ctrl_core_4_1_32_4_1_0_1_1.inc \
+	alu_ctrl_inst_4_1_64_3_1_0_1_1.inc alu_ctrl_hdr_4_1_64_3_1_0_1_1.inc alu_ctrl_core_4_1_64_3_1_0_1_1.inc \
+	alu_ctrl_inst_4_1_64_4_1_0_1_1.inc alu_ctrl_hdr_4_1_64_4_1_0_1_1.inc alu_ctrl_core_4_1_64_4_1_0_1_1.inc \
+	alu_ctrl_inst_4_1_64_4_1_0_1_0.inc alu_ctrl_hdr_4_1_64_4_1_0_1_0.inc alu_ctrl_core_4_1_64_4_1_0_1_0.inc
 MXA = $(MX) $(MX2) $(MX3) $(MX4) $(MX5) $(MX6) $(MX7) $(MX8) $(MX9) $(MX10) $(MX11) $(MX12) $(MX13) $(MX14) $(MX15) $(MX16) $(MX17) $(MX19) $(MX20) $(MX21) $(MX22) $(MX23) $(MXREG) $(MXREGINC) $(MXCTRL) $(MXREGX)
 
 all:	svv
@@ -192,7 +211,7 @@ obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES) a
 
 fvv:	fobj_dir/fvv
 fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES) aes.sv
-	$(VERILATOR) -cc  --threads 7 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
+	$(VERILATOR) -cc  --threads 4 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
 	make -j 16 -C fobj_dir -f Vchip.mk fvv
 
 svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv
@@ -206,6 +225,13 @@ tvv:	obj_dir/tvv
 obj_dir/tvv:	$(SRC) $(MXA) $(UART) aws-test/xtestbench.cpp $(SYNTH)  $(XTEST) aws-test/test.sv aws-test/test_devices.sv $(INCLUDES) aes.sv
 	$(VERILATOR) -cc  --threads 7  --top-module test --autoflush -CFLAGS "-g" -LDFLAGS "-g" $(OPT_FLAG_1) -Wno-lint +1800-2017ext+sv -o tvv  +define+AWS_VERILATOR  +define+VSYNTH2 +define+SIMV +define+SIMD aws-test/test.sv aws-test/test_devices.sv $(XSYNTH1) $(SRC) $(MXREG)  $(UART_DEF1)  $(UART) $(XTEST) --assert --clk clk_main_a0  --trace  -sv --compiler gcc --Mdir awsobj_dir -exe aws-test/xtestbench.cpp
 	make -j 16 -C awsobj_dir -f Vtest.mk tvv
+
+alu_ctrl_hdr_4_1_64_2_1_0_1_0.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 2 1 0 1 0 >$@
+alu_ctrl_core_4_1_64_2_1_0_1_0.inc:	mkctrl
+	./mkctrl -core 4 1 64 2 1 0 1 0 >$@
+alu_ctrl_inst_4_1_64_2_1_0_1_0.inc:	mkctrl
+	./mkctrl -inst 4 1 64 2 1 0 1 0 >$@
 
 alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 2 1 0 1 0 >$@
@@ -221,12 +247,28 @@ alu_ctrl_core_4_1_32_4_1_0_1_0.inc:	mkctrl
 alu_ctrl_inst_4_1_32_4_1_0_1_0.inc:	mkctrl
 	./mkctrl -inst 4 1 32 4 1 0 1 0 >$@
 
+alu_ctrl_hdr_4_1_64_3_1_0_1_0.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 3 1 0 1 0 >$@
+alu_ctrl_core_4_1_64_3_1_0_1_0.inc:	mkctrl
+	./mkctrl -core 4 1 64 3 1 0 1 0 >$@
+alu_ctrl_inst_4_1_64_3_1_0_1_0.inc:	mkctrl
+	./mkctrl -inst 4 1 64 3 1 0 1 0 >$@
+
 alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 3 1 0 1 0 >$@
 alu_ctrl_core_4_1_32_3_1_0_1_0.inc:	mkctrl
 	./mkctrl -core 4 1 32 3 1 0 1 0 >$@
 alu_ctrl_inst_4_1_32_3_1_0_1_0.inc:	mkctrl
 	./mkctrl -inst 4 1 32 3 1 0 1 0 >$@
+
+alu_ctrl_hdr_4_1_64_2_1_0_1_1.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 2 1 0 1 1 >$@
+alu_ctrl_core_4_1_64_2_1_0_1_1.inc:	mkctrl
+	./mkctrl -core 4 1 64 2 1 0 1 1 >$@
+alu_ctrl_inst_4_1_64_2_1_0_1_1.inc:	mkctrl
+	./mkctrl -inst 4 1 64 2 1 0 1 1 >$@
+alu_ctrl_hdr_4_1_64_2_1_1_0_1_1.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 2 1 0 1 1 >$@
 
 alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 2 1 0 1 1 >$@
@@ -274,6 +316,27 @@ alu_ctrl_inst_4_1_32_2_1_1_1_1.inc:	mkctrl
 	./mkctrl -inst 4 1 32 2 1 1 1 1 >$@
 alu_ctrl_hdr_4_1_32_2_1_1_1_1_1.inc:	mkctrl 
 	./mkctrl -hdr 4 1 32 2 1 1 1 1 >$@
+
+alu_ctrl_core_4_1_64_3_1_0_1_1.inc:	mkctrl
+	./mkctrl -core 4 1 64 3 1 0 1 1 >$@
+alu_ctrl_inst_4_1_64_3_1_0_1_1.inc:	mkctrl
+	./mkctrl -inst 4 1 64 3 1 0 1 1 >$@
+alu_ctrl_hdr_4_1_64_3_1_0_1_1.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 3 1 0 1 1 >$@
+
+alu_ctrl_core_4_1_64_4_1_0_1_1.inc:	mkctrl
+	./mkctrl -core 4 1 64 4 1 0 1 1 >$@
+alu_ctrl_inst_4_1_64_4_1_0_1_1.inc:	mkctrl
+	./mkctrl -inst 4 1 64 4 1 0 1 1 >$@
+alu_ctrl_hdr_4_1_64_4_1_0_1_1.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 4 1 0 1 1 >$@
+
+alu_ctrl_core_4_1_64_4_1_0_1_0.inc:	mkctrl
+	./mkctrl -core 4 1 64 4 1 0 1 0 >$@
+alu_ctrl_inst_4_1_64_4_1_0_1_0.inc:	mkctrl
+	./mkctrl -inst 4 1 64 4 1 0 1 0 >$@
+alu_ctrl_hdr_4_1_64_4_1_0_1_0.inc:	mkctrl 
+	./mkctrl -hdr 4 1 64 4 1 0 1 0 >$@
 
 rfile_13_3_6_2_4_32_4.sv:	rfile
 	./rfile 13 3 6 2 4 32 4 >$@
@@ -363,10 +426,20 @@ rfile_23_1_10_1_8_32_4.sv:	rfile
 rfile_23_1_10_1_8_32_4.inc:	rfile
 	./rfile -inc 23 1 10 1 8 32 4 >$@
 
+rfile_20_1_9_1_4_64_7.sv:	rfile
+	./rfile      20 1 9 1 4 64 7 >$@
+rfile_20_1_9_1_4_64_7.inc:	rfile
+	./rfile -inc 20 1 9 1 4 64 7 >$@
+
 rfile_20_1_9_1_4_32_7.sv:	rfile
 	./rfile      20 1 9 1 4 32 7 >$@
 rfile_20_1_9_1_4_32_7.inc:	rfile
 	./rfile -inc 20 1 9 1 4 32 7 >$@
+
+rfile_20_1_9_1_8_64_7.sv:	rfile
+	./rfile      20 1 9 1 8 64 7 >$@
+rfile_20_1_9_1_8_64_7.inc:	rfile
+	./rfile -inc 20 1 9 1 8 64 7 >$@
 
 rfile_20_1_9_1_8_32_7.sv:	rfile
 	./rfile      20 1 9 1 8 32 7 >$@
@@ -377,6 +450,16 @@ rfile_22_1_10_1_8_32_7.sv:	rfile
 	./rfile      22 1 10 1 8 32 7 >$@
 rfile_22_1_10_1_8_32_7.inc:	rfile
 	./rfile -inc 22 1 10 1 8 32 7 >$@
+
+rfile_22_1_10_1_8_64_7.sv:	rfile
+	./rfile      22 1 10 1 8 64 7 >$@
+rfile_22_1_10_1_8_64_7.inc:	rfile
+	./rfile -inc 22 1 10 1 8 64 7 >$@
+
+rfile_24_1_11_1_8_64_7.sv:	rfile
+	./rfile      24 1 11 1 8 64 7 >$@
+rfile_24_1_11_1_8_64_7.inc:	rfile
+	./rfile -inc 24 1 11 1 8 64 7 >$@
 
 rfile_24_1_11_1_8_32_7.sv:	rfile
 	./rfile      24 1 11 1 8 32 7 >$@
@@ -485,6 +568,18 @@ mk7_8_8_32.inc: mk7
 	./mk7 8 8 32 >mk7_8_8_32.inc
 mk7_16_8_32.inc: mk7
 	./mk7 16 8 32 >mk7_16_8_32.inc
+mk7_4_4_64.inc: mk7
+	./mk7 4 4 64 >mk7_4_4_64.inc
+mk7_8_4_64.inc: mk7
+	./mk7 8 4 64 >mk7_8_4_64.inc
+mk7_16_4_64.inc: mk7
+	./mk7 16 4 64 >mk7_16_4_64.inc
+mk7_4_8_64.inc: mk7
+	./mk7 4 8 64 >mk7_4_8_64.inc
+mk7_8_8_64.inc: mk7
+	./mk7 8 8 64 >mk7_8_8_64.inc
+mk7_16_8_64.inc: mk7
+	./mk7 16 8 64 >mk7_16_8_64.inc
 
 mk8:	mk8.c
 	gcc -o $@ mk8.c
@@ -568,6 +663,10 @@ mk13_16_4_4.inc: mk13
 	./mk13 16 4 4 >$@
 mk13_32_4_4.inc: mk13
 	./mk13 32 4 4 >$@
+mk13_64_2_2.inc: mk13
+	./mk13 64 2 2 >$@
+mk13_64_4_4.inc: mk13
+	./mk13 64 4 4 >$@
 
 mk14:	mk14.c
 	gcc -o mk14 mk14.c
@@ -606,6 +705,8 @@ mk15_15_1.inc: mk15
 	./mk15 15 1 >$@
 mk15_16_1.inc: mk15
 	./mk15 16 1 >$@
+mk15_17_1.inc: mk15
+	./mk15 17 1 >$@
 
 mk16:	mk16.c
 	gcc -o mk16 mk16.c
@@ -615,6 +716,8 @@ mk16_16.inc: mk16
 	./mk16 16 >$@
 mk16_32.inc: mk16
 	./mk16 32 >$@
+mk16_64.inc: mk16
+	./mk16 64 >$@
 
 mk17:	mk17.c
 	gcc -o mk17 mk17.c
@@ -636,9 +739,14 @@ mk20:	mk20.c
 
 mk20_32_8.inc:	mk20
 	./mk20 32 8 >mk20_32_8.inc
-
 mk20_32_16.inc:	mk20
 	./mk20 32 16 >mk20_32_16.inc
+mk20_64_8.inc:	mk20
+	./mk20 64 8 >mk20_64_8.inc
+mk20_64_16.inc:	mk20
+	./mk20 64 16 >mk20_64_16.inc
+mk20_64_32.inc:	mk20
+	./mk20 64 32 >mk20_64_32.inc
 
 mk19:	mk19.c
 	gcc -o mk19 mk19.c
@@ -651,15 +759,25 @@ mk21:	mk21.c
 
 mk21_32_6_4_4_16.inc:	mk21
 	./mk21 32 6 4 4 16  >$@
-
 mk21_32_4_2_2_16.inc:	mk21
 	./mk21 32 4 2 2 16  >$@
-
 mk21_32_6_4_4_32.inc:	mk21
 	./mk21 32 6 4 4 32  >$@
-
 mk21_32_4_2_2_32.inc:	mk21
 	./mk21 32 4 2 2 32  >$@
+
+mk21_64_6_4_4_16.inc:	mk21
+	./mk21 64 6 4 4 16  >$@
+mk21_64_4_2_2_16.inc:	mk21
+	./mk21 64 4 2 2 16  >$@
+mk21_64_6_4_4_32.inc:	mk21
+	./mk21 64 6 4 4 32  >$@
+mk21_64_4_2_2_32.inc:	mk21
+	./mk21 64 4 2 2 32  >$@
+mk21_64_6_4_4_64.inc:	mk21
+	./mk21 64 6 4 4 64  >$@
+mk21_64_4_2_2_64.inc:	mk21
+	./mk21 64 4 2 2 64  >$@
 
 mk22:	mk22.c
 	gcc -o mk22 mk22.c

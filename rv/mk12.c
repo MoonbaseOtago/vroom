@@ -49,7 +49,7 @@ err:
 
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
-	printf("// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com\n");
+	printf("// Copyright (C) 2019-23 Paul Campbell - paul@taniwha.com\n");
 	printf("//\n");
 	printf("// This program is free software: you can redistribute it and/or modify\n");
 	printf("// it under the terms of the GNU General Public License as published by\n");
@@ -71,13 +71,13 @@ err:
     	printf("		wire [LNCOMMIT-1:0]kill_count = r_commit_end-kill_start-2;\n");	// number of things to kill
     	printf("		wire [LNCOMMIT-1:0]kk = (~r_commit_end)+1;\n");	
 	printf("		wire [NCOMMIT-1:0]kmask, kout;\n");	// mask identifying them
-	printf("		rot  k(.in(kmask), .out(kout), .r(kk));\n");
+	printf("		rot  #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT))k(.in(kmask), .out(kout), .r(kk));\n");
 	printf("		wire [LNCOMMIT-1:0]ks1 = kill_start+1;\n");
 	printf("		assign commit_kill = (kill && (ks1!=r_commit_end)?kout:0);\n");
 
 	printf("		assign kmask = {");
 	for (i = ncommit-1;i >= 1; i--) 
-		printf("(kill_count>=%d),",31-i);
-	printf("(kill_count>=%d)};\n", 31-0);
+		printf("(kill_count>=%d),",(ncommit-1)-i);
+	printf("(kill_count>=%d)};\n", (ncommit-1)-0);
 	exit(0);
 }

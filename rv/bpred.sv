@@ -399,6 +399,17 @@ module bpred(input clk,  input reset,
 			if (NUM_PENDING_RET == 16 ) begin
 `include "mk20_32_16.inc"
 			end 
+		end else
+		if (NUM_PENDING == 64) begin
+			if (NUM_PENDING_RET == 8 ) begin
+`include "mk20_64_8.inc"
+			end else
+			if (NUM_PENDING_RET == 16 ) begin
+`include "mk20_64_16.inc"
+			end else
+			if (NUM_PENDING_RET == 32 ) begin
+`include "mk20_64_32.inc"
+			end 
 		end
 	endgenerate
 

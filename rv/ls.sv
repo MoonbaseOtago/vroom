@@ -588,6 +588,24 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 		if (NCOMMIT == 32 && ADDR == 4 && NLOAD == 2 && NSTORE == 2 && NLDSTQ == 32) begin
 `include "mk21_32_4_2_2_32.inc"
 		end 
+		if (NCOMMIT == 64 && NADDR == 6 && NLOAD == 4 && NSTORE == 4 && NLDSTQ == 16) begin
+`include "mk21_64_6_4_4_16.inc"
+		end else
+		if (NCOMMIT == 64 && NADDR == 6 && NLOAD == 4 && NSTORE == 4 && NLDSTQ == 32) begin
+`include "mk21_64_6_4_4_32.inc"
+		end else
+		if (NCOMMIT == 64 && NADDR == 6 && NLOAD == 4 && NSTORE == 4 && NLDSTQ == 64) begin
+`include "mk21_64_6_4_4_64.inc"
+		end else
+		if (NCOMMIT == 64 && ADDR == 4 && NLOAD == 2 && NSTORE == 2 && NLDSTQ == 16) begin
+`include "mk21_64_4_2_2_16.inc"
+		end else
+		if (NCOMMIT == 64 && ADDR == 4 && NLOAD == 2 && NSTORE == 2 && NLDSTQ == 32) begin
+`include "mk21_64_4_2_2_32.inc"
+		end else
+		if (NCOMMIT == 64 && ADDR == 4 && NLOAD == 2 && NSTORE == 2 && NLDSTQ == 64) begin
+`include "mk21_64_4_2_2_64.inc"
+		end 
 
 		for (A = 0; A < NADDR; A=A+1) begin: addr
 
@@ -1450,6 +1468,12 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 		assign tlb_wr_inv_unified = unified_asid[tlb_inv_hart];
 		assign tlb_wr_inv_asid = {unified_asid[tlb_inv_hart]?tlb_inv_asid[15]:tlb_inv_hart,tlb_inv_asid[14:0]};
 
+		if (NLDSTQ == 64 && NLOAD == 4 && NSTORE == 4) begin
+`include "mk13_64_4_4.inc"
+		end else
+		if (NLDSTQ == 64 && NLOAD == 2 && NSTORE == 2) begin
+`include "mk13_64_2_2.inc"
+		end else
 		if (NLDSTQ == 32 && NLOAD == 4 && NSTORE == 4) begin
 `include "mk13_32_4_4.inc"
 		end else
@@ -1614,6 +1638,9 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 		end else
 		if (NLDSTQ == 32) begin
 `include "mk16_32.inc"
+		end else
+		if (NLDSTQ == 64) begin
+`include "mk16_64.inc"
 		end 
 
 		for (H = 0; H < NHART; H=H+1) begin

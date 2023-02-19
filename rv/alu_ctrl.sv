@@ -47,37 +47,61 @@ module alu_ctrl(
 	input xxtrig,
 `endif
 `ifdef COMBINED_BRANCH
-`ifdef FP
-`ifdef NALU4
-`include "alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc"
+  `ifdef N64
+    `ifdef FP
+     `ifdef NALU4
+       `include "alu_ctrl_hdr_4_1_64_4_1_0_1_1.inc"
+     `else
+      `ifdef NALU3
+      `include "alu_ctrl_hdr_4_1_64_3_1_0_1_1.inc"
+      `else
+      `include "alu_ctrl_hdr_4_1_64_2_1_0_1_1.inc"
+      `endif
+      `endif
+    `else
+      `ifdef NALU4
+        `include "alu_ctrl_hdr_4_1_64_4_1_0_1_0.inc"
+      `else
+        `ifdef NALU3
+          `include "alu_ctrl_hdr_4_1_64_3_1_0_1_0.inc"
+        `else
+          `include "alu_ctrl_hdr_4_1_64_2_1_0_1_0.inc"
+        `endif
+      `endif
+    `endif
+  `else
+    `ifdef FP
+     `ifdef NALU4
+       `include "alu_ctrl_hdr_4_1_32_4_1_0_1_1.inc"
+     `else
+      `ifdef NALU3
+      `include "alu_ctrl_hdr_4_1_32_3_1_0_1_1.inc"
+      `else
+      `include "alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc"
+      `endif
+      `endif
+    `else
+      `ifdef NALU4
+        `include "alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc"
+      `else
+        `ifdef NALU3
+          `include "alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc"
+        `else
+          `include "alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc"
+        `endif
+      `endif
+    `endif
+  `endif
 `else
-`ifdef NALU3
-`include "alu_ctrl_hdr_4_1_32_3_1_0_1_1.inc"
-`else
-`include "alu_ctrl_hdr_4_1_32_2_1_0_1_1.inc"
-`endif
-`endif
-`else
-`ifdef NALU4
-`include "alu_ctrl_hdr_4_1_32_4_1_0_1_0.inc"
-`else
-`ifdef NALU3
-`include "alu_ctrl_hdr_4_1_32_3_1_0_1_0.inc"
-`else
-`include "alu_ctrl_hdr_4_1_32_2_1_0_1_0.inc"
-`endif
-`endif
-`endif
-`else
-`ifdef FP
-`include "alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc"
-`else
-`ifdef NALU3
-`include "alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc"
-`else
-`include "alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc"
-`endif
-`endif
+  `ifdef FP
+    `include "alu_ctrl_hdr_4_1_32_2_1_1_1_1.inc"
+  `else
+    `ifdef NALU3
+      `include "alu_ctrl_hdr_4_1_32_3_1_1_1_0.inc"
+    `else
+      `include "alu_ctrl_hdr_4_1_32_2_1_1_1_0.inc"
+    `endif
+  `endif
 `endif
 	input dummy);
 
@@ -97,33 +121,61 @@ module alu_ctrl(
 
 	generate
 `ifdef COMBINED_BRANCH
-`ifdef FP
+  `ifdef FP
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
+    `include "alu_ctrl_core_4_1_64_2_1_0_1_1.inc"
+    `ifdef NALU3
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
+      `include "alu_ctrl_core_4_1_64_3_1_0_1_1.inc"
+    `endif
+    `ifdef NALU4
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin
+      `include "alu_ctrl_core_4_1_64_4_1_0_1_1.inc"
+    `endif
+		end
+  `endif
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
+  `include "alu_ctrl_core_4_1_64_2_1_0_1_0.inc"
+  `ifdef NALU4
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin
+    `include "alu_ctrl_core_4_1_64_4_1_0_1_0.inc"
+  `endif
+  `ifdef NALU3
+		end else
+		if (NFPU==0 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
+    `include "alu_ctrl_core_4_1_64_3_1_0_1_0.inc"
+  `endif
+		end
+  `ifdef FP
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_2_1_0_1_1.inc"
-`ifdef NALU3
+    `include "alu_ctrl_core_4_1_32_2_1_0_1_1.inc"
+    `ifdef NALU3
 		end else
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_3_1_0_1_1.inc"
-`endif
-`ifdef NALU4
+      `include "alu_ctrl_core_4_1_32_3_1_0_1_1.inc"
+    `endif
+    `ifdef NALU4
 		end else
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_4_1_0_1_1.inc"
-`endif
+      `include "alu_ctrl_core_4_1_32_4_1_0_1_1.inc"
+    `endif
 		end
-`endif
+  `endif
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_2_1_0_1_0.inc"
-`ifdef NALU4
+  `include "alu_ctrl_core_4_1_32_2_1_0_1_0.inc"
+  `ifdef NALU4
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_4_1_0_1_0.inc"
-`endif
-`ifdef NALU3
+    `include "alu_ctrl_core_4_1_32_4_1_0_1_0.inc"
+  `endif
+  `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin
-`include "alu_ctrl_core_4_1_32_3_1_0_1_0.inc"
-`endif
+    `include "alu_ctrl_core_4_1_32_3_1_0_1_0.inc"
+  `endif
 		end
 `else
 `ifdef FP

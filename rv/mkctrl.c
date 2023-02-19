@@ -270,7 +270,7 @@ err:
 	nfpu = strtol((const char *)argv[ind++], 0, 0);
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
-	printf("// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com\n");
+	printf("// Copyright (C) 2019-23 Paul Campbell - paul@taniwha.com\n");
 	printf("//\n");
 	printf("// This program is free software: you can redistribute it and/or modify\n");
 	printf("// it under the terms of the GNU General Public License as published by\n");

@@ -23,6 +23,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 
 `ifdef SIMD
 	input simd_enable,
+	input pipe_enable,
 	input simd_trace_enable,
 `endif
 
@@ -915,7 +916,7 @@ assign gl_type_dec[H] = unit_type_dec[0];
 
 			wire			force_fetch_rename;
 
-			rename_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
+			rename_ctrl #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT), .VA_SZ(VA_SZ), .RV(RV), .HART(H), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .CALL_STACK_SIZE(CALL_STACK_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))rename_control(.reset(reset), .clk(clk),
 `ifdef TRACE_CACHE
 				.trace_used(pc_trace_used[H]),
 `endif
@@ -1196,7 +1197,7 @@ end
 				end 
 
 
-				scoreboard #(.RV(RV), .HART(H), .RA(RA), .ADDR(R), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))score_board(.reset(reset), .clk(clk),
+				scoreboard #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT),.RV(RV), .HART(H), .RA(RA), .ADDR(R), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))score_board(.reset(reset), .clk(clk),
 
 					.rename_result(rename_result),
 					.rename_valid(rename_match_valid),
@@ -1250,7 +1251,7 @@ end
 `include "mk3_16.inc"
 				end 
 
-				scoreboard #(.RV(RV), .HART(H), .RA(RA), .ADDR(R), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))score_board(.reset(reset), .clk(clk),
+				scoreboard #(.LNCOMMIT(LNCOMMIT), .NCOMMIT(NCOMMIT),.RV(RV), .HART(H), .RA(RA), .ADDR(R), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))score_board(.reset(reset), .clk(clk),
 
 					.rename_result(rename_result),
 					.rename_valid(rename_match_valid),
@@ -1422,6 +1423,7 @@ end
 				commit #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
 `ifdef SIMD
 					.simd_enable(simd_enable),
+					.pipe_enable(pipe_enable),
 `endif
 `ifdef AWS_DEBUG
 `ifdef AWS_DEBUG_COMMIT
@@ -1717,6 +1719,9 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 		end
 
 		if (N_LOCAL_UNITS == 1) begin
+			if (N_GLOBAL_UNITS == (4+6+4+1+1+1)) begin
+`include "mk15_17_1.inc"
+			end
 			if (N_GLOBAL_UNITS == (4+6+4+1+1+0)) begin
 `include "mk15_16_1.inc"
 			end
@@ -2417,139 +2422,193 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 `include "rfile_24_1_11_1_8_32_7.inc"
 				end 
 `endif
+			end else
+			if (NCOMMIT==64 && NUM_GLOBAL_READ_PORTS==20 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 9 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 7) begin :r4
+				if (NUM_TRANSFER_PORTS == 4) begin :x4
+`include "rfile_20_1_9_1_4_64_7.inc"
+				end 
+				if (NUM_TRANSFER_PORTS == 8) begin :y4
+`include "rfile_20_1_9_1_8_64_7.inc"
+				end 
+`ifdef NALU3
+			end else
+			if (NCOMMIT==64 && NUM_GLOBAL_READ_PORTS==22 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 10 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 7) begin :r3
+				if (NUM_TRANSFER_PORTS == 8) begin :y4
+`include "rfile_22_1_10_1_8_64_7.inc"
+				end 
+`endif
+`ifdef NALU4
+			end else
+			if (NCOMMIT==64 && NUM_GLOBAL_READ_PORTS==24 && NUM_LOCAL_READ_PORTS==1 && NUM_GLOBAL_WRITE_PORTS == 11 && NUM_LOCAL_WRITE_PORTS == 1 && NUM_GLOBAL_READ_FP_PORTS == 7) begin :r3
+				if (NUM_TRANSFER_PORTS == 8) begin :y4
+`include "rfile_24_1_11_1_8_64_7.inc"
+				end 
+`endif
 			end
 `endif
 		end
 
 
 `ifdef COMBINED_BRANCH
+  `ifndef N64
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH==0) begin : alu_ctrl2
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+    `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_2_1_0_1_0.inc"
+    `endif
+    `include "alu_ctrl_inst_4_1_32_2_1_0_1_0.inc"
 			.dummy(1'b0));
-`ifdef NALU4
+    `ifdef NALU4
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH==0) begin : alu_ctrl
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+        `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_4_1_0_1_0.inc"
+        `endif
+        `include "alu_ctrl_inst_4_1_32_4_1_0_1_0.inc"
 			.dummy(1'b0));
-`endif
-`ifdef NALU3
+    `endif
+    `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH==0) begin : alu_ctrl
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+      `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_3_1_0_1_0.inc"
+      `endif
+      `include "alu_ctrl_inst_4_1_32_3_1_0_1_0.inc"
 			.dummy(1'b0));
-`endif
+    `endif
 		end
-`ifdef FP
+  `endif
+  `ifdef FP
+    `ifndef N64
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 0) begin : alu_ctrlf
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+      `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_2_1_0_1_1.inc"
+      `endif
+      `include "alu_ctrl_inst_4_1_32_2_1_0_1_1.inc"
 			.dummy(1'b0));
-`ifdef NALU3
+      `ifdef NALU3
 		end else
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin : alu_ctrlf
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+        `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_3_1_0_1_1.inc"
+        `endif
+        `include "alu_ctrl_inst_4_1_32_3_1_0_1_1.inc"
 			.dummy(1'b0));
-`endif
-`ifdef NALU4
+      `endif
+		end else
+    `else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH == 0) begin : alu_ctrlf
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+      `ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+      `endif
+      `include "alu_ctrl_inst_4_1_64_3_1_0_1_1.inc"
+			.dummy(1'b0));
+      `ifdef NALU4
+		end else
+		if (NFPU==1 && NHART == 1 && NCOMMIT == 64 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin : alu_ctrlf
+				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
+        `ifdef AWS_DEBUG
+			.trig_in(reg_cpu_trig_out),
+			.trig_in_ack(reg_cpu_trig_out_ack),
+            .trig_out(rn_trig[0][0]),
+            .trig_out_ack(rn_trig_ack[0][0]),
+			.xxtrig(xxtrig),
+        `endif
+        `include "alu_ctrl_inst_4_1_64_4_1_0_1_1.inc"
+			  .dummy(1'b0));
+      `endif
+    `endif
+    `ifndef N64
 		end else
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 4 && NBRANCH == 0) begin : alu_ctrlf
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+      `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_4_1_0_1_1.inc"
-			.dummy(1'b0));
-`endif
+      `endif
+      `include "alu_ctrl_inst_4_1_32_4_1_0_1_1.inc"
+			  .dummy(1'b0));
+    `endif
 		end
+  `endif
+
+
 `endif
 
 
-`else
-
-
+`ifndef N64
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH==1) begin : alu_ctrl2
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+  `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_2_1_1_1_0.inc"
+  `endif
+  `include "alu_ctrl_inst_4_1_32_2_1_1_1_0.inc"
 			.dummy(1'b0));
-`ifdef NALU3
+  `ifdef NALU3
 		end else
 		if (NFPU==0 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 3 && NBRANCH==1) begin : alu_ctrl
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+    `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_3_1_1_1_0.inc"
+    `endif
+    `include "alu_ctrl_inst_4_1_32_3_1_1_1_0.inc"
 			.dummy(1'b0));
-`endif
+  `endif
 		end
-`ifdef FP
+  `ifdef FP
 		if (NFPU==1 && NHART == 1 && NCOMMIT == 32 && NSHIFT == 1 && NMUL == 1 && NALU == 2 && NBRANCH == 1) begin : alu_ctrlf
 				alu_ctrl #(.RV(RV), .RA(RA), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NSHIFT(NSHIFT), .NMUL(NMUL), .NLDSTQ(NLDSTQ), .NALU(NALU), .NFPU(NFPU), .NBRANCH(NBRANCH)) alu_control(.reset(reset), .clk(clk),
-`ifdef AWS_DEBUG
+    `ifdef AWS_DEBUG
 			.trig_in(reg_cpu_trig_out),
 			.trig_in_ack(reg_cpu_trig_out_ack),
             .trig_out(rn_trig[0][0]),
             .trig_out_ack(rn_trig_ack[0][0]),
 			.xxtrig(xxtrig),
-`endif
-`include "alu_ctrl_inst_4_1_32_2_1_1_1_1.inc"
+    `endif
+    `include "alu_ctrl_inst_4_1_32_2_1_1_1_1.inc"
 			.dummy(1'b0));
 		end
-`endif
+  `endif
 `endif
 	endgenerate
 

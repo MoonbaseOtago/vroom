@@ -138,6 +138,30 @@ module commit_ctrl(input clk,
 	end
 
 	generate
+		if (NCOMMIT == 64) begin: c64
+			if (NUM_TRANSFER_PORTS==8) begin
+				if (NDEC==2) begin : t82
+`include "mk7_4_8_64.inc"
+				end else
+				if (NDEC==4) begin : t84
+`include "mk7_8_8_64.inc"
+				end else
+				if (NDEC==8) begin: t88
+`include "mk7_16_8_64.inc"
+				end 
+			end else
+			if (NUM_TRANSFER_PORTS==4) begin
+				if (NDEC==2) begin: t42
+`include "mk7_4_4_64.inc" 
+				end else
+				if (NDEC==4) begin: t44
+`include "mk7_8_4_64.inc"
+				end else
+				if (NDEC==8) begin: t48
+`include "mk7_16_4_64.inc"
+				end	
+			end
+		end
 		if (NCOMMIT == 32) begin: c32
 			if (NUM_TRANSFER_PORTS==8) begin
 				if (NDEC==2) begin : t82
@@ -191,6 +215,7 @@ module commit(input clk,
 
 `ifdef SIMD
 	input simd_enable,
+	input pipe_enable,
 `endif
 	input [RA-1:0]rs1,
 	input [4:0]real_rs1,
@@ -1089,11 +1114,7 @@ module commit(input clk,
 								     ((!r_rs2[RA-1]|commit_completed[r_rs2[LNCOMMIT-1:0]])|!r_needs_rs2)&
 								     ((!r_rs3[RA-1]|commit_completed[r_rs3[LNCOMMIT-1:0]])|!r_needs_rs3)));
 	assign addr_ready = r_valid&(r_ready_addr|(!r_rs1[RA-1]|commit_completed[r_rs1[LNCOMMIT-1:0]]));
-`ifdef FP
-	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0&&!r_rs2_fp)|commit_completed[r_rs2[LNCOMMIT-1:0]]));
-`else
-	assign data_ready = r_valid&(r_ready|((r_rs2[RA-1]==0)|commit_completed[r_rs2[LNCOMMIT-1:0]]));
-`endif
+	assign data_ready = r_valid&(r_ready     |(!r_rs2[RA-1]|commit_completed[r_rs2[LNCOMMIT-1:0]]));
 
 	always @(posedge clk) begin
 		r_br_ok <= c_br_ok;
@@ -1302,6 +1323,34 @@ if (r_valid&&commit_kill && simd_enable) $display("K %d %x %x %x", $time,ADDR,{r
 if (commit_ended && simd_enable) $display("D %d %x %x %x", $time,ADDR,{r_pc,1'b0},r_unit_type);
 `endif
 	end
+`ifdef SIMD
+	time start_time, schedule_time, complete_time, ready_time, data_ready_time;
+	reg[RA-1:0]pipe_rs1, pipe_rs2;
+	reg last_completed, last_ready, last_data_ready, last_addr_ready;
+	always @(posedge clk) begin
+		if (load&!commit_kill) begin
+			start_time = $time;
+			pipe_rs1 = rs1;
+			pipe_rs2 = (needs_rs2?rs2:0);
+		end
+		case (r_unit_type)
+		3:			if (r_valid&!commit_kill&addr_ready&!last_addr_ready) ready_time = $time;
+		4:			begin
+						if (r_valid&!commit_kill&addr_ready&!last_addr_ready) ready_time = $time;
+						if (r_valid&!commit_kill&data_ready&!last_data_ready) data_ready_time = $time;
+						if (data_ready_time < ready_time) data_ready_time = ready_time;
+					end
+		default:	if (r_valid&!commit_kill&ready&!last_ready) ready_time = $time;
+		endcase
+		if (r_valid&!commit_kill&schedule) schedule_time = $time;
+		if (r_valid&!commit_kill&r_completed&!last_completed) complete_time = $time;
+		if (pipe_enable&&r_valid&&commit_ended) $display("<%2x,%6x,%1x,%2x,%2x,%1d,%1d,%1d,%1d,%1d,%1d>",ADDR[5:0],{r_pc, 1'b0},r_unit_type,pipe_rs1,pipe_rs2,start_time,ready_time,data_ready_time,schedule_time,complete_time,$time);
+		last_completed <= r_completed;
+		last_ready <= ready;
+		last_addr_ready <= addr_ready;
+		last_data_ready <= data_ready;
+	end
+`endif
 
 `ifdef AWS_DEBUG
 `ifdef AWS_DEBUG_COMMIT

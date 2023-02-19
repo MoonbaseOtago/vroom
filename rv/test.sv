@@ -125,6 +125,7 @@ module test;
 		.reset_out_ack(reset_out),
 `ifdef SIMD
 		.simd_enable(1'b1),
+		.pipe_enable(1'b0),
 `endif
 		.uart_rx(1'b0),
 		.uart_cts(1'b0),

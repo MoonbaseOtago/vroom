@@ -333,4 +333,20 @@ hpmcounter7 = 126058
 
 IPC = 2.79
 BTC hit rate = %99
+==================================
+19/2/23 simulator m-mode - 644 ld/st unit - bumped number of commit queue entries to 64, 3 ALUs
+Microseconds for one run through Dhrystone: 2.61
+Dhrystones per Second:                      382619
+DMips:                                      217.7
+DMips/(25)MHZ:                              8.71
+mcycle = 130714
+minstret = 444031
+hpmcounter4 = 82003
+hpmcounter5 = 81990
+hpmcounter6 = 444231
+hpmcounter7 = 126059
+
+IPC = 3.39
+BTC hit rate = %99
+
 

@@ -19,6 +19,7 @@
 module chip (input ireset, 
 `ifdef SIMD
 	input simd_enable,
+	input pipe_enable,
 	input simd_trace_enable,
 `endif
 	input clk_in,
@@ -105,8 +106,13 @@ module chip (input ireset,
 	parameter NPHYS=56;
 	parameter CACHE_LINE_SIZE=512;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
+`ifdef N64
+	parameter NLDSTQ=64;	// for the moment must be >= NCOMMIT to avoid deadlocks
+	parameter NCOMMIT=64;
+`else
 	parameter NLDSTQ=32;	// for the moment must be >= NCOMMIT to avoid deadlocks
 	parameter NCOMMIT=32;
+`endif
 	parameter TRANS_ID_SIZE=6;	// 6 for i/tcaches must be >= $clog2(NLDSTQ)
 	parameter NI=NCPU*2;
 	//parameter TSIZE=TRANS_ID_SIZE+$clog2(NI);
@@ -270,6 +276,7 @@ module chip (input ireset,
 				.cpu_id({cpu_id, sub_cpu}),
 `ifdef SIMD
 				.simd_enable(simd_enable),
+				.pipe_enable(pipe_enable),
 				.simd_trace_enable(simd_trace_enable),
 `endif
 `ifdef AWS_DEBUG

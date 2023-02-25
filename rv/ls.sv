@@ -371,7 +371,7 @@ module load_store(
 	reg [NLOAD-1:0]r_load_amo;
 	reg [NLOAD-1:0]r_load_makes_rd;
 	reg [NLOAD-1:0]r_load_queued, load_queued;
-	reg  [NLOAD-1:0]load_allocate;
+	reg  [NLOAD-1:0]load_allocate, load_allocate_early;
     reg  [$clog2(NLDSTQ)-1:0]r_load_ack_entry[0:NLOAD-1];
 
 	wire	[NLDSTQ-1:0]depends[0:NLDSTQ-1];
@@ -381,7 +381,7 @@ module load_store(
 	reg [(NHART==1?0:LNHART-1):0]r_load_res_hart[0:NLOAD-1];
 	reg [LNCOMMIT-1:0]r_load_res_rd[0:NLOAD-1];
 	reg [NLOAD-1:0]r_load_res_makes_rd;
-	reg [NLOAD-1:0]r_load_res_done, c_load_res_done;
+	reg [NLOAD-1:0]r_load_res_done, c_load_res_done, c_load_early_done;
 	reg [RV-1:0]load_snoop_result[0:NLOAD-1];
 	wire [NLDSTQ-1:0]load_snoop_hit_mask[0:NLOAD-1];
 
@@ -1078,7 +1078,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 		for (L = 0; L < NLOAD; L=L+1) begin : load
 			if ( NHART == 1) begin
 				assign ld_wb.wb[L].hart = r_load_res_done[L];
-				assign ld_early_wb.wb[L].hart = c_load_res_done[L];
+				assign ld_early_wb.wb[L].hart = c_load_early_done[L];
 			end else begin
 				reg [NHART-1:0]res, early_res;
 				always @(*) begin
@@ -1089,7 +1089,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				assign ld_wb.wb[L].hart = res;
 				always @(*) begin
 					early_res = 0;
-					if (c_load_res_done[L])
+					if (c_load_early_done[L])
 						early_res[r_load_hart[L]] = 1;
 				end
 				assign ld_early_wb.wb[L].hart = early_res;
@@ -1113,12 +1113,17 @@ wire [NLDSTQ-1:0]load_snoop_hit = load_snoop.ack[L].hit; // debug stuff
 wire [NLDSTQ-1:0]load_snoop_hazard = load_snoop.ack[L].hazard;
 wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 			
-			always @(*) 
+			always @(*) begin
+				load_allocate_early[L] = r_load_enable[L]&&
+								   !r_load_queued[L] &&
+								   (((|load_snoop.ack[L].hit?|(load_snoop_hit_mask[L]&load_snoop.ack[L].hazard):!dc_load.ack[L].hit||(dc_rd_lr[L]&&dc_load.ack[L].hit_need_o))) ||
+									r_load_control[L][4] || r_load_io[L]);
 				load_allocate[L] = r_load_enable[L]&&
 								   !r_load_queued[L] &&
 								   (((|load_snoop.ack[L].hit?|(load_snoop_hit_mask[L]&load_snoop.ack[L].hazard):!dc_load.ack[L].hit||(dc_rd_lr[L]&&dc_load.ack[L].hit_need_o))) ||
 									r_load_control[L][4] || r_load_io[L]) &&
                                    !commit_kill[r_load_hart[L]][r_load_rd[L]];
+			end
 
 			
 			reg [RV-1:0]data, data_out;
@@ -1285,8 +1290,10 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 				r_load_res_hart[L] <= r_load_hart[L];
 				
 			end
-			always @(*)
+			always @(*) begin
+				c_load_early_done[L] = (r_load_enable[L]&&(r_load_queued[L]?(dc_load.ack[L].hit||r_load_io[L]|r_load_fence[L]):!load_allocate_early[L])); // version with no 'killed' term
 				c_load_res_done[L] = (r_load_enable[L]&&!commit_kill[r_load_hart[L]][r_load_rd[L]]&&(r_load_queued[L]?(dc_load.ack[L].hit||r_load_io[L]|r_load_fence[L]):!load_allocate[L]));
+			end
 
 			if (NHART == 1) begin
 				always @(posedge clk) 

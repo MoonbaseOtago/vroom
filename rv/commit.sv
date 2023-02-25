@@ -531,7 +531,7 @@ module commit(input clk,
 
 	reg	r_valid, c_valid;
 	reg r_completed, c_completed;
-	assign completed_out = r_completed;
+	assign completed_out = r_completed || (r_unit_type==3 && r_valid && r_addr_done && r_busy && !r_busy2 && commit_load_early_done);
 	reg	r_commit_req, c_commit_req;
 	reg	r_commit_store_req, c_commit_store_req;
 	reg r_busy, c_busy;
@@ -1343,9 +1343,9 @@ if (commit_ended && simd_enable) $display("D %d %x %x %x", $time,ADDR,{r_pc,1'b0
 		default:	if (r_valid&!commit_kill&ready&!last_ready) ready_time = $time;
 		endcase
 		if (r_valid&!commit_kill&schedule) schedule_time = $time;
-		if (r_valid&!commit_kill&r_completed&!last_completed) complete_time = $time;
+		if (r_valid&!commit_kill&completed_out&!last_completed) complete_time = $time;
 		if (pipe_enable&&r_valid&&commit_ended) $display("<%2x,%6x,%1x,%2x,%2x,%1d,%1d,%1d,%1d,%1d,%1d>",ADDR[5:0],{r_pc, 1'b0},r_unit_type,pipe_rs1,pipe_rs2,start_time,ready_time,data_ready_time,schedule_time,complete_time,$time);
-		last_completed <= r_completed;
+		last_completed <= completed_out;
 		last_ready <= ready;
 		last_addr_ready <= addr_ready;
 		last_data_ready <= data_ready;

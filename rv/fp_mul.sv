@@ -55,8 +55,8 @@ module fp_mul(input reset, input clk,
 		r_start <= {r_start[0], start};
 	end
 	
-	reg [4:0]r_b_rd;
-	reg [4:0]r_c_rd;
+	reg [LNCOMMIT-1:0]r_b_rd;
+	reg [LNCOMMIT-1:0]r_c_rd;
 	reg [(NHART==1?0:LNHART-1):0]r_b_hart;
 	reg [(NHART==1?0:LNHART-1):0]r_c_hart;
 	assign rd_out = r_c_rd;

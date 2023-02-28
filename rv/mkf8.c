@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
 
 	printf("//\n");
 	printf("// RVOOM! Risc-V superscalar O-O\n");
-	printf("// Copyright (C) 2019-22 Paul Campbell - paul@taniwha.com\n");
+	printf("// Copyright (C) 2019-23 Paul Campbell - paul@taniwha.com\n");
 	printf("//\n");
 	printf("// This program is free software: you can redistribute it and/or modify\n");
 	printf("// it under the terms of the GNU General Public License as published by\n");
@@ -63,18 +63,59 @@ int main(int argc, char ** argv)
 	printf("// along with this program.  If not, see <http://www.gnu.org/licenses/>.\n");
 	printf("//\n");
 
-	for (i = 22; i >= 0; i--) {
-	printf("		23'b");
-		for (j = 22; j > i; j--)printf("0");
-		printf("1");
-		for (j = i-1; j >= 0; j--)printf("?");
-		printf(": begin ");
-		if (i == 0) {
-			printf("m=52'b0;");
-		} else {
-			printf("m={fr1[%d:0], %d'b0};", (i-1), 30+(22-i));
+	if (argc < 2) {
+		t = 0;
+	} else {
+		t = strtol((const char *)argv[1], 0, 0);
+	}
+	switch (t) {
+	case 0: // single->double
+		for (i = 22; i >= 0; i--) {
+		printf("		23'b");
+			for (j = 22; j > i; j--)printf("0");
+			printf("1");
+			for (j = i-1; j >= 0; j--)printf("?");
+			printf(": begin ");
+			if (i == 0) {
+				printf("m=52'b0;");
+			} else {
+				printf("m={fr1[%d:0], %d'b0};", (i-1), 30+(22-i));
+			}
+			printf("e=11'h%x; ", 0x380-(22-i));
+			printf(" end\n");
 		}
-		printf("e=11'h%x; ", 0x380-(22-i));
-		printf(" end\n");
+		break;
+	case 1:	// half->double
+		for (i = 9; i >= 0; i--) {
+		printf("		10'b");
+			for (j = 9; j > i; j--)printf("0");
+			printf("1");
+			for (j = i-1; j >= 0; j--)printf("?");
+			printf(": begin ");
+			if (i == 0) {
+				printf("m=52'b0;");
+			} else {
+				printf("m={fr1[%d:0], %d'b0};", (i-1), 41+(9-i));
+			}
+			printf("e=11'h%x; ", 0x380-(9-i));
+			printf(" end\n");
+		}
+		break;
+	case 2:	// half->single
+		for (i = 9; i >= 0; i--) {
+		printf("		10'b");
+			for (j = 9; j > i; j--)printf("0");
+			printf("1");
+			for (j = i-1; j >= 0; j--)printf("?");
+			printf(": begin ");
+			if (i == 0) {
+				printf("m=23'b0;");
+			} else {
+				printf("m={fr1[%d:0], %d'b0};", (i-1), 41-(52-23)+(9-i));
+			}
+			printf("e=8'h%x; ", 0x80-(9-i));
+			printf(" end\n");
+		}
+		break;
 	}
 }

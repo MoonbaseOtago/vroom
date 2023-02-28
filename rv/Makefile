@@ -108,7 +108,7 @@ XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)
 
 FPU = fp.sv fp_add.sv fp_mul.sv fp_div.sv
-FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4.inc mkf6.inc mkf7.inc mkf8.inc mkf9.inc mkf10.inc mkf11.inc
+FPINC = mkf1.inc mkf2.inc mkf3.inc mkf4_d_s.inc mkf4_d_h.inc mkf4_s_h.inc mkf6.inc mkf7.inc mkf8_h_d.inc mkf8_s_d.inc mkf8_h_s.inc  mkf9.inc mkf10.inc mkf11.inc
 
 
 VSYNTH1 = +define+VSYNTH +define+VSYNTH2 $(OPT_FLAG_1)
@@ -211,7 +211,7 @@ obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES) a
 
 fvv:	fobj_dir/fvv
 fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES) aes.sv
-	$(VERILATOR) -cc  --threads 4 --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
+	$(VERILATOR) -cc  --threads 3  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
 	make -j 16 -C fobj_dir -f Vchip.mk fvv
 
 svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv
@@ -818,8 +818,12 @@ mkf3.inc:	mkf3
 
 mkf4:	mkf4.c
 	gcc -o mkf4 mkf4.c
-mkf4.inc:	mkf4
-	./mkf4 >$@
+mkf4_d_s.inc:	mkf4
+	./mkf4 0 >$@
+mkf4_d_h.inc:	mkf4
+	./mkf4 1 >$@
+mkf4_s_h.inc:	mkf4
+	./mkf4 2 >$@
 
 mkf6:	mkf6.c
 	gcc -o mkf6 mkf6.c
@@ -833,8 +837,12 @@ mkf7.inc:	mkf7
 
 mkf8:	mkf8.c
 	gcc -o mkf8 mkf8.c
-mkf8.inc:	mkf8
-	./mkf8 >$@
+mkf8_s_d.inc:	mkf8
+	./mkf8 0 >$@
+mkf8_h_d.inc:	mkf8
+	./mkf8 1 >$@
+mkf8_h_s.inc:	mkf8
+	./mkf8 2 >$@
 
 mkf9:	mkf9.c
 	gcc -o mkf9 mkf9.c

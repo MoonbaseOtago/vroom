@@ -41,7 +41,7 @@ class vroom(pluginTemplate):
         # Number of parallel jobs that can be spawned off by RISCOF
         # for various actions performed in later functions, specifically to run the tests in
         # parallel on the DUT executable. Can also be used in the build function if required.
-        self.num_jobs = str(config['jobs'] if 'jobs' in config else 2)
+        self.num_jobs = str(config['jobs'] if 'jobs' in config else 4)
 
         # Path to the directory where this python file is located. Collect it from the config.ini
         self.pluginpath=os.path.abspath(config['pluginpath'])

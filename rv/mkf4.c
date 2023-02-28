@@ -63,6 +63,23 @@ int main(int argc, char ** argv)
 	printf("// along with this program.  If not, see <http://www.gnu.org/licenses/>.\n");
 	printf("//\n");
 
-	for (i = 0; i < 23; i++) 
-        printf("	11'h%x:	t = {%d'b0, 1'b1, fr1[51:%d], |fr1[%d:0]};\n", 0x369+i, 23-i, 51-i, 50-i);
+	if (argc < 2) {
+		t = 0;
+	} else {
+		t = strtol((const char *)argv[1], 0, 0);
+	}
+	switch (t) {
+	case 0: // single<-double
+		for (i = 0; i < 23; i++) 
+        	printf("	11'h%x:	t = {%d'b0, 1'b1, fr1[51:%d], |fr1[%d:0]};\n", 0x380-23+i, 23-i, 51-i, 50-i);
+		break;
+	case 1: // half<-double
+		for (i = 0; i < 10; i++) 
+        	printf("	11'h%x:	t = {%d'b0, 1'b1, fr1[51:%d], |fr1[%d:0]};\n", 0x380-10+i, 10-i, 51-i, 50-i);
+		break;
+	case 2: // half<-single
+		for (i = 0; i < 10; i++) 
+        	printf("	11'h%x:	t = {%d'b0, 1'b1, fr1[51:%d], |fr1[%d:0]};\n", 0x80-10+i, 10-i, 23-i, 22-i);
+		break;
+	}
 }

@@ -326,7 +326,7 @@ module fpu(
 							if (fr1[62:52] > 11'h47e || (inc_exp && fr1[62:52] == 11'h47e)) begin	// overflow
 								of = 1;
 								c_res = {32'hffff_ffff, fr1[63], 8'hff, 1'b0, 22'b0}; // inf
-							end else 
+							end else
 							if (fr1[62:52] < 11'h367) begin // OK
 								nx = fr1[62:0]!=0;
 								uf = fr1[62:0]!=0;
@@ -344,8 +344,8 @@ module fpu(
 								case (fr1[62:52])  //synthesis full_case parallel_case
 								11'h367:	t = {25'b0, 1'b1};
 								11'h368:	t = {24'b0, 1'b1, |fr1[51:0]};
-`include "mkf4.inc"
-								11'h380:	t = {1'b1, fr1[51:28], |fr1[27:0]}; 
+`include "mkf4_d_s.inc"
+								11'h380:	t = {1'b1, fr1[51:28], |fr1[27:0]};
 								endcase
 								case (r_rounding) //synthesis full_case parallel_case
 								0: ainc = (t[2:0] > 4) | ((t[2:0]==4)&t[3]);
@@ -369,7 +369,7 @@ module fpu(
 								reg [51:0]m;
 								reg [10:0]e;
 								casez (fr1[22:0]) // synthesis full_case parallel_case
-`include "mkf8.inc"
+`include "mkf8_s_d.inc"
 								endcase
 								c_res = { fr1[31], e, m};
 							end
@@ -379,14 +379,164 @@ module fpu(
 						end else begin
 							c_res = { fr1[31], fr1[30], {3{~fr1[30]}}, fr1[29:23], fr1[22:0], 29'b0};
 						end
-                    4'b00_10:  // fcvt.s.h
-						c_res = 0;
-                    4'b10_00:  // fcvt.h.s
-						c_res = 0;
-                    4'b01_10:  // fcvt.d.h
-						c_res = 0;
-                    4'b10_01:  // fcvt.h.d
-						c_res = 0;
+                    4'b00_10:  // fcvt.s.h	half->single
+						if (fr1[63:16] != 48'hffff_ffff_ffff) begin	// bad
+							c_res = {32'hffff_ffff, fr1[15], 8'hff, 1'b1, 22'h0};
+						end else
+						if (fr1[14:10] == 5'h0) begin
+							if (fr1[9:0] == 0) begin
+								c_res = { 32'hffff_ffff,  fr1[15], 8'b0, 23'b0};
+							end else begin	:denS // need to un-denorm
+								reg [22:0]m;
+								reg [7:0]e;
+								casez (fr1[9:0]) // synthesis full_case parallel_case
+`include "mkf8_h_s.inc"
+								endcase
+								c_res = { 32'hffff_ffff, fr1[15], e, m};
+							end
+						end else
+						if (fr1[14:10] == 5'h1f) begin
+							c_res = {32'hffff_ffff, fr1[15], 8'hff, fr1[9:0], 13'b0};
+						end else begin
+							c_res = { 32'hffff_ffff, fr1[15], fr1[14], {3{~fr1[14]}}, fr1[13:10], fr1[9:0], 13'b0};
+						end
+                    4'b01_10:  // fcvt.d.h	half->double
+						if (fr1[63:16] != 48'hffff_ffff_ffff) begin	// bad
+							c_res = {fr1[15], 11'h7ff, 1'b1, 51'h0};
+						end else
+						if (fr1[14:10] == 5'h00) begin
+							if (fr1[22:0] == 0) begin
+								c_res = { fr1[31], 11'b0, 23'b0, 29'b0};
+							end else begin	:denH // need to un-denorm
+								reg [51:0]m;
+								reg [10:0]e;
+								casez (fr1[9:0]) // synthesis full_case parallel_case
+`include "mkf8_h_d.inc"
+								endcase
+								c_res = { fr1[15], e, m};
+							end
+						end else
+						if (fr1[14:10] == 5'h1f) begin
+							c_res = { fr1[15], 11'h7ff, fr1[9:0], 12'b0, 29'b0};
+						end else begin
+							c_res = { fr1[15], fr1[14], {6{~fr1[14]}}, fr1[13:10], fr1[9:0], 12'b0, 29'b0};
+						end
+                    4'b10_00:  // fcvt.h.s	single->half
+						if (fr1[30:23] == 8'hff) begin
+							c_res = {48'hffff_ffff_ffff, fr1[31]&~|fr1[22:0], 5'h1f, |fr1[22:0], 9'b0};
+							nv = !fr1[22] && |fr1[21:0];
+						end else begin :cvt_sh
+							reg [2:0]guard;
+							reg inc, inc_exp;
+							reg [4:0]cvt_exp;
+							//
+							// exp:     3ff -> 7f
+							//			371	-> 01	-7e
+							//			47e	-> fe   +7e
+							cvt_exp = {fr1[30], fr1[26:23]};
+							guard = {fr1[12:11], |fr1[10:0]};   // 22:13
+							case (r_rounding) //synthesis full_case parallel_case
+							0: inc = (guard > 4) || ((guard==4)&&fr1[13]);
+							1: inc = 0;
+							2: inc = fr1[63] && (guard!=0);
+							3: inc = !fr1[63] && (guard!=0);
+							4: inc = guard >= 4;
+							endcase
+							nx = guard != 0;
+							inc_exp = inc && fr1[22:13] == 10'h3ff;
+							if (fr1[30:23] > (8'h8e) || (inc_exp && fr1[30:23] == 8'h8e)) begin	// overflow
+								of = 1;
+								c_res = {48'hffff_ffff_ffff, fr1[31], 5'h1f, 1'b0, 9'b0}; // inf
+							end else
+							if (fr1[30:23] < (8'h80-10)) begin // OK
+								nx = fr1[30:0]!=0;
+								uf = fr1[30:0]!=0;
+								c_res = {48'hffff_ffff_ffff, fr1[31], 15'b0};
+							end else
+							if (fr1[30:23] > 8'h80 || (inc_exp && fr1[30:23] == 8'h80)) begin // OK
+								if (inc_exp) begin
+                                       c_res = {48'hffff_ffff_ffff, fr1[31], cvt_exp+5'h1, 10'h0};
+                                end else begin
+                                       c_res = {48'hffff_ffff_ffff, fr1[31], cvt_exp, fr1[22:13]+{9'b0, inc}};
+                                end
+							end else begin : tx		// denorm
+								reg [12:0]t;
+								reg ainc;
+								case (fr1[30:23])  //synthesis full_case parallel_case
+								8'h67:	t = {11'b0, 1'b1};
+								8'h68:	t = {10'b0, 1'b1, |fr1[22:0]};
+`include "mkf4_s_h.inc"
+								8'h80:	t = {1'b1, fr1[22:14], |fr1[13:0]};
+								endcase
+								case (r_rounding) //synthesis full_case parallel_case
+								0: ainc = (t[2:0] > 4) | ((t[2:0]==4)&t[3]);
+								1: ainc = 0;
+								2: ainc = fr1[31] & (t[2:0]!=0);
+								3: ainc = !fr1[31] & (t[2:0]!=0);
+								4: ainc = t[2:0]>=4;
+								endcase
+								nx = nx | (t[2:0] != 0);
+								c_res = {48'hffff_ffff_ffff, fr1[31], 8'h00, t[12:3]+{9'b0,ainc}};
+							end
+						end
+                    4'b10_01:  // fcvt.h.d	double->half
+						if (fr1[62:52] == 11'h7ff) begin
+							c_res = {48'hffff_ffff_ffff, fr1[63]&~|fr1[51:0], 5'h1f, |fr1[51:0], 9'b0};
+							nv = !fr1[51] && |fr1[50:0];
+						end else begin :cvt_hd
+							reg [2:0]guard;
+							reg inc, inc_exp;
+							reg [4:0]cvt_exp;
+							//
+							// exp:     3ff -> 7f
+							//			371	-> 01	-7e
+							//			47e	-> fe   +7e
+							cvt_exp = {fr1[62], fr1[55:52]};
+							guard = {fr1[41:40], |fr1[39:0]};   // 51:42
+							case (r_rounding) //synthesis full_case parallel_case
+							0: inc = (guard > 4) || ((guard==4)&&fr1[42]);
+							1: inc = 0;
+							2: inc = fr1[63] && (guard!=0);
+							3: inc = !fr1[63] && (guard!=0);
+							4: inc = guard >= 4;
+							endcase
+							nx = guard != 0;
+							inc_exp = inc && fr1[51:42] == 10'h3ff;
+							if (fr1[62:52] > (11'h38e) || (inc_exp && fr1[62:52] == 11'h38e)) begin	// overflow
+								of = 1;
+								c_res = {48'hffff_ffff_ffff, fr1[63], 5'h1f, 1'b0, 9'b0}; // inf
+							end else
+							if (fr1[62:52] < (11'h380-10)) begin // OK
+								nx = fr1[62:0]!=0;
+								uf = fr1[62:0]!=0;
+								c_res = {48'hffff_ffff_ffff, fr1[63], 15'b0};
+							end else
+							if (fr1[62:52] > 11'h380 || (inc_exp && fr1[62:52] == 11'h380)) begin // OK
+								if (inc_exp) begin
+                                       c_res = {48'hffff_ffff_ffff, fr1[63], cvt_exp+5'h1, 10'h0};
+                                end else begin
+                                       c_res = {48'hffff_ffff_ffff, fr1[63], cvt_exp, fr1[51:42]+{9'b0, inc}};
+                                end
+							end else begin : tx		// denorm
+								reg [12:0]t;
+								reg ainc;
+								case (fr1[62:52])  //synthesis full_case parallel_case
+								11'h367:	t = {11'b0, 1'b1};
+								11'h368:	t = {10'b0, 1'b1, |fr1[51:0]};
+`include "mkf4_d_s.inc"
+								11'h380:	t = {1'b1, fr1[51:42], |fr1[41:0]};
+								endcase
+								case (r_rounding) //synthesis full_case parallel_case
+								0: ainc = (t[2:0] > 4) | ((t[2:0]==4)&t[3]);
+								1: ainc = 0;
+								2: ainc = fr1[63] & (t[2:0]!=0);
+								3: ainc = !fr1[63] & (t[2:0]!=0);
+								4: ainc = t[2:0]>=4;
+								endcase
+								nx = nx | (t[2:0] != 0);
+								c_res = {48'hffff_ffff_ffff, fr1[63], 8'h00, t[12:3]+{9'b0,ainc}};
+							end
+						end
 					endcase
 				end
 			8, //		8 = fcvt.w.*
@@ -673,7 +823,7 @@ module fpu(
 						if (exp_a != exp_b) begin
 							eq = 0;
 							lt = (exp_a < exp_b)^sign_a;
-						end else 
+						end else
 						if (man_a != man_b) begin
 							eq = 0;
 							lt = (man_a < man_b)^sign_a;

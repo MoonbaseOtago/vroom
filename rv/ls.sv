@@ -378,6 +378,9 @@ module load_store(
 	LOAD_SNOOP #(.NLDSTQ(NLDSTQ), .NPHYS(NPHYS), .LNHART(LNHART), .NHART(NHART), .NLOAD(NLOAD), .RV(RV))load_snoop();
 
 	reg [RV-1:0]r_load_res_data[0:NLOAD-1];
+`ifdef FP
+	reg [NLOAD-1:0]r_load_res_fp;
+`endif
 	reg [(NHART==1?0:LNHART-1):0]r_load_res_hart[0:NLOAD-1];
 	reg [LNCOMMIT-1:0]r_load_res_rd[0:NLOAD-1];
 	reg [NLOAD-1:0]r_load_res_makes_rd;
@@ -1095,7 +1098,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 				assign ld_early_wb.wb[L].hart = early_res;
 			end
 `ifdef FP
-			assign ld_wb.wb[L].fp = r_load_control[L][3];
+			assign ld_wb.wb[L].fp = r_load_res_fp[L];
 `endif
 			assign ld_wb.wb[L].result = r_load_res_data[L];
 			assign ld_wb.wb[L].rd = r_load_res_rd[L];
@@ -1288,6 +1291,9 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 				r_load_res_makes_rd[L] <= r_load_makes_rd[L];
 				r_load_res_rd[L] <= r_load_rd[L];
 				r_load_res_hart[L] <= r_load_hart[L];
+`ifdef FP
+				r_load_res_fp[L] <= r_load_control[L][3];
+`endif
 				
 			end
 			always @(*) begin

@@ -20,7 +20,7 @@
 `define TRC_SI
 
 // what we store in the trace cache
-interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5);
+interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=8, VA_SZ=48, LNCOMMIT=5);
 	typedef struct packed {
 		bit     [VA_SZ-1:1]pc;		// 63
 		bit      [ 4: 0]rd;			// 5
@@ -33,6 +33,9 @@ interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5
 		bit      [ 3: 0]unit_type;	// 4
 		bit[CNTRL_SIZE-1:0]control;	// 7
 		bit       [31:0]immed;		// 32
+`ifdef INSTRUCTION_FUSION
+		bit       [31:0]immed2;		// 12
+`endif
 `ifdef FP
 		bit				rd_fp;		// 1
 		bit				rs1_fp;		// 1
@@ -42,7 +45,7 @@ interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=7, VA_SZ=48, LNCOMMIT=5
 		bit     [VA_SZ-1:1]pc_dest;	// 63
 		bit			    start;		// 1
 		bit				short_ins;	// 1
-	} bundle;				// 198 bits worth of state
+	} bundle;				// 210 bits worth of state
 	bundle b[0:NRETIRE-1];
 	// (not part of stored bundle)
 	bit	[NRETIRE-1:0]valid;		// Nth entry is valid

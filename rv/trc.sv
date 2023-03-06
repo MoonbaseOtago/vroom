@@ -50,6 +50,9 @@ module trace_cache(input clk, input reset,
 	parameter NUM_TRACE_LINES=64;
 	parameter VA_SZ=48;   
 	parameter BUNDLE_SIZE=(VA_SZ-1)+4*5+1+1+1+4+CNTRL_SIZE+32+
+`ifdef INSTRUCTION_FUSION
+						32+
+`endif
 `ifdef FP
 						1+1+1+1+
 `endif

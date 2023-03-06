@@ -136,6 +136,9 @@ int main(int argc, char ** argv)
 		printf("			branch_token = branch_token_rename[%d];\n",i);
 		printf("			branch_token_ret = branch_token_ret_rename[%d];\n",i);
 		printf("			immed = immed_rename[%d];\n",i);
+		printf("`ifdef INSTRUCTION_FUSION\n");
+		printf("			immed2 = immed2_rename[%d];\n",i);
+		printf("`endif\n");
 		printf("			start = start_rename[%d];\n",i);
 		printf("			short = short_rename[%d];\n",i);
 		printf("		    end\n");

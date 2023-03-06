@@ -27,6 +27,7 @@ module load_store(
 	input reset, 
 `ifdef SIMD
 	input simd_enable,
+	input pipe_enable,
 `endif
 `ifdef AWS_DEBUG
 	input cpu_trig,
@@ -338,6 +339,20 @@ module load_store(
 	reg         [1:0]c_c_fd[0:NHART-1][0:NCOMMIT-1];
 	reg [NCOMMIT-1:0]hazard_clear_load[0:NHART-1];
 	reg [NCOMMIT-1:0]hazard_clear_store[0:NHART-1];
+
+`ifdef SIMD
+	always @(posedge clk)
+	if (pipe_enable && |r_c_valid[0]) begin
+		int i;
+		$write("{ %0d ", $time);
+		for (i = 0; i < NCOMMIT; i=i+1)
+		if (r_c_valid[0][i]) begin
+			$write("0x%02x: %s 0x%0x 0x%0x ", i[LNCOMMIT-1:0], r_c_load[0][i]?"L":"S", r_c_hard_hazard[0][i], r_c_soft_hazard[0][i]);
+		end
+		$write("}\n");
+	end
+`endif
+
 
 	wire [NCOMMIT-1:0]debug_soft_hazard;
 	wire [NCOMMIT-1:0]debug_hard_hazard;

@@ -2628,7 +2628,9 @@ module decode(input clk,
 					makes_rd = 1;
 					f_fp = 1;
 					f_fpm = 1;
+`ifdef FP
 					trap = fp_off || ins[14:12] == 5 || ins[14:12] == 6; // invalid rounding modes
+`endif
 					f_fp_sz = ins[26:25];
 					trap = trap | (ins[26:25] == 2'b11);
 					f_fp_op = 3;	// fnmadd

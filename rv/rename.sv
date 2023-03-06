@@ -356,6 +356,28 @@ module rename(
 		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
 		output			valid_out
+`ifdef INSTRUCTION_FUSION
+		,
+		input  [31:0]immed2,
+		input [4:0]orig_rs1,
+		input [4:0]orig_rs2,
+		input       orig_makes_rd,
+		input		orig_needs_rs2,
+		output    [31: 0]immed2_out,
+		output	renamed_is_complex_return,
+		output	renamed_is_add_const,
+		output	renamed_is_add_r0,
+		output	renamed_is_add_r0_rs2,
+		output	renamed_is_load_immediate,
+		output	renamed_is_const_branch,
+		input	next_is_complex_return,
+		input	next_is_const_branch,
+		input	prev_is_add_const,
+		input	prev_is_load_immediate,
+		input	prev_is_add_r0,
+		input  [4:0]prev_rd,
+		input  [31:0]prev_immed
+`endif
 `ifdef RENAME_OPT
 		,
 		input	[NCOMMIT-1:0]commit_completed,
@@ -385,6 +407,66 @@ module rename(
 	parameter LNCOMMIT=5;
 	parameter NUM_PENDING=32;
 	parameter NUM_PENDING_RET=8;
+
+`ifdef INSTRUCTION_FUSION
+	//
+	//	we're limited by register read ports per ALU, we're going to rewrite
+	//	the following into one instruction:
+	//
+	//	1)	add   a, b, #C	is_add_const
+	//		ret				is_complex_return
+	//
+	//	2)  add	  a, r0, #C	is_add_const
+	//		bxx	  a, d, br	is_const_branch is_const_branch_rs1
+	//
+	//	3)  add	  a, r0, #C	is_add_const
+	//		bxx	  d, a, br	is_const_branch !is_const_branch_rs1
+	//
+	reg	is_load_immediate, is_add_const, is_const_branch, is_const_branch_rs1, is_complex_return;
+	reg is_add_r0, is_add_r0_rs2;
+	assign	renamed_is_complex_return = is_complex_return;
+	assign	renamed_is_add_const = is_add_const;
+	assign	renamed_is_load_immediate = is_load_immediate;
+	assign	renamed_is_const_branch = is_const_branch;
+	assign	renamed_is_add_r0 = is_add_r0;
+	assign	renamed_is_add_r0_rs2 = is_add_r0_rs2;
+	always @(*) begin
+		is_add_const = 0;
+		is_const_branch = 0;
+		is_const_branch_rs1 = 'bx;
+		is_complex_return = 0;
+		is_load_immediate = 0;
+		is_add_r0 = 0;
+		is_add_r0_rs2 = 0;
+		case (unit_type) // synthesis full_case parallel_case
+		0:	begin
+				if (control[5:0] == 6'b000_000) begin
+					if (!orig_needs_rs2) begin
+						is_add_const = 1;
+						is_load_immediate = orig_rs1 == 0;
+					end else begin
+						is_add_r0 = orig_rs1 == 0 || orig_rs2 == 0;
+						is_add_r0_rs2 = orig_rs2 == 0;
+					end
+				end
+			end
+		6:	begin
+				case ({orig_makes_rd, control[0]}) 
+				2'b01:	if (prev_is_load_immediate &&
+								((prev_rd == orig_rs1 && prev_rd != orig_rs2) ||
+								 (prev_rd == orig_rs2 && prev_rd != orig_rs1))) begin
+							is_const_branch = 1;
+							is_const_branch_rs1 = prev_rd == orig_rs1;
+						end
+				2'b00:  if ((prev_is_add_const || prev_is_add_r0)  && prev_rd != orig_rs1) begin
+							is_complex_return = 1;
+						end
+				default:;
+				endcase
+			end
+		endcase
+	end
+`endif
 
 `ifdef RENAME_OPT
 	reg is_0;
@@ -438,9 +520,9 @@ module rename(
 `endif
 
 
-	reg    [   4: 0]r_real_rs1_out, c_real_rs1_out;
-	reg    [   4: 0]r_real_rs2_out, c_real_rs2_out;
-	reg    [   4: 0]r_real_rs3_out, c_real_rs3_out;
+	reg    [   4: 0]r_real_rs1_out;
+	reg    [   4: 0]r_real_rs2_out;
+	reg    [   4: 0]r_real_rs3_out;
 	assign real_rs1_out = r_real_rs1_out;
 	assign real_rs2_out = r_real_rs2_out;
 	assign real_rs3_out = r_real_rs3_out;
@@ -458,6 +540,9 @@ module rename(
 	reg    [LNCOMMIT-1: 0]r_rd_out;
 	reg    [ 4: 0]r_rd_real_out;
 	reg    [31: 0]r_immed_out;
+`ifdef INSTRUCTION_FUSION
+	reg    [31: 0]r_immed2_out;
+`endif
 	reg [$clog2(NUM_PENDING)-1:0]r_branch_token_out;
 	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret_out;
 	reg           r_needs_rs2_out;
@@ -481,6 +566,9 @@ module rename(
 	assign  rs3_out = r_rs3_out;
 	assign  rd_out = r_rd_out;
 	assign  immed_out = r_immed_out;
+`ifdef INSTRUCTION_FUSION
+	assign  immed2_out = r_immed2_out;
+`endif
 	assign  needs_rs2_out = r_needs_rs2_out;
 	assign  needs_rs3_out = r_needs_rs3_out;
 `ifdef FP
@@ -501,7 +589,11 @@ module rename(
 
 	assign next_map_rd = next_start+ADDR;
 	assign next_rd = rd;
+`ifdef INSTRUCTION_FUSION
+	assign next_makes_rd = makes_rd&c_valid_out&!(next_is_const_branch|next_is_complex_return);
+`else
 	assign next_makes_rd = makes_rd&c_valid_out;
+`endif
 `ifdef FP
 	assign next_rd_fp = rd_fp;
 	//assign next_rd_fp = rd_fp&c_valid_out;
@@ -575,6 +667,9 @@ module rename(
 			r_rd_out <= commit_trap_br_addr+1;
 			r_rd_real_out <= 0;
 			r_immed_out <= 0;
+`ifdef INSTRUCTION_FUSION
+			r_immed2_out <= 0;
+`endif
 			r_needs_rs2_out <= 0;
 			r_needs_rs3_out <= 0;
 			r_makes_rd_out <= 1;
@@ -616,6 +711,9 @@ module rename(
 			r_rd_out <= commit_trap_br_addr+2;
 			r_rd_real_out <= 0;
 			r_immed_out <= 0;
+`ifdef INSTRUCTION_FUSION
+			r_immed2_out <= 0;
+`endif
 			r_needs_rs2_out <= 0;
 			r_needs_rs3_out <= 0;
 			r_makes_rd_out <= 0;
@@ -633,12 +731,30 @@ module rename(
 		r_local1 <= local1;
 		r_local2 <= local2;
 		r_local3 <= local3;
+`ifdef INSTRUCTION_FUSION
+		if (next_is_complex_return|next_is_const_branch) begin
+			r_real_rs1_out <= 0;
+			r_real_rs2_out <= 0;
+			r_real_rs3_out <= 0;
+			r_rs1_out <= 0;
+			r_rs2_out <= 0;
+			r_rs3_out <= 0;
+		end else begin
+			r_real_rs1_out <= is_const_branch&is_const_branch_rs1?0:rs1;
+			r_real_rs2_out <= is_const_branch&!is_const_branch_rs1?0:rs2;
+			r_real_rs3_out <= rs3;
+			r_rs1_out <= is_const_branch&is_const_branch_rs1?0:((renamed_rs1[RA-1] && commit_done[renamed_rs1[LNCOMMIT-1:0]])?rs1:renamed_rs1);
+			r_rs2_out <= is_const_branch&!is_const_branch_rs1?0:((renamed_rs2[RA-1] && commit_done[renamed_rs2[LNCOMMIT-1:0]])?rs2:renamed_rs2);
+			r_rs3_out <= ((renamed_rs3[RA-1] && commit_done[renamed_rs3[LNCOMMIT-1:0]])?rs3:renamed_rs3);
+		end
+`else
 		r_real_rs1_out <= rs1;
 		r_real_rs2_out <= rs2;
 		r_real_rs3_out <= rs3;
 		r_rs1_out <= ((renamed_rs1[RA-1] && commit_done[renamed_rs1[LNCOMMIT-1:0]])?rs1:renamed_rs1);
 		r_rs2_out <= ((renamed_rs2[RA-1] && commit_done[renamed_rs2[LNCOMMIT-1:0]])?rs2:renamed_rs2);
 		r_rs3_out <= ((renamed_rs3[RA-1] && commit_done[renamed_rs3[LNCOMMIT-1:0]])?rs3:renamed_rs3);
+`endif
 `ifdef RENAME_OPT
 		r_renamed_commit_rs1_out <= (!renamed_commit_rs1[RA-1] || commit_completed[renamed_commit_rs1[LNCOMMIT-1:0]])?{1'b0, {RA-1{'bx}}}:renamed_commit_rs1;
 		r_renamed_commit_rs2_out <= (!renamed_commit_rs2[RA-1] || commit_completed[renamed_commit_rs2[LNCOMMIT-1:0]])?{1'b0, {RA-1{'bx}}}:renamed_commit_rs2;
@@ -647,9 +763,21 @@ module rename(
 		r_rd_out <= next_map_rd;
 		r_rd_real_out <= rd;
 		r_immed_out <= immed;
-		r_needs_rs2_out <= needs_rs2;
 		r_needs_rs3_out <= needs_rs3;
+`ifdef INSTRUCTION_FUSION
+		r_immed2_out <= is_complex_return&prev_is_add_r0 ? 32'b0 : is_complex_return | is_const_branch? prev_immed: immed2;
+		r_needs_rs2_out <= needs_rs2 | is_complex_return | is_const_branch;
+		r_makes_rd_out <= (makes_rd | is_complex_return | is_const_branch) & !(next_is_complex_return|next_is_const_branch);
+		if (is_complex_return | is_const_branch) begin
+			r_control_out <= {1'b1, is_const_branch_rs1, control[5:0]};
+		end else begin
+			r_control_out <= control;
+		end
+`else
+		r_needs_rs2_out <= needs_rs2;
 		r_makes_rd_out <= makes_rd;
+		r_control_out <= control;
+`endif
 		r_short_out <= short;
 		r_start_out <= start;
 `ifdef FP
@@ -658,7 +786,6 @@ module rename(
 		r_rs2_fp_out <= rs2_fp;
 		r_rs3_fp_out <= rs3_fp;
 `endif
-		r_control_out <= control;
 		r_unit_type_out <= unit_type;
 		r_pc_out <= pc;
 		r_pc_dest_out <= pc_dest;

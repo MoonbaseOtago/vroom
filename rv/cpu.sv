@@ -138,7 +138,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter NINTERRUPTS=20;
 	parameter CACHE_LINE_SIZE=64*8;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
-	parameter CNTRL_SIZE=7;
+	parameter CNTRL_SIZE=8;
 	parameter NDEC = 4; // number of decode stages
 	parameter LNDEC=2; // log number of decode stages
 	parameter NHART=1;	// number of hyperthreads
@@ -435,6 +435,9 @@ assign pmp[1].valid=0;
 	wire      [RA-1:0]rs2_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [RA-1:0]rs3_commit[0:NCOMMIT-1][0:NHART-1];
 	wire      [31:0]immed_commit[0:NCOMMIT-1][0:NHART-1];
+`ifdef INSTRUCTION_FUSION
+	wire      [31:0]immed2_commit[0:NCOMMIT-1][0:NHART-1];
+`endif
 	wire      [NHART-1:0]short_commit[0:NCOMMIT-1];
 	wire      [NHART-1:0]start_commit[0:NCOMMIT-1];
 	wire   [VA_SZ-1:1]pc_commit[0:NCOMMIT-1][0:NHART-1];
@@ -481,6 +484,9 @@ assign pmp[1].valid=0;
 	wire   [2*NDEC-1:0]trace_out_short[0:NHART-1];
 	wire   [2*NDEC-1:0]trace_out_start[0:NHART-1];
 	wire         [31:0]trace_out_immed[0:NHART-1][0:2*NDEC-1];
+`ifdef INSTRUCTION_FUSION
+	wire         [31:0]trace_out_immed2[0:NHART-1][0:2*NDEC-1];
+`endif
 	wire    [VA_SZ-1:1]trace_out_pc[0:NHART-1][0:2*NDEC-1];
 	wire    [VA_SZ-1:1]trace_out_pc_dest[0:NHART-1][0:2*NDEC-1];
 `endif
@@ -970,6 +976,9 @@ wire [31:1]sb_is_0; // for debug
 			wire	[LNCOMMIT-1:0]rd_rename[0:2*NDEC-1];
 			wire	[ 4:0]rd_real_rename[0:2*NDEC-1];
 			wire	[31:0]immed_rename[0:2*NDEC-1];
+`ifdef INSTRUCTION_FUSION
+			wire	[31:0]immed2_rename[0:2*NDEC-1];
+`endif
 			wire    [2*NDEC-1:0]short_rename; 	
 			wire    [2*NDEC-1:0]start_rename; 	
 			wire	      needs_rs2_rename[0:2*NDEC-1];
@@ -1013,6 +1022,30 @@ wire [31:1]sb_is_0; // for debug
 assign gl_valid_rename[H] = valid_rename;
 assign gl_type_rename[H] = unit_type_rename[0];
 
+
+`ifdef INSTRUCTION_FUSION
+			wire [2*NDEC:0]renamed_is_complex_return;
+			wire [2*NDEC:0]renamed_is_add_const;
+			wire [2*NDEC:0]renamed_is_load_immediate;
+			wire [2*NDEC:0]renamed_is_const_branch;
+			wire [2*NDEC:0]renamed_is_add_r0;
+			wire [2*NDEC:0]renamed_is_add_r0_rs2;
+			wire [4:0]renamed_prev_rd[0:2*NDEC];
+			wire [4:0]renamed_prev_rs1[0:2*NDEC];
+			wire [4:0]renamed_prev_rs2[0:2*NDEC];
+			wire [11:0]renamed_prev_immed[0:2*NDEC];
+			assign renamed_is_complex_return[2*NDEC] = 0;
+			assign renamed_is_const_branch[2*NDEC] = 0;
+			assign renamed_is_add_const[0] = 0;
+			assign renamed_is_load_immediate[0] = 0;
+			assign renamed_is_add_r0[0] = 0;
+			assign renamed_is_add_r0_rs2[0] = 1'bx;
+			assign renamed_prev_rd[0] = 5'bx;
+			assign renamed_prev_rs1[0] = 5'bx;
+			assign renamed_prev_rs2[0] = 5'bx;
+			assign renamed_prev_immed[0] = 12'bx;
+`endif
+
 			for (D = 0; D < 2*NDEC; D = D+1) begin :rn
 				reg [2*NDEC-1:0]sel_out;
 				reg [4:0]s1, s2, s3, d;
@@ -1022,6 +1055,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg		 rd_fp, rs1_fp, rs2_fp, rs3_fp;
 `endif
 				reg	[31:0]immed;
+`ifdef INSTRUCTION_FUSION
+				reg	[31:0]immed2;
+`endif
 				reg    [3:0]unit_type;
 				reg    [CNTRL_SIZE-1:0]control;
 				reg 	[RV-1:1]pc, pc_dest;
@@ -1032,6 +1068,22 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg			local1, local2, local3;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
 				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
+`ifdef INSTRUCTION_FUSION
+				assign renamed_prev_rd[D+1] = d;
+				assign renamed_prev_rs1[D+1] = s1;
+				assign renamed_prev_rs2[D+1] = s2;
+				assign renamed_prev_immed[D+1] = immed[11:0];
+				wire [4:0]alt_s2 = renamed_is_complex_return[D]?(renamed_is_add_r0[D]&&renamed_is_add_r0_rs2[D]?renamed_prev_rs2[D]:renamed_prev_rs1[D]):s2;
+				wire alt_needs_s2 = (!renamed_is_const_branch[D])&(renamed_is_complex_return[D]|needs_s2);
+				wire [4:0]alt_d = renamed_is_complex_return[D]||renamed_is_const_branch[D]?renamed_prev_rd[D]:d;
+				wire alt_makes_d = makes_d||renamed_is_complex_return[D]||renamed_is_const_branch[D];
+`else
+				wire [4:0]alt_s2 = s2;
+				wire [4:0]alt_d = d;
+				wire alt_needs_s2 = needs_s2;
+				wire alt_makes_d = makes_d;
+`endif
+			
 
 				if (NDEC==2) begin
 `include "mk2_4.inc"
@@ -1047,18 +1099,37 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				assign map_is_move_reg_rename[D] = scoreboard_latest_rename[map_is_reg[D]];
 `endif
 
-			
 				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
 					.rv32(rv32[H]),
 					.valid(rename_valid_in),
 					.rs1(s1),
-                	.rs2(s2),
+                	.rs2(alt_s2),
                 	.rs3(s3),
-                	.rd(d),
+                	.rd(alt_d),
+`ifdef INSTRUCTION_FUSION
+					.immed2(immed2),
+					.renamed_is_complex_return(renamed_is_complex_return[D]),
+					.next_is_complex_return(renamed_is_complex_return[D+1]),
+					.renamed_is_const_branch(renamed_is_const_branch[D]),
+					.next_is_const_branch(renamed_is_const_branch[D+1]),
+					.renamed_is_add_const(renamed_is_add_const[D+1]),
+					.prev_is_add_const(renamed_is_add_const[D]),
+					.renamed_is_add_r0(renamed_is_add_r0[D+1]),
+					.prev_is_add_r0(renamed_is_add_r0[D]),
+					.renamed_is_add_r0_rs2(renamed_is_add_r0_rs2[D+1]),
+					.renamed_is_load_immediate(renamed_is_load_immediate[D+1]),
+					.prev_is_load_immediate(renamed_is_load_immediate[D]),
+					.prev_rd(renamed_prev_rd[D]),
+					.prev_immed(renamed_prev_immed[D]),
+                	.orig_needs_rs2(needs_s2),
+                	.orig_makes_rd(makes_d),
+                	.orig_rs1(s1),
+                	.orig_rs2(s2),
+`endif
                 	.immed(immed),
 					.short(short),
 					.start(start),
-                	.needs_rs2(needs_s2),
+                	.needs_rs2(alt_needs_s2),
                 	.needs_rs3(needs_s3),
 `ifdef FP
 					.rd_fp(rd_fp),
@@ -1066,7 +1137,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.rs2_fp(rs2_fp),
 					.rs3_fp(rs3_fp),
 `endif
-                	.makes_rd(makes_d),
+                	.makes_rd(alt_makes_d),
                 	.control(control),
                 	.unit_type(unit_type),
                 	.pc(pc),
@@ -1123,6 +1194,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
                 	.rd_out(rd_rename[D]),
                 	.rd_real_out(rd_real_rename[D]),
                 	.immed_out(immed_rename[D]),
+`ifdef INSTRUCTION_FUSION
+                	.immed2_out(immed2_rename[D]),
+`endif
                 	.short_out(short_rename[D]),
                 	.start_out(start_rename[D]),
                 	.needs_rs2_out(needs_rs2_rename[D]),
@@ -1376,6 +1450,9 @@ end
 `endif
 				reg [RA-1:0]rs1, rs2, rs3;
 				reg [31:0]immed;
+`ifdef INSTRUCTION_FUSION
+				reg [31:0]immed2;
+`endif
 				reg   short, start;
 				reg	  makes_rd, needs_rs2, needs_rs3;
 `ifdef FP
@@ -1448,6 +1525,9 @@ end
 `endif
         			.rd(real_rd),
         			.immed(immed),
+`ifdef INSTRUCTION_FUSION
+        			.immed2(immed2),
+`endif
 					.short(short),
 					.start(start),
         			.makes_rd(makes_rd),
@@ -1531,6 +1611,9 @@ end
 					.rs2_out(rs2_commit[C][H]),
 					.rs3_out(rs3_commit[C][H]),
 					.immed_out(immed_commit[C][H]),
+`ifdef INSTRUCTION_FUSION
+					.immed2_out(immed2_commit[C][H]),
+`endif
 					.short_out(short_commit[C][H]),
 					.start_out(start_commit[C][H]),
 					.needs_rs2_out(needs_rs2_commit[C][H]),
@@ -1605,6 +1688,9 @@ end
 				assign trace_out_unit_type[H][I] = trace_out.b[I].unit_type;
 				assign trace_out_control[H][I] = trace_out.b[I].control;
 				assign trace_out_immed[H][I] = trace_out.b[I].immed;
+`ifdef INSTRUCTION_FUSION
+				assign trace_out_immed2[H][I] = trace_out.b[I].immed2;
+`endif
 `ifdef FP
 				assign trace_out_rd_fp[H][I] = trace_out.b[I].rd_fp;
 				assign trace_out_rs1_fp[H][I] = trace_out.b[I].rs1_fp;
@@ -1631,6 +1717,9 @@ wire [VA_SZ-1:1]tt_dest_pc[0:(NDEC*2)-1];
 				assign trace_in.b[I].unit_type = unit_type_commit[ind][H];
 				assign trace_in.b[I].control = control_commit[ind][H];
 				assign trace_in.b[I].immed = immed_commit[ind][H];
+`ifdef INSTRUCTION_FUSION
+				assign trace_in.b[I].immed2 = immed_commit2[ind][H];
+`endif
 `ifdef FP
 				assign trace_in.b[I].rd_fp = rd_fp_commit[H][ind];
 				assign trace_in.b[I].rs1_fp = rs1_fp_commit[H][ind];
@@ -1787,6 +1876,9 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 				.needs_rs2(needs_rs2_commit[alu_sched[A]][hart_sched[A]]),
 				.pc(pc_commit[alu_sched[A]][hart_sched[A]]),
 				.immed(immed_commit[alu_sched[A]][hart_sched[A]]),
+`ifdef INSTRUCTION_FUSION
+				.immed2(immed2_commit[alu_sched[A]][hart_sched[A]]),
+`endif
 				.hart(hart_sched[A]),
 				.rv32(rv32[hart_sched[A]]),
 
@@ -1903,6 +1995,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 		load_store #(.RV(RV), .NPHYS(NPHYS), .NUM_PMP(NUM_PMP), .VA_SZ(VA_SZ), .CACHE_LINE_SIZE(CACHE_LINE_SIZE), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NADDR(NADDR), .NLOAD(NLOAD), .NSTORE(NSTORE), .NLDSTQ(NLDSTQ),.TRANS_ID_SIZE(TRANS_ID_SIZE))load_store(.reset(reset), .clk(clk),
 `ifdef SIMD
 			.simd_enable(simd_enable),
+			.pipe_enable(pipe_enable),
 `endif
 `ifdef AWS_DEBUG
 			.cpu_trig(trig_in),

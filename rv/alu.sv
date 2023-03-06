@@ -124,6 +124,9 @@ module alu(
 	input [RV-1:0]r1, r2,
 	input [VA_SZ-1:1]pc,
 	input [31:0]immed,
+`ifdef INSTRUCTION_FUSION
+	input [31:0]immed2,
+`endif
 	input	[(NHART==1?0:LNHART-1):0]hart,
 	input	rv32,
 
@@ -181,6 +184,8 @@ module alu(
 	//  branch encodings:
 	//
     //  ctrl:
+	//	7	fused add/branch
+	//	6	alt
     //  5   predicted
     //  4   short_pc (1= add 2 to get nextaddress othewise 4
     //  3   invert test (cjmp only)
@@ -192,6 +197,11 @@ module alu(
     //  for !cjmp predicted means "we continued on, please check that our actual destination matches",
     //                                  not predicted means "we stalled waiting to be woken by the branch unit")
     //
+	//	So far only 3 fused add/branch encodings are defined:
+	//	cjmp = 1 - alt=1 then rd = immed  compare is imm with rs1
+	//	cjmp = 1 - alt=0 then rd = immed  compare is rs1 with imm 
+	//	cjmp = 0 - then rd = rs2+immed  branch to rs2+0
+	//
 
 	reg killed;
 	always @(*) begin
@@ -213,13 +223,22 @@ module alu(
     wire		b_inv, cjmp;
     wire    [1:0]tp;
     reg			r_cjmp;
+`ifdef INSTRUCTION_FUSION
+	wire		fusion, frs1;
+	reg			r_fusion_br, r_frs1;
+`endif
     reg    [1:0]r_tp;
 	reg			r_short_pc;
 	reg			r_predicted;
 	reg			match;
+	reg			r_binv;
 
-    assign short_pc = control[4];
+`ifdef INSTRUCTION_FUSION
+    assign fusion = control[7];
+    assign frs1 = control[6];
+`endif
     assign predicted = control[5];
+    assign short_pc = control[4];
     assign b_inv = control[3];
     assign tp = control[2:1];
     assign cjmp = control[0];
@@ -274,16 +293,32 @@ module alu(
 	assign unsign = control[3];
 
 	reg	[RV-1:0]r_immed;
+`ifdef INSTRUCTION_FUSION
+	reg	[31:0]r_immed_br;
+`endif
 	reg	[VA_SZ-1:1]r_pc;
 	always @(posedge clk) begin
 		r_unsigned <= unsign;
 		r_pc <= pc;
+`ifdef INSTRUCTION_FUSION
+		if (is_branch) begin
+			r_immed <= {{32{immed2[31]}},immed2};
+		end else begin
+			r_immed <= {{32{immed[31]}},immed};
+		end
+		r_immed_br <= immed[31:0];
+		r_fusion_br <= fusion&&is_branch;
+		r_frs1 <= frs1;
+		r_needs_rs2 <= (!fusion|!is_branch)&needs_rs2;
+`else
 		r_needs_rs2 <= needs_rs2;
 		r_immed <= {{32{immed[31]}},immed};
+`endif
 		r_op <= op;
 `ifdef COMBINED_BRANCH
 		r_makes_rd <= makes_rd&enable&!killed;
-		r_inv <= is_branch ? b_inv : inv;
+		r_inv <= is_branch ? 0 : inv;
+		r_binv <= b_inv;
 `else
 		r_makes_rd <= makes_rd&enable;
 		r_inv <= inv;
@@ -325,6 +360,15 @@ module alu(
 	wire [RV-1:0]x_r2 = r_needs_rs2?r2:r_immed;
 	reg [RV-1:0]c_r1;
 	always @(*) begin
+`ifdef INSTRUCTION_FUSION
+		if (r_fusion_br) begin
+			if (r_cjmp) begin
+				c_r1 = 64'b0;
+			end else begin
+				c_r1 = r2;
+			end
+		end else
+`endif
 		casez ({r_addw, r_op}) // synthesis full_case parallel_case
 		5'b?_1000: c_r1 = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc, 1'b0};
 		5'b0_1001: c_r1 = {r1[62:0], 1'b0};
@@ -360,7 +404,7 @@ module alu(
 	always @(*) begin
 		c_res = 'bx;
 `ifdef COMBINED_BRANCH
-		if (r_is_branch) begin
+		if (r_is_branch&&!r_fusion_br) begin
 			c_res = {({{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_short_pc?63'd1:63'd2)), 1'b0};
 		end else
 `endif
@@ -389,36 +433,62 @@ module alu(
 	end
 
 `ifdef COMBINED_BRANCH
+`ifdef INSTRUCTION_FUSION
+	reg	[RV-1:0]xr1;
+	reg	[RV-1:0]xr2;
+	always @(*) begin	// inject the fused constant
+		casez ({r_fusion_br, r_frs1, r_cjmp}) // synthesis full_case parallel_case
+		3'b111:		xr1 = r_immed;
+		default:	xr1 = r1;
+		endcase
+		casez ({r_fusion_br, r_frs1, r_cjmp}) // synthesis full_case parallel_case
+		3'b101:		xr2 = r_immed;
+		default:	xr2 = r2;
+		endcase
+	end
+	
+`else
+	wire	[RV-1:0]xr1 = r1;
+	wire	[RV-1:0]xr2 = r2;
+`endif
 
-	wire signed [RV-1:0]s1 = r1;
-	wire signed [RV-1:0]s2 = r2;
-	wire signed [31:0]ss1 = r1[31:0];
-	wire signed [31:0]ss2 = r2[31:0];
+	wire signed [RV-1:0]s1 = xr1;
+	wire signed [RV-1:0]s2 = xr2;
+	wire signed [31:0]ss1 = xr1[31:0];
+	wire signed [31:0]ss2 = xr2[31:0];
 
    always @(*) begin
         need_jmp = 1'bx;
         // note: check that only 1 adder is used here
         casez ({r_rv32,r_tp}) // synthesis full_case parallel_case
-        3'b0_00: need_jmp = r1==r2;   // eq
+        3'b0_00: need_jmp = xr1==xr2;   // eq
         3'b0_10: need_jmp = s1 < s2;  // signed lt
-        3'b0_11: need_jmp = r1 < r2;  // unsigned lt
-        3'b1_00: need_jmp = r1[31:0]==r2[31:0];   // eq
+        3'b0_11: need_jmp = xr1 < xr2;  // unsigned lt
+        3'b1_00: need_jmp = xr1[31:0]==xr2[31:0];   // eq
         3'b1_10: need_jmp = ss1 < ss2;  // signed lt
-        3'b1_11: need_jmp = r1[31:0] < r2[31:0];  // unsigned lt
+        3'b1_11: need_jmp = xr1[31:0] < xr2[31:0];  // unsigned lt
         default: need_jmp = 1'bx;
         endcase
-        make_jmp = r_is_branch && (r_cjmp?r_predicted^r_inv^need_jmp:!r_tp[0]&(!r_predicted|!match));
+        make_jmp = r_is_branch && (r_cjmp?r_predicted^r_binv^need_jmp:!r_tp[0]&(!r_predicted|!match));
     end
 
     if (RV==64) begin
 
         always @(*) begin
             if (r_cjmp) begin
+`ifdef INSTRUCTION_FUSION
+                new_address = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed_br[31]}}, r_immed_br[31:0]});
+`else
                 new_address = {{RV-VA_SZ{r_pc[VA_SZ-1]}}, r_pc}+(r_predicted?(r_short_pc?63'd1:63'd2):{{31{r_immed[31]}}, r_immed[31:0]});
+`endif
                 match = 1'bx;
             end else begin :xt
                 reg [63:0]t;
+`ifdef INSTRUCTION_FUSION
+                t = r1[63:0]+{{32{r_immed_br[31]}},r_immed_br[31:0]};
+`else
                 t = r1[63:0]+{{32{r_immed[31]}},r_immed[31:0]};
+`endif
                 match = t[RV-1:1] == {{RV-VA_SZ{r_branch_dest[VA_SZ-1]}}, r_branch_dest};
                 new_address = t[RV-1:1];
             end

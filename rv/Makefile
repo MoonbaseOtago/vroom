@@ -53,6 +53,11 @@ SYNTH = \
 	synth/vsram.v
 
 
+#INSTRUCTION_FUSION_1 =
+#INSTRUCTION_FUSION_2 = 
+INSTRUCTION_FUSION_1 = +define+INSTRUCTION_FUSION
+INSTRUCTION_FUSION_2 = -DINSTRUCTION_FUSION
+
 #N64_OPT_1 = +define+N32 
 #N64_OPT_2 = -DN32
 N64_OPT_1 = +define+N64 
@@ -101,8 +106,8 @@ CB_2 = -DCOMBINED_BRANCH
 # ------
 
 
-OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1) $(RENAME_OPT_1) $(B_OPT_1) $(N64_OPT_1)
-OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2) $(RENAME_OPT_2) $(B_OPT_2) $(N64_OPT_2)
+OPT_FLAG_1 = $(NALU_1) $(NSTORE2_1) $(CB_1) $(TRACE_1) $(RENAME_OPT_1) $(B_OPT_1) $(N64_OPT_1) $(INSTRUCTION_FUSION_1)
+OPT_FLAG_2 = $(NALU_2) $(NSTORE2_2) $(CB_2) $(TRACE_2) $(RENAME_OPT_2) $(B_OPT_2) $(N64_OPT_2) $(INSTRUCTION_FUSION_2)
 XTEST = aws-design/design/cl_template.sv synth/vsram.v synth/mmem.sv xcels.sv
 XSYNTH1 = +define+VSYNTH  +define+VS2 +incdir+aws-design/design +incdir+aws-fpga/hdk/common/shell_v04261818/design/interfaces +define+VVV  $(OPT_FLAG_1)
 XSYNTH2 = -DPSYNTH -DVSYNTH -DVS2 -Iaws-design/design -Iaws-fpga/hdk/common/shell_v04261818/design/interfaces -DVVV $(OPT_FLAG_2)

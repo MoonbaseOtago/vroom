@@ -76,20 +76,20 @@ int main(int argc, char ** argv)
 	printf("		always @(*) begin\n");
 	printf("`ifdef FP\n");
 	printf("			renamed_rs1 = rs1_fp?scoreboard_latest_rename_fp[s1]:scoreboard_latest_rename[s1];\n");
-	printf("			renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[s2];\n");
+	printf("			renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[alt_s2];\n");
 	printf("			renamed_rs3 = rs3_fp?scoreboard_latest_rename_fp[s3]:scoreboard_latest_rename[s3];\n");
 	printf("`ifdef RENAME_OPT\n");
 	printf("			renamed_commit_rs1 = rs1_fp?scoreboard_latest_commit_fp[s1]:scoreboard_latest_commit[s1];\n");
-	printf("			renamed_commit_rs2 = rs2_fp?scoreboard_latest_commit_fp[s2]:scoreboard_latest_commit[s2];\n");
+	printf("			renamed_commit_rs2 = rs2_fp?scoreboard_latest_commit_fp[s2]:scoreboard_latest_commit[alt_s2];\n");
 	printf("			renamed_commit_rs3 = rs3_fp?scoreboard_latest_commit_fp[s3]:scoreboard_latest_commit[s3];\n");
 	printf("`endif\n");
 	printf("`else\n");
 	printf("			renamed_rs1 = scoreboard_latest_rename[s1];\n");
-	printf("			renamed_rs2 = scoreboard_latest_rename[s2];\n");
+	printf("			renamed_rs2 = scoreboard_latest_rename[alt_s2];\n");
 	printf("			renamed_rs3 = scoreboard_latest_rename[s3];\n");
 	printf("`ifdef RENAME_OPT\n");
 	printf("			renamed_commit_rs1 = scoreboard_latest_commit[s1];\n");
-	printf("			renamed_commit_rs2 = scoreboard_latest_commit[s2];\n");
+	printf("			renamed_commit_rs2 = scoreboard_latest_commit[alt_s2];\n");
 	printf("			renamed_commit_rs3 = scoreboard_latest_commit[s3];\n");
 	printf("`endif\n");
 	printf("`endif\n");
@@ -199,7 +199,7 @@ int main(int argc, char ** argv)
 		printf("`endif\n");
 		printf("		wire [%d:0]mk2 = fpmatch2&{", i-1);
 		for (j = i-1; j >= 0; j--) 
-			printf("all_makes_rd_rename[%d]&(all_rd_rename[%d] == s2)&needs_s2%s", j,j,j==0?"};\n":", ");
+			printf("all_makes_rd_rename[%d]&(all_rd_rename[%d] == alt_s2)&alt_needs_s2%s", j,j,j==0?"};\n":", ");
 		for (n = 0; n < 2; n++) {
 			switch (n) {
 			case 0: {
@@ -221,9 +221,9 @@ int main(int argc, char ** argv)
 //				}
 				printf("				always @(*) begin local2 = 1;\n");
 				printf("`ifdef FP\n");
-				printf("				if (!rs2_fp && s2==0) begin\n");
+				printf("				if (!rs2_fp && alt_s2==0) begin\n");
 				printf("`else\n");
-				printf("				if (s2==0) begin\n");
+				printf("				if (alt_s2==0) begin\n");
 				printf("`endif\n");
 				printf("					renamed_rs2 = 0;\n");
 				printf("`ifdef RENAME_OPT\n");
@@ -261,12 +261,12 @@ int main(int argc, char ** argv)
 				}
 				printf("				default: begin\n");
 				printf("`ifdef FP\n");
-				printf("						local2 = 0;renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[s2];\n");
+				printf("						local2 = 0;renamed_rs2 = rs2_fp?scoreboard_latest_rename_fp[s2]:scoreboard_latest_rename[alt_s2];\n");
 				printf("`else\n");
-				printf("						local2 = 0;renamed_rs2 = scoreboard_latest_rename[s2];\n");
+				printf("						local2 = 0;renamed_rs2 = scoreboard_latest_rename[alt_s2];\n");
 				printf("`endif\n");
 				printf("`ifdef RENAME_OPT\n");
-				printf("						renamed_commit_rs2 = scoreboard_latest_commit[s2];\n");
+				printf("						renamed_commit_rs2 = scoreboard_latest_commit[alt_s2];\n");
 				printf("`endif\n");
 				printf("					end\n");
 				printf("				endcase\n");
@@ -399,6 +399,9 @@ int main(int argc, char ** argv)
         printf("		short = 'bx;\n");
         printf("		start = 'bx;\n");
         printf("		immed = 'bx;\n");
+	printf("`ifdef INSTRUCTION_FUSION\n");
+        printf("		immed2 = 'bx;\n");
+	printf("`endif\n");
         printf("		control = 'bx;\n");
         printf("		unit_type = 'bx;\n");
         printf("		pc_dest = pc_dest_dec;\n");
@@ -423,6 +426,9 @@ int main(int argc, char ** argv)
         printf("			short = trace_out_short[H][D];\n");
         printf("			start = trace_out_start[H][D];\n");
         printf("			immed = trace_out_immed[H][D];\n");
+	printf("`ifdef INSTRUCTION_FUSION\n");
+        printf("			immed2 = trace_out_immed2[H][D];\n");
+        printf("`endif\n");
         printf("			unit_type = trace_out_unit_type[H][D];\n");
         printf("			pc = trace_out_pc[H][D];\n");
         printf("			pc_dest = trace_pc_dest;\n");
@@ -432,7 +438,7 @@ int main(int argc, char ** argv)
         for (i = 0; i < B; i++) {
                 printf("		%d'b", B);
                 for (j = B-1; j >= 0; j--) printf(i==j?"1":"?");
-                printf(": begin d = rd_dec[%d]; s1 = rs1_dec[%d]; needs_s2 = needs_rs2_dec[%d];needs_s3 = needs_rs3_dec[%d];s2 = rs2_dec[%d]; s3 = rs3_dec[%d];makes_d = makes_rd_dec[%d]; short = short_dec[%d]; start = start_dec[%d]; immed = immed_dec[%d]; control=control_dec[%d]; unit_type=unit_type_dec[%d];pc=pc_dec[%d];\n`ifdef FP\nrd_fp = rd_fp_dec[%d]; rs1_fp = rs1_fp_dec[%d]; rs2_fp = rs2_fp_dec[%d]; rs3_fp = rs3_fp_dec[%d];\n`endif\n",  i, i, i,i,i,i,i,i,i,i,i,i,i,i,i,i,i);
+                printf(": begin d = rd_dec[%d]; s1 = rs1_dec[%d]; needs_s2 = needs_rs2_dec[%d];needs_s3 = needs_rs3_dec[%d];s2 = rs2_dec[%d]; s3 = rs3_dec[%d];makes_d = makes_rd_dec[%d]; short = short_dec[%d]; start = start_dec[%d]; immed = immed_dec[%d]; control=control_dec[%d]; unit_type=unit_type_dec[%d];pc=pc_dec[%d];\n`ifdef INSTRUCTION_FUSION\nimmed2='bx;\n`endif\n`ifdef FP\nrd_fp = rd_fp_dec[%d]; rs1_fp = rs1_fp_dec[%d]; rs2_fp = rs2_fp_dec[%d]; rs3_fp = rs3_fp_dec[%d];\n`endif\n",  i, i, i,i,i,i,i,i,i,i,i,i,i,i,i,i,i);
 		if (i > 0) {
 			printf(" branch_token = dec_branch_token; branch_token_ret = dec_branch_token_ret; end\n");
 		} else {

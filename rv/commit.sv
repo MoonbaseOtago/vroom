@@ -230,6 +230,9 @@ module commit(input clk,
 `endif
 	input [4:0]rd,
 	input [31:0]immed,
+`ifdef INSTRUCTION_FUSION
+	input [31:0]immed2,
+`endif
 	input       makes_rd,
 	input       short,
 	input       start,
@@ -262,6 +265,9 @@ module commit(input clk,
 	output [RA-1:0]rs3_out,
 	output [ 4:0]rd_out,
 	output [31:0]immed_out,
+`ifdef INSTRUCTION_FUSION
+	output [31:0]immed2_out,
+`endif
 	output       makes_rd_out,
 	output       short_out,
 	output       start_out,
@@ -382,6 +388,9 @@ module commit(input clk,
 	reg [RA-1:0]r_commit_rs3;
 `endif
 	reg [31:0]r_immed;
+`ifdef INSTRUCTION_FUSION
+	reg [31:0]r_immed2;
+`endif
 	reg       r_makes_rd;
 	reg       r_start, c_start;
 	reg       r_short, c_short;
@@ -402,6 +411,9 @@ module commit(input clk,
 	assign rs3_out = r_rs3;
 	assign rd_out = r_rd;
 	assign immed_out = r_immed;
+`ifdef INSTRUCTION_FUSION
+	assign immed2_out = r_immed2;
+`endif
 	assign makes_rd_out = r_makes_rd;
 	assign short_out = r_short;
 	assign start_out = r_start;
@@ -660,18 +672,34 @@ module commit(input clk,
 			default:	c_fpu_req = 4'b0001;		// 1 clock
 			endcase
 `endif
-			c_short = short;
-			c_start = start;
+`ifdef INSTRUCTION_FUSION
+			if (unit_type == 0 && ! makes_rd) begin // squash no-op
+				c_done = 1;
+				c_completed = 1;
+				c_busy = 1;
+				c_busy2 = 1;
+				c_read = 1;
+			end else begin
+				c_done = 0;
+				c_completed = 0;
+				c_busy = 0;
+				c_busy2 = 0;
+				c_read = 0;
+			end
+`else
 			c_done = 0;
-			c_addr_done = 0;
+			c_completed = 0;
 			c_busy = 0;
 			c_busy2 = 0;
+			c_read = 0;
+`endif
+			c_short = short;
+			c_start = start;
+			c_addr_done = 0;
 			c_busy3 = 0;
 			c_valid = 1;
-			c_read = 0;
 			c_read_d = 0;
 			c_commit_req = 0;
-			c_completed = 0;
 			c_load_trap = 0;
 			c_control = control;
 			c_unit_type = unit_type;
@@ -1225,6 +1253,9 @@ module commit(input clk,
 			r_real_rs3 <= real_rs3;
 			r_rd <= rd;
 			r_immed <= immed;
+`ifdef INSTRUCTION_FUSION
+			r_immed2 <= immed2;
+`endif
 			r_makes_rd <= makes_rd;
 			r_short <= c_short;
 			r_start <= c_start;

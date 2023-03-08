@@ -16,7 +16,7 @@ paul@taniwha.com @moonbaseotago
 * Up to 8 IPC (instructions per clock) peak, goal ~4 average on ALU heavy work
 * 2-way simultaneous multithreading capable
 * Multi-core
-* Current dhrystone numbers: ~9.12 DMips/MHz - still a work in progress. 
+* Current dhrystone numbers: ~9.75 DMips/MHz - still a work in progress. 
 * Currently boots Linux on an AWS-FPGA instance
 * GPL3 – dual licensing possible
 

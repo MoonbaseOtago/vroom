@@ -352,17 +352,16 @@ BTC hit rate = %99
 ==================================
 8/3/23 simulator m-mode - 644 ld/st unit - updated use a std lib that supports B and K extensions (mostly this is due to strcmp using orc.b/etc)
 Microseconds for one run through Dhrystone: 2.33
-Dhrystones per Second:                      428335
-DMips:                                      243.7
-DMips/(25)MHZ:                              9.75
-mcycle = 116791
+Dhrystones per Second:                      428794
+DMips:                                      244.0
+DMips/(25)MHZ:                              9.76
+mcycle = 116680
 minstret = 418031
 hpmcounter4 = 78003
 hpmcounter5 = 77989
-hpmcounter6 = 418269
-hpmcounter7 = 114069
+hpmcounter6 = 418235
+hpmcounter7 = 114057
 
-IPC = 3.57
+IPC = 3.58
 BTC hit rate = %99
 Instruction issue/bundle = 3.66
-

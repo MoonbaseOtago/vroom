@@ -1025,6 +1025,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
 
 `ifdef INSTRUCTION_FUSION
 			wire [2*NDEC:0]renamed_is_complex_return;
+			wire [2*NDEC:0]renamed_is_add_to_prev;
+			wire [2*NDEC:0]renamed_is_add_to_auipc;
+			wire [2*NDEC:0]renamed_is_simple_ld_st;
 			wire [2*NDEC:0]renamed_is_add_const;
 			wire [2*NDEC:0]renamed_is_load_immediate;
 			wire [2*NDEC:0]renamed_is_const_branch;
@@ -1033,8 +1036,11 @@ assign gl_type_rename[H] = unit_type_rename[0];
 			wire [4:0]renamed_prev_rd[0:2*NDEC];
 			wire [4:0]renamed_prev_rs1[0:2*NDEC];
 			wire [4:0]renamed_prev_rs2[0:2*NDEC];
-			wire [11:0]renamed_prev_immed[0:2*NDEC];
+			wire [31:0]renamed_prev_immed[0:2*NDEC];
+			wire [RV-1:1]renamed_prev_pc[0:2*NDEC];
 			assign renamed_is_complex_return[2*NDEC] = 0;
+			assign renamed_is_add_to_prev[2*NDEC] = 0;
+			assign renamed_is_simple_ld_st[2*NDEC] = 0;
 			assign renamed_is_const_branch[2*NDEC] = 0;
 			assign renamed_is_add_const[0] = 0;
 			assign renamed_is_load_immediate[0] = 0;
@@ -1043,7 +1049,9 @@ assign gl_type_rename[H] = unit_type_rename[0];
 			assign renamed_prev_rd[0] = 5'bx;
 			assign renamed_prev_rs1[0] = 5'bx;
 			assign renamed_prev_rs2[0] = 5'bx;
-			assign renamed_prev_immed[0] = 12'bx;
+			assign renamed_prev_immed[0] = 32'bx;
+			assign renamed_prev_pc[0] = 63'bx;
+
 `endif
 
 			for (D = 0; D < 2*NDEC; D = D+1) begin :rn
@@ -1072,12 +1080,15 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				assign renamed_prev_rd[D+1] = d;
 				assign renamed_prev_rs1[D+1] = s1;
 				assign renamed_prev_rs2[D+1] = s2;
-				assign renamed_prev_immed[D+1] = immed[11:0];
+				assign renamed_prev_immed[D+1] = immed[31:0];
+				assign renamed_prev_pc[D+1] = pc;
+				wire [4:0]alt_s1 = renamed_is_add_to_prev[D]|renamed_is_simple_ld_st[D]?0:s1;
 				wire [4:0]alt_s2 = renamed_is_complex_return[D]?(renamed_is_add_r0[D]&&renamed_is_add_r0_rs2[D]?renamed_prev_rs2[D]:renamed_prev_rs1[D]):s2;
 				wire alt_needs_s2 = (!renamed_is_const_branch[D])&(renamed_is_complex_return[D]|needs_s2);
 				wire [4:0]alt_d = renamed_is_complex_return[D]||renamed_is_const_branch[D]?renamed_prev_rd[D]:d;
 				wire alt_makes_d = makes_d||renamed_is_complex_return[D]||renamed_is_const_branch[D];
 `else
+				wire [4:0]alt_s1 = s1;
 				wire [4:0]alt_s2 = s2;
 				wire [4:0]alt_d = d;
 				wire alt_needs_s2 = needs_s2;
@@ -1110,17 +1121,25 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.immed2(immed2),
 					.renamed_is_complex_return(renamed_is_complex_return[D]),
 					.next_is_complex_return(renamed_is_complex_return[D+1]),
+					.renamed_is_simple_ld_st(renamed_is_simple_ld_st[D]),
+					.renamed_is_add_to_prev(renamed_is_add_to_prev[D]),
+					.next_is_add_to_prev(renamed_is_add_to_prev[D+1]),
 					.renamed_is_const_branch(renamed_is_const_branch[D]),
 					.next_is_const_branch(renamed_is_const_branch[D+1]),
 					.renamed_is_add_const(renamed_is_add_const[D+1]),
 					.prev_is_add_const(renamed_is_add_const[D]),
+					.renamed_is_add_to_auipc(renamed_is_add_to_auipc[D+1]),
+					.prev_is_add_to_auipc(renamed_is_add_to_auipc[D]),
 					.renamed_is_add_r0(renamed_is_add_r0[D+1]),
 					.prev_is_add_r0(renamed_is_add_r0[D]),
 					.renamed_is_add_r0_rs2(renamed_is_add_r0_rs2[D+1]),
 					.renamed_is_load_immediate(renamed_is_load_immediate[D+1]),
 					.prev_is_load_immediate(renamed_is_load_immediate[D]),
 					.prev_rd(renamed_prev_rd[D]),
+					.prev_rs1(renamed_prev_rs1[D]),
+					.prev_rs2(renamed_prev_rs2[D]),
 					.prev_immed(renamed_prev_immed[D]),
+					.prev_pc(renamed_prev_pc[D]),
                 	.orig_needs_rs2(needs_s2),
                 	.orig_makes_rd(makes_d),
                 	.orig_rs1(s1),

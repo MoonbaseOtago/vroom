@@ -283,7 +283,6 @@ module alu(
 	reg [ 3:0]r_op;
 	reg	r_inv, r_unsigned;
 	reg	r_addw;
-	reg	r_in_pc;
 	reg	r_makes_rd;
 	reg	r_needs_rs2;
 	reg r_rv32;

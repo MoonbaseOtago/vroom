@@ -370,13 +370,21 @@ module rename(
 		output	renamed_is_add_r0_rs2,
 		output	renamed_is_load_immediate,
 		output	renamed_is_const_branch,
+		output	renamed_is_add_to_prev, 
+		output	renamed_is_add_to_auipc, 
+		output  renamed_is_simple_ld_st,
 		input	next_is_complex_return,
 		input	next_is_const_branch,
+		input	next_is_add_to_prev,
+		input	prev_is_add_to_auipc,
 		input	prev_is_add_const,
 		input	prev_is_load_immediate,
 		input	prev_is_add_r0,
 		input  [4:0]prev_rd,
-		input  [31:0]prev_immed
+		input  [4:0]prev_rs1,
+		input  [4:0]prev_rs2,
+		input  [31:0]prev_immed,
+		input  [RV-1:1]prev_pc
 `endif
 `ifdef RENAME_OPT
 		,
@@ -409,19 +417,46 @@ module rename(
 	parameter NUM_PENDING_RET=8;
 
 `ifdef INSTRUCTION_FUSION
+
+	wire [31:0]immed_add;
+	wire		is_simple_const;
+	generate
+
+		if (ADDR==0) begin
+			assign is_simple_const = 0;
+			assign immed_add = 'bx;
+		end else begin
+			assign is_simple_const = prev_immed[11:0] == 0 && (!|immed[31:12]  || &immed[31:12]);
+			// there are 7 of these adders, but note there's only 1 bit in the 2nd term 
+			//		there's a lot of scope for optimisation
+			assign immed_add = {prev_immed[31:12], immed[11:0]}-{19'b0, immed[12], 12'b0};
+		end
+	
+	endgenerate
 	//
 	//	we're limited by register read ports per ALU, we're going to rewrite
 	//	the following into one instruction:
 	//
-	//	1)	add   a, b, #C	is_add_const
+	//	1)	add   a, b, #C	is_add_const  (DELETED)
 	//		ret				is_complex_return
 	//
-	//	2)  add	  a, r0, #C	is_add_const
+	//	2)  add	  a, r0, #C	is_add_const  (DELETED)
 	//		bxx	  a, d, br	is_const_branch is_const_branch_rs1
 	//
-	//	3)  add	  a, r0, #C	is_add_const
+	//	3)  add	  a, r0, #C	is_add_const  (DELETED)
 	//		bxx	  d, a, br	is_const_branch !is_const_branch_rs1
 	//
+	//	4)  lui	  a, hi(X)		is_simple_const && is_add_const && prev_rs1 == 0
+	//		ld/st	b, lo(X)(a)	is_simple_ld_st note: in this case we don't kill the first inst we
+	//								map to "lui a, hi(X); ld/st   b, X(r0)" this lets the load run
+	//								one clock early
+	//	5)  lui	a, hi(X)		 is_simple_const && is_add_const && prev_rs1 == 0  (DELETED)
+	//		add  a, a, lo(X)	 is_add_to_prev   -> li   a, X
+	//
+	//	6)  auipc	a, hi(X)	 is_add_to_auipc && is_add_const && prev_rs1 == 0  (DELETED)
+	//		add  a, a, lo(X)	 is_add_to_auipc   -> auipc   a, X
+	//
+	reg	is_simple_ld_st, is_add_to_prev, is_add_to_auipc;
 	reg	is_load_immediate, is_add_const, is_const_branch, is_const_branch_rs1, is_complex_return;
 	reg is_add_r0, is_add_r0_rs2;
 	assign	renamed_is_complex_return = is_complex_return;
@@ -430,25 +465,51 @@ module rename(
 	assign	renamed_is_const_branch = is_const_branch;
 	assign	renamed_is_add_r0 = is_add_r0;
 	assign	renamed_is_add_r0_rs2 = is_add_r0_rs2;
+	assign	renamed_is_add_to_prev = is_add_to_prev;
+	assign	renamed_is_add_to_auipc = is_add_to_auipc;
+	assign	renamed_is_simple_ld_st = is_simple_ld_st;
+	assign	renamed_is_add_to_auipc = is_add_to_auipc;
 	always @(*) begin
 		is_add_const = 0;
 		is_const_branch = 0;
 		is_const_branch_rs1 = 'bx;
 		is_complex_return = 0;
 		is_load_immediate = 0;
+		is_simple_ld_st = 0;
+		is_add_to_prev = 0;
 		is_add_r0 = 0;
 		is_add_r0_rs2 = 0;
+		is_add_to_auipc = 0;
 		case (unit_type) // synthesis full_case parallel_case
 		0:	begin
-				if (control[5:0] == 6'b000_000) begin
+				case (control[5:0])
+				6'b000_000: 
 					if (!orig_needs_rs2) begin
 						is_add_const = 1;
 						is_load_immediate = orig_rs1 == 0;
+						is_add_to_prev = rd == orig_rs1 && orig_rs1 == prev_rd && prev_rs2 == 0 && is_simple_const && (prev_is_add_const|prev_is_add_to_auipc);
 					end else begin
 						is_add_r0 = orig_rs1 == 0 || orig_rs2 == 0;
 						is_add_r0_rs2 = orig_rs2 == 0;
 					end
-				end
+				6'b010_000:		// addwi
+					if (!orig_needs_rs2) begin
+						is_add_to_prev = rd == orig_rs1 && orig_rs1 == prev_rd && prev_rs2 == 0 && is_simple_const && (prev_is_add_const|prev_is_add_to_auipc);
+					end
+				6'b100_000: 
+					if (!orig_needs_rs2) begin
+						is_add_to_auipc = 1;
+					end
+				default:;
+				endcase
+			end
+		3:  begin
+				if (control[4] == 0) 
+					is_simple_ld_st = is_simple_const && prev_is_add_const && prev_rs1 == 0 && orig_rs1 == prev_rd;
+			end
+		4:  begin
+				if (control[5:4] == 0) 
+					is_simple_ld_st = is_simple_const && prev_is_add_const && prev_rs1 == 0 && orig_rs1 == prev_rd;
 			end
 		6:	begin
 				case ({orig_makes_rd, control[0]}) 
@@ -590,7 +651,7 @@ module rename(
 	assign next_map_rd = next_start+ADDR;
 	assign next_rd = rd;
 `ifdef INSTRUCTION_FUSION
-	assign next_makes_rd = makes_rd&c_valid_out&!(next_is_const_branch|next_is_complex_return);
+	assign next_makes_rd = makes_rd&c_valid_out&!(next_is_const_branch|next_is_complex_return|next_is_add_to_prev);
 `else
 	assign next_makes_rd = makes_rd&c_valid_out;
 `endif
@@ -732,7 +793,7 @@ module rename(
 		r_local2 <= local2;
 		r_local3 <= local3;
 `ifdef INSTRUCTION_FUSION
-		if (next_is_complex_return|next_is_const_branch) begin
+		if (next_is_complex_return|next_is_const_branch|next_is_add_to_prev) begin
 			r_real_rs1_out <= 0;
 			r_real_rs2_out <= 0;
 			r_real_rs3_out <= 0;
@@ -762,21 +823,29 @@ module rename(
 `endif
 		r_rd_out <= next_map_rd;
 		r_rd_real_out <= rd;
-		r_immed_out <= immed;
 		r_needs_rs3_out <= needs_rs3;
 `ifdef INSTRUCTION_FUSION
 		r_immed2_out <= is_complex_return&prev_is_add_r0 ? 32'b0 : is_complex_return | is_const_branch? prev_immed: immed2;
 		r_needs_rs2_out <= needs_rs2 | is_complex_return | is_const_branch;
-		r_makes_rd_out <= (makes_rd | is_complex_return | is_const_branch) & !(next_is_complex_return|next_is_const_branch);
-		if (is_complex_return | is_const_branch) begin
-			r_control_out <= {1'b1, is_const_branch_rs1, control[5:0]};
+		r_makes_rd_out <= (makes_rd | is_complex_return | is_const_branch) & !(next_is_complex_return|next_is_const_branch|next_is_add_to_prev);
+		casez ({is_complex_return, is_const_branch, is_add_to_prev&prev_is_add_to_auipc}) // synthesis full_)case parallel_case
+		3'b1??,
+		3'b?1?: r_control_out <= {1'b1, is_const_branch_rs1, control[5:0]};
+		3'b??1: r_control_out <= {control[7:6], 1'b1,  control[4:0]};
+		3'b000: r_control_out <= control;
+		endcase
+		r_immed_out <= (is_add_to_prev|is_simple_ld_st?immed_add:immed);
+		if (is_add_to_prev&prev_is_add_to_auipc) begin
+			r_pc_out <= prev_pc;
 		end else begin
-			r_control_out <= control;
+			r_pc_out <= pc;
 		end
 `else
 		r_needs_rs2_out <= needs_rs2;
 		r_makes_rd_out <= makes_rd;
 		r_control_out <= control;
+		r_immed_out <= immed;
+		r_pc_out <= pc;
 `endif
 		r_short_out <= short;
 		r_start_out <= start;
@@ -787,7 +856,6 @@ module rename(
 		r_rs3_fp_out <= rs3_fp;
 `endif
 		r_unit_type_out <= unit_type;
-		r_pc_out <= pc;
 		r_pc_dest_out <= pc_dest;
 		r_valid_out <= c_valid_out&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
 		r_branch_token_out <= branch_token;

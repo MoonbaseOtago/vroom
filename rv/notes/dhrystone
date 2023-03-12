@@ -365,3 +365,21 @@ hpmcounter7 = 114057
 IPC = 3.58
 BTC hit rate = %99
 Instruction issue/bundle = 3.66
+==================================
+12/3/23 simulator m-mode - 644 ld/st unit - turned on (still broken) trace cache
+Microseconds for one run through Dhrystone: 2.21
+Dhrystones per Second:                      451973
+DMips:                                      257.2
+DMips/(25)MHZ:                              10.28
+mcycle = 110700
+minstret = 418031
+hpmcounter4 = 78003
+hpmcounter5 = 75992
+hpmcounter6 = 471947
+hpmcounter7 = 76079
+
+IPC = 3.77
+BTC hit rate = %97
+Instruction issue/bundle = 6.20
+
+

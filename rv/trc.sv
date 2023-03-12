@@ -398,9 +398,9 @@ end
 		end
 
 		reg [NRETIRE-1:0]starting_valid;
-		reg [$clog2(NRETIRE)-1:0]starting_valid_count;
-		reg [$clog2(NRETIRE)-1:0]current_valid_count;
-		reg [$clog2(NRETIRE)-1:0]initial_count;
+		reg [$clog2(NRETIRE):0]starting_valid_count;
+		reg [$clog2(NRETIRE):0]current_valid_count;
+		//reg [$clog2(NRETIRE)-1:0]initial_count;
 		reg [$clog2(NRETIRE)-1:0]r_skip, c_skip;
 		always @(posedge clk)
 			r_skip <= (reset || r_invalidate || !trace_enable ?0 : c_skip);

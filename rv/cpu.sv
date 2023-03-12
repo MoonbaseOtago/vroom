@@ -1737,7 +1737,7 @@ wire [VA_SZ-1:1]tt_dest_pc[0:(NDEC*2)-1];
 				assign trace_in.b[I].control = control_commit[ind][H];
 				assign trace_in.b[I].immed = immed_commit[ind][H];
 `ifdef INSTRUCTION_FUSION
-				assign trace_in.b[I].immed2 = immed_commit2[ind][H];
+				assign trace_in.b[I].immed2 = immed2_commit[ind][H];
 `endif
 `ifdef FP
 				assign trace_in.b[I].rd_fp = rd_fp_commit[H][ind];

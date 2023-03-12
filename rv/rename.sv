@@ -484,6 +484,7 @@ module rename(
 		0:	begin
 				case (control[5:0])
 				6'b000_000: 
+					if (orig_makes_rd)
 					if (!orig_needs_rs2) begin
 						is_add_const = 1;
 						is_load_immediate = orig_rs1 == 0;
@@ -493,12 +494,19 @@ module rename(
 						is_add_r0_rs2 = orig_rs2 == 0;
 					end
 				6'b010_000:		// addwi
+					if (orig_makes_rd)
 					if (!orig_needs_rs2) begin
 						is_add_to_prev = rd == orig_rs1 && orig_rs1 == prev_rd && prev_rs2 == 0 && is_simple_const && (prev_is_add_const|prev_is_add_to_auipc);
 					end
 				6'b100_000: 
+					if (orig_makes_rd)
 					if (!orig_needs_rs2) begin
-						is_add_to_auipc = 1;
+`ifdef TRACE_CACHE
+						is_add_to_auipc = 0;	// disable until we can figure out how to handle this with
+												// the trace cache
+`else
+						is_add_to_auipc = 1;	
+`endif
 					end
 				default:;
 				endcase

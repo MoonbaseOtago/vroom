@@ -305,11 +305,13 @@ wire [NRETIRE-1:0]valid_vec=trace_in.valid;
 wire [NRETIRE-1:0]start_vec;
 wire [2:0]unit_type[0:NRETIRE-1];
 wire [5:0]control[0:NRETIRE-1];
+wire [VA_SZ-1:1]pc_dest[0:NRETIRE-1];
 for (I = 0; I < NRETIRE; I=I+1) begin
 assign short_vec[I] = trace_in.b[I].short_ins;
 assign start_vec[I] = trace_in.b[I].start;
 assign unit_type[I] = trace_in.b[I].unit_type;
 assign control[I] = trace_in.b[I].control;
+assign pc_dest[I] = trace_in.b[I].pc_dest;
 end
 
 		// unskipped partial instruction decodes for choosing trace beginning/ends

@@ -1014,6 +1014,7 @@ module pc(input clk,  input reset,
 						c_fetch_state = 3'b001;
 					end else begin
 						c_pc = dec_branch;
+						c_pc_dest_fetch = dec_branch;
 						c_pc_branched = r_pc_branched;
 						c_dec_stall = 0;       
 						c_pc_fetch = r_pc_fetch;

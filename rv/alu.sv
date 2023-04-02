@@ -309,9 +309,11 @@ module alu(
 		r_fusion_br <= fusion&&is_branch;
 		r_frs1 <= frs1;
 		r_needs_rs2 <= (!fusion|!is_branch)&needs_rs2;
+		r_addw <= addw&!is_branch;
 `else
 		r_needs_rs2 <= needs_rs2;
 		r_immed <= {{32{immed[31]}},immed};
+		r_addw <= addw;
 `endif
 		r_op <= op;
 `ifdef COMBINED_BRANCH
@@ -322,7 +324,6 @@ module alu(
 		r_makes_rd <= makes_rd&enable;
 		r_inv <= inv;
 `endif
-		r_addw <= addw;
 		r_rd <= rd;
 		r_rv32 <= rv32;
 		r_res_rd <= r_rd;

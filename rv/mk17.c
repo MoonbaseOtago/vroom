@@ -92,7 +92,7 @@ err:
 		printf("		%d'b", vlen+1);
 		for (j = (vlen)-1; j >=0;j--)
 			printf(j >= i?"0":j == i-1?"1":"?");
-		printf("_0: vmq_first = %d;\n", i==(vlen)?i-1:i);
+		printf("_0: vmq_first = %d;\n", i);
 	}
 	printf("		%d'b", vlen+1);
 	for (j = vlen-1; j >=0;j--)

@@ -1079,9 +1079,9 @@ module commit(input clk,
 									clear_immed = r_control[4];
 									c_load_trap = 1;
 									casez (commit_addr_trap_type) // synthesis full_case parallel_case
-									3: c_control = 6'b001111; // store page fault
-									2: c_control = 6'b000111; // store prot fault
-									1: c_control = 6'b000110; // store aligned fault
+									3: c_control = 8'b001111; // store page fault
+									2: c_control = 8'b000111; // store prot fault
+									1: c_control = 8'b000110; // store aligned fault
 									default: c_control = 6'bx;
 									endcase
 								end

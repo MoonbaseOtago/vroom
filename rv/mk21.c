@@ -103,6 +103,7 @@ int main(int argc, char ** argv)
 	if (l != (naddr-1))
 	printf("		addr_inh[%d] = 0;\n", l);
 	printf("		addr_rd[%d] = 'bx;\n", l);
+ 	printf("		if (vmq_rdy[%d])\n", i);
  	printf("		casez (addr_rdy[%d][NCOMMIT-1:%d]", i, l);
 	for (j=0; j < l; j++) printf("&~addr_inh[%d][NCOMMIT-1:%d]", j, l);
 			printf(") // synthesis full_case parallel_case\n");

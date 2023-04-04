@@ -627,7 +627,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 
 		for (A = 0; A < NADDR; A=A+1) begin: addr
 
-			assign ls.sched[A].enable = addr_enable[A];
+			assign ls.sched[A].enable = addr_enable[A]&vmq_rdy[A];
 			assign ls.sched[A].rd  = addr_rd[A];
 			assign ls.sched[A].hart = addr_hart[A];
 
@@ -887,7 +887,7 @@ wire [5:0]write_mem_amo_1 = write_mem_amo[1];
 			end
 
 			always @(*) begin
-				c_addr_vm_pause[A] = (r_hart_vm_pause[addr_hart[A]]||hart_vm_pause[addr_hart[A]])&&r_addr_busy[A]&&!addr_killed;
+				c_addr_vm_pause[A] = (r_hart_vm_pause[addr_hart[A]]||hart_vm_pause[addr_hart[A]]||(!vmq_rdy[A]&&!addr_is_ok[A]))&&r_addr_busy[A]&&!addr_killed;
 				c_addr_vm_stall[A] = !addr_fence[A]&&prot[3]&&r_addr_busy[A]&&!addr_killed&&!(r_hart_vm_pause[addr_hart[A]]||hart_vm_pause[addr_hart[A]]);
 			end
 
@@ -1810,7 +1810,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 
 	//
 	//	this is the VM TLB queue - a queue of pending L1 TLB fill requests 
-	//		there's room here for (worst case) NE in one hart queued in 2 clocks and NLOAD+NSTORE
+	//		there's room here for (worst case) NE in one hart queued in 2 clocks and NADDR
 	//		queued from the other hart in the next clock. 
 	//		while the first are being resolved
 	//
@@ -1840,7 +1840,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 	wire [NADDR-1:0]tlb_rd_stall = c_addr_vm_stall;	// true when a unit has a VM miss
 
 	// 'packed' versions of the above
-	reg [NSTORE+NLOAD-1:0]cv_stall;		// true when a unit has a VM miss
+	reg        [NADDR-1:0]cv_stall;		// true when a unit has a VM miss
 	reg     [LNCOMMIT-1:0]cv_commit[0:NADDR-1];
 	reg[(NHART==1?0:LNHART-1):0]cv_hart[0:NADDR-1];
 	reg        [VA_SZ-1:0]cv_vaddr[0:NADDR-1];
@@ -1850,6 +1850,7 @@ wire [NLDSTQ-1:0]load_snoop_line_busy = load_snoop.ack[L].line_busy;
 	wire	[VMQ_LEN-1:0]vmq_match;
 	reg		[VMQ_LEN-1:0]vmq_kill;
 	reg [$clog2(VMQ_LEN)-1:0]vmq_first;
+	wire [NADDR-1:0]vmq_rdy;
 	wire vmq_shift = (r_vmq_addr_req&&tlb_d_addr_ack&&!tlb_d_addr_cancel)||(r_vmq_valid[0]&r_vmq_duplicate[0]&!tlb_d_data_req);
 
 	wire [VMQ_LEN-1:0]vmq_hart_busy[0:NHART-1];
@@ -1867,6 +1868,9 @@ wire [VMQ_LEN-1:0]vmq_hart_busy_0=vmq_hart_busy[0];
 			if (NADDR == 4) begin
 `include "mk17_1_4.inc"
 			end 
+		end
+		for (A = 0; A < NADDR; A = A + 1) begin
+			assign vmq_rdy[A] = !r_vmq_valid[VMQ_LEN-A-1];
 		end
 		for (V = 0; V < VMQ_LEN; V = V + 1) begin
 			if (V > 0) begin
@@ -1888,11 +1892,11 @@ wire [VMQ_LEN-1:0]vmq_hart_busy_0=vmq_hart_busy[0];
 					//
 					//
 					//	0						vmq_first-1					- active
-					//  vmq_first				vmq_first+NLOAD+NSTORE-1	- allocatable
-					//	vmq_first+NLOAD+NSTORE	VLEN-1						- free
+					//  vmq_first				vmq_first+NADDR-1			- allocatable
+					//	vmq_first+NADDR      	VLEN-1						- free
 					//
 					if (V >= vmq_first) begin
-						if (V >= (vmq_first+NLOAD+NSTORE)) begin
+						if (V >= (vmq_first+NADDR)) begin
 							c_vmq_valid[V] = 0;
 							c_vmq_addr[V] = 'bx;
 							c_vmq_hart[V] = 'bx;
@@ -1930,7 +1934,7 @@ wire [VMQ_LEN-1:0]vmq_hart_busy_0=vmq_hart_busy[0];
 			end else begin
 				always @(*) begin
 					if (V >= vmq_first) begin
-						if (V >= (vmq_first+NLOAD+NSTORE)) begin
+						if (V >= (vmq_first+NADDR)) begin
 							c_vmq_valid[V] = 0;
 							c_vmq_addr[V] = 'bx;
 							c_vmq_hart[V] = 'bx;

@@ -13,10 +13,10 @@ paul@taniwha.com @moonbaseotago
 * Very high end RISC-V implementation – goal cloud server class
 * Out of order, super scalar, speculative
 * RV64-IMAFDCHBK(V)
-* Up to 8 IPC (instructions per clock) peak, goal ~4 average on ALU heavy work
+* Up to 8 IPC (instructions per clock) peak, goal ~4 average on ALU heavy work, already past there
 * 2-way simultaneous multithreading capable
 * Multi-core
-* Current dhrystone numbers: ~10.3 DMips/MHz - still a work in progress. 
+* Current dhrystone numbers: ~11.3 DMips/MHz - still a work in progress. 
 * Currently boots Linux on an AWS-FPGA instance
 * GPL3 – dual licensing possible
 

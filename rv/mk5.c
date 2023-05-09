@@ -92,6 +92,13 @@ int main(int argc, char ** argv)
 	printf("		short = 'bx;\n");
 	printf("		branch_token = 'bx;\n");
 	printf("		branch_token_ret = 'bx;\n");
+	printf("`ifdef TRACE_CACHE\n");
+	printf("		branch_token_trace = 'bx;\n");
+	printf("		branch_token_trace_index = 'bx;\n");
+	printf("		branch_token_trace_offset = 'bx;\n");
+	printf("		branch_token_trace_history = 'bx;\n");
+	printf("		branch_token_trace_predicted = 'bx;\n");
+	printf("`endif\n");
 	printf("`ifdef FP\n");
 	printf("		rd_fp = 1'bx;\n");
 	printf("		rs1_fp = 1'bx;\n");
@@ -135,6 +142,13 @@ int main(int argc, char ** argv)
 		printf("			unit_type = unit_type_rename[%d];\n",i);
 		printf("			branch_token = branch_token_rename[%d];\n",i);
 		printf("			branch_token_ret = branch_token_ret_rename[%d];\n",i);
+		printf("`ifdef TRACE_CACHE\n");
+		printf("			branch_token_trace = branch_token_trace_rename[%d];\n",i);
+		printf("			branch_token_trace_index = branch_token_trace_index_rename[%d];\n",i);
+		printf("			branch_token_trace_offset = branch_token_trace_offset_rename[%d];\n",i);
+		printf("			branch_token_trace_history = branch_token_trace_history_rename[%d];\n",i);
+		printf("			branch_token_trace_predicted = branch_token_trace_predicted_rename[%d];\n",i);
+		printf("`endif\n");
 		printf("			immed = immed_rename[%d];\n",i);
 		printf("`ifdef INSTRUCTION_FUSION\n");
 		printf("			immed2 = immed2_rename[%d];\n",i);

@@ -146,6 +146,9 @@ module alu(
     output [RV-1:1]commit_alu_br,
     output [LNCOMMIT-1:0]commit_alu_br_addr,
     output       commit_alu_br_short,
+`ifdef TRACE_CACHE
+	output		 commit_alu_br_trace,
+`endif
     output [BDEC-1:1]commit_alu_br_dec
 `endif
 	);

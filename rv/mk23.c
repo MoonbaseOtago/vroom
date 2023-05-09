@@ -343,8 +343,8 @@ int main(int argc, char ** argv)
 
 	printf("	assign ignore_valid = {");
 	for (i = num_retire-1; i >= 0; i--) printf("|trace_in_will_trap[%d:0]%s", i, i==0?"} |\n":",");
-	printf("			      {1'b0, ");
-	for (i = num_retire-2; i >= 0; i--)
+	printf("			      {");
+	for (i = num_retire-1; i >= 0; i--)
 	if (i == 0) {
 		printf("1'b0};\n");
 	} else {

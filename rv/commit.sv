@@ -251,6 +251,13 @@ module commit(input clk,
 	input [VA_SZ-1:1]pc_dest,
 	input [$clog2(NUM_PENDING)-1:0]branch_token,
 	input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret,
+`ifdef TRACE_CACHE
+	input branch_token_trace,
+	input [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index,
+	input [$clog2(NDEC*2)-1:0]branch_token_trace_offset,
+	input [TRACE_HISTORY-1:0]branch_token_trace_history,
+	input  branch_token_trace_predicted,
+`endif
 	input  [3:0]unit_type,       // 0 ALU, 1 shift, 2 mul/dev, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 	input	[NCOMMIT-1:0]commit_ack,
 	input	[NCOMMIT-1:0]commit_completed,
@@ -293,6 +300,11 @@ module commit(input clk,
 	output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 	output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
 `ifdef TRACE_CACHE
+	output       branch_token_trace_out,
+	output [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index_out,
+	output [$clog2(NDEC*2)-1:0]branch_token_trace_offset_out,
+	output [TRACE_HISTORY-1:0]branch_token_trace_history_out,
+	output       branch_token_trace_predicted_out,
 	output		 will_trap_out, 
 `endif
 
@@ -371,6 +383,8 @@ module commit(input clk,
 	parameter CALL_STACK_SIZE = 32;
 	parameter NUM_PENDING=32;
 	parameter NUM_PENDING_RET=8;
+	parameter NUM_TRACE_LINES=64;
+	parameter TRACE_HISTORY=5;
 
 	assign commit_commitable = commit_first;	// true when we know that this instruction will be committed
 												// really need something better
@@ -444,6 +458,18 @@ module commit(input clk,
 	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret;
 	assign branch_token_out = r_branch_token;
 	assign branch_token_ret_out = r_branch_token_ret;
+`ifdef TRACE_CACHE
+    reg		r_branch_token_trace;
+	assign  branch_token_trace_out = r_branch_token_trace;
+	reg [$clog2(NUM_TRACE_LINES)-1:0]r_branch_token_trace_index;
+	assign branch_token_trace_index_out = r_branch_token_trace_index;
+	reg [$clog2(NDEC*2)-1:0]r_branch_token_trace_offset;
+	assign branch_token_trace_offset_out = r_branch_token_trace_offset;
+	reg [TRACE_HISTORY-1:0]r_branch_token_trace_history;
+	assign branch_token_trace_history_out = r_branch_token_trace_history;
+	reg     r_branch_token_trace_predicted;
+	assign branch_token_trace_predicted_out = r_branch_token_trace_predicted;
+`endif
     assign  commit_update_dest = r_pc_dest;
     assign  commit_update_taken = r_control[5]; 
 
@@ -1270,6 +1296,13 @@ module commit(input clk,
 			r_pc_dest <= pc_dest;
 			r_branch_token <= branch_token;
 			r_branch_token_ret <= branch_token_ret;
+`ifdef TRACE_CACHE
+			r_branch_token_trace <= branch_token_trace;
+			r_branch_token_trace_index <= branch_token_trace_index;
+			r_branch_token_trace_offset <= branch_token_trace_offset;
+			r_branch_token_trace_history <= branch_token_trace_history;
+			r_branch_token_trace_predicted <= branch_token_trace_predicted;
+`endif
 			//if (unit_type == 6 && control[1:0] == 2'b00) begin
 				//r_pc_branch_context <= {1'b1, pc_branch_context[2:0]}; // tag it as an indirect unconditional jump
 			//end

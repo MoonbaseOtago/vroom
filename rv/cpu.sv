@@ -210,6 +210,9 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter NUM_GLOBAL_READ_FP_PORTS=(NSTORE);
 `endif
 
+	parameter NUM_TRACE_LINES=64;
+	parameter TRACE_HISTORY=4;
+
 `ifdef AWS_DEBUG
 	wire	ls_trig;
 `endif
@@ -266,6 +269,9 @@ assign pmp[1].valid=0;
 	wire       [1:0]pc_trace_push_pop[0:NHART-1];
 	wire [NHART-1:0]pc_trace_used;
 	wire [NHART-1:0]pc_trace_hit;
+	wire [$clog2(NUM_TRACE_LINES)-1:0]pc_trace_hit_index[0:NHART-1];
+	wire [TRACE_HISTORY-1:0]pc_trace_hit_history[0:NHART-1];
+	wire [NHART-1:0]pc_trace_hit_predicted;
 	wire [NHART-1:0]pc_trace_pop;
 `endif
 	wire [127:0]icache_out[0:NHART-1];
@@ -404,6 +410,14 @@ assign pmp[1].valid=0;
 	wire   [BDEC-1:1]commit_br_dec[0:(NBRANCH==0?0:NBRANCH-1)][0:NHART-1];
 	wire   [RV-1:1]commit_br[0:(NBRANCH==0?0:NBRANCH-1)][0:NHART-1];
 	wire [LNCOMMIT-1:0]commit_br_addr[0:(NBRANCH==0?0:NBRANCH-1)][0:NHART-1];
+`ifdef TRACE_CACHE
+	wire   [NHART-1:0]commit_br_enable_trace;
+	wire [$clog2(NUM_TRACE_LINES)-1:0]commit_br_miss_index[0:NHART-1];
+	wire [$clog2(2*NDEC)-1:0]commit_br_miss_offset[0:NHART-1];
+	wire [TRACE_HISTORY-1:0]commit_br_miss_history[0:NHART-1];
+	wire [NHART-1:0]commit_br_miss_predicted;
+`endif
+	
 
 	wire [NHART-1:0]commit_alu_br_enable[0:NALU-1];
 	wire [NALU-1:0]commit_alu_br_short;
@@ -445,7 +459,12 @@ assign pmp[1].valid=0;
 	wire    [BDEC-1:1]branch_dec_commit[0:NCOMMIT-1][0:NHART-1];
 	wire    [NCOMMIT-1:0]branch_taken_commit[0:NHART-1];
 `ifdef TRACE_CACHE
-	wire    [NCOMMIT-1:0]will_trap_commit[0:NHART-1];
+	wire [NCOMMIT-1:0]will_trap_commit[0:NHART-1];
+	wire [NCOMMIT-1:0]branch_token_trace_commit[0:NHART-1];
+	wire [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index_commit[NCOMMIT-1:0][0:NHART-1];
+	wire [$clog2(2*NDEC)-1:0]branch_token_trace_offset_commit[NCOMMIT-1:0][0:NHART-1];
+	wire [TRACE_HISTORY-1:0]branch_token_trace_history_commit[NCOMMIT-1:0][0:NHART-1];
+	wire [NHART-1:0]branch_token_trace_predicted_commit[NCOMMIT-1:0];
 `endif
 	wire [$clog2(NUM_PENDING)-1:0]branch_token_commit[0:NCOMMIT-1][0:NHART-1];
 	wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_commit[0:NCOMMIT-1][0:NHART-1];
@@ -633,7 +652,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 				.subr_inc2(subr_inc2),
 				.pop_available(pop_available),
 `ifdef TRACE_CACHE
-				.trace_hit(pc_trace_hit[H]), 
+				.trace_hit(pc_trace_hit[H]&!partial_valid_int_0), 
 				.trace_pop(pc_trace_pop[H]), 
 				.trace_next(pc_trace_next[H]), 
 				.trace_ret_addr(pc_trace_ret_addr[H]), 
@@ -994,6 +1013,13 @@ wire [31:1]sb_is_0; // for debug
 			wire    [CNTRL_SIZE-1:0]control_rename[0:2*NDEC-1];
 			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename[0:2*NDEC-1];
 			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename[0:2*NDEC-1];
+`ifdef TRACE_CACHE
+			wire      [2*NDEC-1:0]branch_token_trace_rename;
+			wire [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index_rename[0:2*NDEC-1];
+			wire [$clog2(NDEC*2)-1:0]branch_token_trace_offset_rename[0:2*NDEC-1];
+			wire [TRACE_HISTORY-1:0]branch_token_trace_history_rename[0:2*NDEC-1];
+			wire       [2*NDEC-1:0]branch_token_trace_predicted_rename;
+`endif
 			wire      [2*NDEC-1:0]valid_rename;
 			wire 	[VA_SZ-1:1]pc_rename[0:2*NDEC-1];
 			wire 	[VA_SZ-1:1]pc_dest_rename[0:2*NDEC-1];
@@ -1076,6 +1102,12 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				reg			local1, local2, local3;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
 				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
+`ifdef TRACE_CACHE
+				reg			branch_token_trace;
+				reg [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index;
+				reg [TRACE_HISTORY-1:0]branch_token_trace_history;
+				reg			branch_token_trace_predicted;
+`endif
 `ifdef INSTRUCTION_FUSION
 				assign renamed_prev_rd[D+1] = d;
 				assign renamed_prev_rs1[D+1] = s1;
@@ -1110,7 +1142,11 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				assign map_is_move_reg_rename[D] = scoreboard_latest_rename[map_is_reg[D]];
 `endif
 
-				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
+				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING),
+`ifdef TRACE_CACHE
+					    .NUM_TRACE_LINES(NUM_TRACE_LINES), .TRACE_HISTORY(TRACE_HISTORY),
+`endif
+						.NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT))renamer(.reset(reset), .clk(clk),
 					.rv32(rv32[H]),
 					.valid(rename_valid_in),
 					.rs1(s1),
@@ -1177,6 +1213,12 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.local3(local3),
 					.branch_token(branch_token),
 					.branch_token_ret(branch_token_ret),
+`ifdef TRACE_CACHE
+					.branch_token_trace(branch_token_trace),
+					.branch_token_trace_index(branch_token_trace_index),
+					.branch_token_trace_history(branch_token_trace_history),
+					.branch_token_trace_predicted(branch_token_trace_predicted),
+`endif
 	
 					.commit_br_enable(commit_br_enable[0][H]),
 					.commit_trap_br_enable(commit_trap_br_enable[H]|commit_int_br_enable[H]),
@@ -1234,8 +1276,17 @@ assign gl_type_rename[H] = unit_type_rename[0];
 					.will_be_valid(will_be_valid_rename[D]),
 					.branch_token_out(branch_token_rename[D]),
 					.branch_token_ret_out(branch_token_ret_rename[D]),
+`ifdef TRACE_CACHE
+					.branch_token_trace_out(branch_token_trace_rename[D]),
+					.branch_token_trace_index_out(branch_token_trace_index_rename[D]),
+					.branch_token_trace_history_out(branch_token_trace_history_rename[D]),
+					.branch_token_trace_predicted_out(branch_token_trace_predicted_rename[D]),
+`endif
 					.valid_out(valid_rename[D])
 					);
+`ifdef TRACE_CACHE
+					assign branch_token_trace_offset_rename[D] = D;
+`endif
 
 `ifdef AWS_DEBUG
 `ifdef NOTDEF
@@ -1419,7 +1470,8 @@ end
 					r_commit_token_ret[I] <= |token_match_ret[I];
 			end
 
-			commit_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NUM_TRANSFER_PORTS(NUM_TRANSFER_PORTS))cc(.reset(reset), .clk(clk),
+			commit_ctrl #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART),
+						.LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .NUM_TRANSFER_PORTS(NUM_TRANSFER_PORTS))cc(.reset(reset), .clk(clk),
 				.advance_count(count_out_rename),
 				.advance(proceed_rename),
 				.commit_trap_br_addr(commit_trap_br_addr[H]),
@@ -1483,6 +1535,13 @@ end
 				reg 	[VA_SZ-1:1]pc_dest_rn;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
 				reg [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret;
+`ifdef TRACE_CACHE
+				reg branch_token_trace;
+				reg [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index;
+				reg [$clog2(2*NDEC)-1:0]branch_token_trace_offset;
+				reg [TRACE_HISTORY-1:0]branch_token_trace_history;
+				reg branch_token_trace_predicted;
+`endif
 	
 				if (NDEC == 2) begin
 `include "mk5_4.inc"
@@ -1516,7 +1575,13 @@ end
 
 				assign commit_load[H][C] = xload&~(commit_br_enable[0][H]|commit_trap_br_enable[H]|commit_int_br_enable[H]);
 
-				commit #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING), .NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT), .CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
+				commit #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(C), .NUM_PENDING(NUM_PENDING),
+`ifdef TRACE_CACHE
+					    .NUM_TRACE_LINES(NUM_TRACE_LINES), .TRACE_HISTORY(TRACE_HISTORY),
+`endif
+						.NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART),
+						.LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT),
+						.CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
 `ifdef SIMD
 					.simd_enable(simd_enable),
 					.pipe_enable(pipe_enable),
@@ -1563,6 +1628,13 @@ end
 					.pc_dest(pc_dest_rn),
 					.branch_token(branch_token),
 					.branch_token_ret(branch_token_ret),
+`ifdef TRACE_CACHE
+					.branch_token_trace(branch_token_trace),
+					.branch_token_trace_index(branch_token_trace_index),
+					.branch_token_trace_offset(branch_token_trace_offset),
+					.branch_token_trace_history(branch_token_trace_history),
+					.branch_token_trace_predicted(branch_token_trace_predicted),
+`endif
         			.unit_type(unit_type), 
 					.force_fetch(force_fetch_rename),
 
@@ -1654,6 +1726,11 @@ end
 					.branch_dec_out(branch_dec_commit[C][H]),
 					.branch_taken_out(branch_taken_commit[H][C]),
 `ifdef TRACE_CACHE
+					.branch_token_trace_out(branch_token_trace_commit[H][C]),
+					.branch_token_trace_index_out(branch_token_trace_index_commit[C][H]),
+					.branch_token_trace_offset_out(branch_token_trace_offset_commit[C][H]),
+					.branch_token_trace_history_out(branch_token_trace_history_commit[C][H]),
+					.branch_token_trace_predicted_out(branch_token_trace_predicted_commit[C][H]),
 					.will_trap_out(will_trap_commit[H][C]),
 `endif
 
@@ -1667,12 +1744,20 @@ end
 
 `ifdef TRACE_CACHE
 
-			parameter NUM_TRACE_LINES=64;
+			assign commit_br_enable_trace[H] = branch_token_trace_commit[H][commit_br_addr[0][H]];
+			assign commit_br_miss_index[H] = branch_token_trace_index_commit[commit_br_addr[0][H]][H];
+			assign commit_br_miss_offset[H] = branch_token_trace_offset_commit[commit_br_addr[0][H]][H];
+			assign commit_br_miss_history[H] = branch_token_trace_history_commit[commit_br_addr[0][H]][H];
+			assign commit_br_miss_predicted[H] = branch_token_trace_predicted_commit[commit_br_addr[0][H]][H];
+
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
 			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
 
 			wire [NDEC*2-1:0]will_trap;
-			trace_cache #(.VA_SZ(VA_SZ), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
+			wire [NDEC*2-1:0]trace_hit_mask;
+			wire [NDEC*2-1:0]trace_hit_replace;
+			wire [VA_SZ-1:1]trace_hit_replace_pc;
+			trace_cache #(.RV(RV), .VA_SZ(VA_SZ), .TRACE_HISTORY(TRACE_HISTORY), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
 `ifdef SIMD
 					.simd_enable(simd_enable),
 `endif
@@ -1687,6 +1772,20 @@ end
 					.rename_stall(rename_stall[H]),
 					.trace_hit(pc_trace_hit[H]),
 					.trace_out(trace_out),
+					.trace_hit_index(pc_trace_hit_index[H]),
+					.trace_hit_history(pc_trace_hit_history[H]),
+					.trace_hit_predicted(pc_trace_hit_predicted[H]),
+					.trace_hit_mask(trace_hit_mask),
+					.trace_hit_replace(trace_hit_replace),
+					.trace_hit_replace_pc(trace_hit_replace_pc),
+		
+					.branch_miss(commit_br_enable[H]&commit_br_enable_trace[H]),
+					.branch_miss_index(commit_br_miss_index[H]),
+					.branch_miss_target(commit_br[0][H]),
+					.branch_miss_offset(commit_br_miss_offset[H]),
+					.branch_miss_history(commit_br_miss_history[H]),
+					.branch_miss_predicted(commit_br_miss_predicted[H]),
+
 
 					.flush(1'b0),						// we did a pipe-flush
 					.invalidate(tlb_wr_invalidate),     // invalidate the trace cache
@@ -1695,7 +1794,7 @@ end
 					.trace_in(trace_in));
 
 			for (I = 0; I < (NDEC*2); I = I+1) begin
-				assign trace_out_valid[H][I] = trace_out.valid[I];
+				assign trace_out_valid[H][I] = trace_out.valid[I]&trace_hit_mask[I];
 				assign trace_out_pc[H][I] = trace_out.b[I].pc;
 				assign trace_out_rd[H][I] = trace_out.b[I].rd;
 				assign trace_out_rs1[H][I] = trace_out.b[I].rs1;
@@ -1705,7 +1804,6 @@ end
 				assign trace_out_needs_rs2[H][I] = trace_out.b[I].needs_rs2;
 				assign trace_out_needs_rs3[H][I] = trace_out.b[I].needs_rs3;
 				assign trace_out_unit_type[H][I] = trace_out.b[I].unit_type;
-				assign trace_out_control[H][I] = trace_out.b[I].control;
 				assign trace_out_immed[H][I] = trace_out.b[I].immed;
 `ifdef INSTRUCTION_FUSION
 				assign trace_out_immed2[H][I] = trace_out.b[I].immed2;
@@ -1716,7 +1814,8 @@ end
 				assign trace_out_rs2_fp[H][I] = trace_out.b[I].rs2_fp;
 				assign trace_out_rs3_fp[H][I] = trace_out.b[I].rs3_fp;
 `endif
-				assign trace_out_pc_dest[H][I] = trace_out.b[I].pc_dest;
+				assign trace_out_pc_dest[H][I] = trace_hit_replace[I]?trace_hit_replace_pc:trace_out.b[I].pc_dest;
+				assign trace_out_control[H][I] = trace_hit_replace[I]?{trace_out.b[I].control[CNTRL_SIZE-1:6],~trace_out.b[I].control[5],trace_out.b[I].control[4:0]}:trace_out.b[I].control;
 				assign trace_out_start[H][I] = trace_out.b[I].start;
 				assign trace_out_short[H][I] = trace_out.b[I].short_ins;
 			end
@@ -2258,6 +2357,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 					assign commit_br[0][H] = 
 							hart_br_enable[0] ? commit_alu_br[0] :
 							hart_br_enable[1] ? commit_alu_br[1] : 'bx;
+
 				end else 
 				if (NALU == 3) begin
 					assign commit_br_short[0][H] = 
@@ -2304,6 +2404,7 @@ assign tt_dest_pc[I] = branch_dest_commit[ind][H];
 							hart_br_enable[1] ? commit_alu_br[1] : 
 							hart_br_enable[2] ? commit_alu_br[2] : 
 							hart_br_enable[3] ? commit_alu_br[3] : 'bx;
+
 				end else begin
 					assign commit_br_short[0][H] = 'bx;
 					assign commit_br_dec[0][H] = 'bx;

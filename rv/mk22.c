@@ -160,9 +160,9 @@ int main(int argc, char ** argv)
 	for (i = 0; i < num_trace_lines; i++) {
 	printf("	%d'b", num_trace_lines);
 	for (j = num_trace_lines-1; j>=0; j--) printf(i==j?"1":"?");
-	printf(": begin xpc_next = r_pc_next[%d]; xpc_push_pop = r_pc_push_pop[%d]; xpc_ret_addr = r_pc_ret_addr[%d]; xpc_ret_addr_short = r_pc_ret_addr_short[%d];end \n", i, i, i, i);
+	printf(": begin xpc_next = npc_next[%d]; xpc_history = pc_history[%d]; xpc_replace = pc_replace[%d]; xpc_mask = pc_mask[%d]; xpc_push_pop = r_pc_push_pop[%d]; xpc_ret_addr = r_pc_ret_addr[%d]; xpc_ret_addr_short = r_pc_ret_addr_short[%d];xtrace_hit_index = %d;end \n", i, i, i, i, i, i, i, i);
 	}
-	printf("	default: begin xpc_next = 'bx; xpc_push_pop = 'bx; xpc_ret_addr = 'bx; xpc_ret_addr_short = 'bx; end\n");
+	printf("	default: begin xpc_next = 'bx; xpc_history = 'bx; xpc_replace = 'bx; xpc_mask = 'bx; xpc_push_pop = 'bx; xpc_ret_addr = 'bx; xpc_ret_addr_short = 'bx; end\n");
 	printf("	endcase\n");
 
 	printf("	always @(*)\n");

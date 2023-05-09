@@ -311,6 +311,12 @@ module rename(
 		input			 local3,
 		input [$clog2(NUM_PENDING)-1:0]branch_token,
 		input [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret,
+`ifdef TRACE_CACHE
+		input			  branch_token_trace,
+		input [$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index,
+		input[TRACE_HISTORY-1:0]branch_token_trace_history,
+		input             branch_token_trace_predicted,
+`endif
 
 		input			    commit_br_enable,
 		input				commit_trap_br_enable,
@@ -355,6 +361,12 @@ module rename(
 		output			will_be_valid,
 		output [$clog2(NUM_PENDING)-1:0]branch_token_out,
 		output [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_out,
+`ifdef TRACE_CACHE
+		output			branch_token_trace_out,
+		output		[$clog2(NUM_TRACE_LINES)-1:0]branch_token_trace_index_out,
+		output		[TRACE_HISTORY-1:0]branch_token_trace_history_out,
+		output		    branch_token_trace_predicted_out,
+`endif
 		output			valid_out
 `ifdef INSTRUCTION_FUSION
 		,
@@ -415,6 +427,8 @@ module rename(
 	parameter LNCOMMIT=5;
 	parameter NUM_PENDING=32;
 	parameter NUM_PENDING_RET=8;
+	parameter NUM_TRACE_LINES=64;
+	parameter TRACE_HISTORY=5;
 
 `ifdef INSTRUCTION_FUSION
 
@@ -614,6 +628,12 @@ module rename(
 `endif
 	reg [$clog2(NUM_PENDING)-1:0]r_branch_token_out;
 	reg [$clog2(NUM_PENDING_RET)-1:0]r_branch_token_ret_out;
+`ifdef TRACE_CACHE
+	reg			  r_branch_token_trace_out;
+	reg	[$clog2(NUM_TRACE_LINES)-1:0]r_branch_token_trace_index_out;
+	reg	[TRACE_HISTORY-1:0]r_branch_token_trace_history_out;
+	reg			  r_branch_token_trace_predicted_out;
+`endif
 	reg           r_needs_rs2_out;
 	reg           r_needs_rs3_out;
 	reg           r_makes_rd_out;
@@ -669,6 +689,12 @@ module rename(
 `endif
 	assign branch_token_out =  r_branch_token_out;
 	assign branch_token_ret_out = r_branch_token_ret_out;
+`ifdef TRACE_CACHE
+	assign branch_token_trace_out = r_branch_token_trace_out;
+	assign branch_token_trace_index_out = r_branch_token_trace_index_out;
+	assign branch_token_trace_history_out = r_branch_token_trace_history_out;
+	assign branch_token_trace_predicted_out = r_branch_token_trace_predicted_out;
+`endif
 	
 	reg [2*NDEC-1:0]sel;	// 1-hot
 	assign sel_out = sel;
@@ -756,6 +782,12 @@ module rename(
 			r_valid_out <= 1;
 			r_branch_token_out <= 0;
 			r_branch_token_ret_out <= 0;
+`ifdef TRACE_CACHE
+			r_branch_token_trace_out <= 0;
+			r_branch_token_trace_index_out <= 'bx;
+			r_branch_token_trace_history_out <= 'bx;
+			r_branch_token_trace_predicted_out <= 'bx;
+`endif
 		end else begin
 			r_local1 <= 1;		// int  #1, tmp
 			r_local2 <= 1;
@@ -794,6 +826,12 @@ module rename(
 			r_valid_out <= 1;
 			r_branch_token_out <= 0;
 			r_branch_token_ret_out <= 0;
+`ifdef TRACE_CACHE
+			r_branch_token_trace_out <= 0;
+			r_branch_token_trace_index_out <= 'bx;
+			r_branch_token_trace_history_out <= 'bx;
+			r_branch_token_trace_predicted_out <= 'bx;
+`endif
 		end
 	end else
 	if (!rename_stall|commit_br_enable|commit_trap_br_enable) begin
@@ -868,6 +906,12 @@ module rename(
 		r_valid_out <= c_valid_out&!(commit_br_enable|commit_trap_br_enable|rename_reloading);
 		r_branch_token_out <= branch_token;
 		r_branch_token_ret_out <= branch_token_ret;
+`ifdef TRACE_CACHE
+		r_branch_token_trace_out <= branch_token_trace;
+		r_branch_token_trace_index_out <= branch_token_trace_index;
+		r_branch_token_trace_history_out <= branch_token_trace_history;
+		r_branch_token_trace_predicted_out <= branch_token_trace_predicted;
+`endif
 	end else begin
 		if (!r_local1 && r_rs1_out[RA-1] && commit_done[r_rs1_out[LNCOMMIT-1:0]])
 			r_rs1_out <= r_real_rs1_out;

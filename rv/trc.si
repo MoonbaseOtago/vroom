@@ -34,7 +34,7 @@ interface TRACE_BUNDLE #(parameter NRETIRE=8, CNTRL_SIZE=8, VA_SZ=48, LNCOMMIT=5
 		bit[CNTRL_SIZE-1:0]control;	// 7
 		bit       [31:0]immed;		// 32
 `ifdef INSTRUCTION_FUSION
-		bit       [31:0]immed2;		// 12
+		bit       [31:0]immed2;		// 22
 `endif
 `ifdef FP
 		bit				rd_fp;		// 1

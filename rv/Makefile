@@ -69,9 +69,9 @@ N64_OPT_2 = -DN64
 B_OPT_1 = +define+B +define+K
 B_OPT_2 = -DB -DK
 
-#NALU_1 = +define+NALU4
-#NALU_2 = -DNALU4
-#MXREG = rfile_23_1_10_1_8_32_4.sv    # for NALU4 COMBINED
+@NALU_1 = +define+NALU4
+@NALU_2 = -DNALU4
+@MXREG = rfile_23_1_10_1_8_32_4.sv    # for NALU4 COMBINED
 NALU_1 = +define+NALU3
 NALU_2 = -DNALU3
 MXREG = rfile_21_1_9_1_8_32_4.sv   # for NALU3 COMBINED
@@ -79,12 +79,12 @@ MXREG = rfile_21_1_9_1_8_32_4.sv   # for NALU3 COMBINED
 #NALU_2 = 
 #MXREG = rfile_19_1_8_1_8_32_2.sv   # for NALU2 COMBINED
 
-#TRACE_1 = +define+TRACE_CACHE
-#TRACE_2 = -DTRACE_CACHE
-#TRACE_V = trc.sv
-TRACE_1 = 
-TRACE_2 = 
-TRACE_V = 
+TRACE_1 = +define+TRACE_CACHE
+TRACE_2 = -DTRACE_CACHE
+TRACE_V = trc.sv
+#TRACE_1 = 
+#TRACE_2 = 
+#TRACE_V = 
 
 #RENAME_OPT_1 = +define+RENAME_OPT
 #RENAME_OPT_2 = -DRENAME_OPT
@@ -216,7 +216,7 @@ obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES) a
 
 fvv:	fobj_dir/fvv
 fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES) aes.sv
-	$(VERILATOR) -cc  --threads 3  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
+	$(VERILATOR) -cc  --threads 4  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
 	make -j 16 -C fobj_dir -f Vchip.mk fvv
 
 svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv

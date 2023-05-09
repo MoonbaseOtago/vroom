@@ -406,7 +406,12 @@ int main(int argc, char ** argv)
         printf("		unit_type = 'bx;\n");
         printf("		pc_dest = pc_dest_dec;\n");
         printf("`ifdef TRACE_CACHE\n");
+        printf("		branch_token_trace = pc_trace_used[H];\n");
+        printf("		branch_token_trace_index = pc_trace_hit_index[H];\n");
+        printf("		branch_token_trace_history = pc_trace_hit_history[H];\n");
+        printf("		branch_token_trace_predicted = 0;\n");
         printf("		if (pc_trace_used[H]) begin \n");
+        printf("			branch_token_trace_predicted = pc_trace_hit_predicted[H];\n");
         printf("			d = trace_out_rd[H][D];\n");
         printf("			s1 = trace_out_rs1[H][D];\n");
         printf("			s2 = trace_out_rs2[H][D];\n");

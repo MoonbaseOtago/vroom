@@ -35,6 +35,19 @@ module trace_cache(input clk, input reset,
 	output [VA_SZ-1:1]pc_ret_addr,
 	output			  pc_ret_addr_short,
 	output		 trace_hit,
+	output [$clog2(NUM_TRACE_LINES)-1:0]trace_hit_index,
+	output [TRACE_HISTORY-1:0]trace_hit_history,
+	output [NRETIRE-1:0]trace_hit_mask,
+	output [NRETIRE-1:0]trace_hit_replace,
+	output [VA_SZ-1:1]trace_hit_replace_pc,
+	output              trace_hit_predicted,
+
+	input			  branch_miss,					
+	input [$clog2(NUM_TRACE_LINES)-1:0]branch_miss_index,	// cache line
+	input		[$clog2(NRETIRE)-1:0]branch_miss_offset,	// offset into cache line
+	input		[RV-1:0]branch_miss_target,				// new dest pc
+	input		[TRACE_HISTORY-1:0]branch_miss_history,		// sampled history
+	input		        branch_miss_predicted,				// true if we predicted a branch here
 
 	input	flush,			// we did a pipe-flush
 	input	invalidate,		// invalidate the trace cache
@@ -44,12 +57,14 @@ module trace_cache(input clk, input reset,
 	
 );
 
+	parameter RV=64;
 	parameter NRETIRE=8;
 	parameter CNTRL_SIZE=7;
 	parameter LNCOMMIT=5;
 	parameter NUM_TRACE_LINES=64;
 	parameter VA_SZ=48;   
 	parameter BUNDLE_SIZE=(VA_SZ-1)+4*5+1+1+1+4+CNTRL_SIZE+32+
+
 `ifdef INSTRUCTION_FUSION
 						32+
 `endif
@@ -58,6 +73,9 @@ module trace_cache(input clk, input reset,
 `endif
 						(VA_SZ-1)+1+1;
 	// why can't I say? parameter BUNDLE_SIZE=$bits(trace_in.b[0]);
+	parameter TRACE_HISTORY=5;		// size of the history
+	parameter NUM_HISTORY=2;		// number of histories per line
+	parameter NUM_MASKS=4;			// number of masks per history
 
 	reg		 r_invalidate;
 	reg [3:0]r_cpu_mode;
@@ -67,9 +85,192 @@ module trace_cache(input clk, input reset,
 		r_invalidate <= invalidate || r_cpu_mode != cpu_mode;
 
 
-	genvar I, L;
+	genvar I, L, H, M;
 
 	generate
+
+		reg r_hit_predicted;	
+		assign trace_hit_predicted = r_hit_predicted;
+		wire [NUM_TRACE_LINES-1:0]line_predicted;
+		wire c_hit_predicted = |(line_predicted&match);
+		always @(posedge clk)
+		if (!rename_stall)
+			r_hit_predicted <= c_hit_predicted;
+			
+		for (L = 0; L < NUM_TRACE_LINES; L = L+1) begin : l
+
+wire hit = match[L]&trace_hit;
+wire rhit = r_trace_hit[L]&pc_used;
+wire rpred = r_trace_hit[L]&pc_used&|predicted;
+
+wire miss = branch_miss && branch_miss_index == L;
+		
+			reg [TRACE_HISTORY-1:0]r_history;
+			reg [NUM_HISTORY-1:0]predicted;
+
+			assign line_predicted[L] = |predicted;
+
+			always @(posedge clk)
+			if (reset || (trace_write_strobe[0] && write_meta && r_next_use == L)) begin
+				r_history <= 0;
+			end else begin
+					if (branch_miss && branch_miss_index == L) begin
+						r_history <= {branch_miss_history[TRACE_HISTORY-2:0], ~branch_miss_predicted};
+					end else 
+					if (trace_hit && match[L] && !rename_stall) begin
+						r_history <= {r_history[TRACE_HISTORY-2:0], |predicted};
+					end
+			end
+
+			//reg [NUM_HISTORY-1:0]r_hist_valid;
+			reg [1:0]r_hist_counter[0:NUM_HISTORY-1][0:NUM_MASKS-1];
+			reg [TRACE_HISTORY-1:0]r_hist_mask[0:NUM_HISTORY-1][0:NUM_MASKS-1];
+			reg [RV-1:1]r_hist_dest[0:NUM_HISTORY-1];
+			reg [$clog2(NRETIRE)-1:0]r_hist_offset[0:NUM_HISTORY-1];
+
+			// TODO make a code fragment to make this
+			always @(*)
+			casez (predicted) // synthesis full_case parallel_case
+			2'b?1:		begin
+							npc_next[L] = r_hist_dest[0];
+							case (r_hist_offset[0]) // synthesis full_case parallel_case
+							0:	pc_replace[L] = 8'h01;
+							1:	pc_replace[L] = 8'h02;
+							2:	pc_replace[L] = 8'h04;
+							3:	pc_replace[L] = 8'h08;
+							4:	pc_replace[L] = 8'h10;
+							5:	pc_replace[L] = 8'h20;
+							6:	pc_replace[L] = 8'h40;
+							7:	pc_replace[L] = 8'h80;
+							endcase
+							case (r_hist_offset[0]) // synthesis full_case parallel_case
+							0:	pc_mask[L] = 8'h01;
+							1:	pc_mask[L] = 8'h03;
+							2:	pc_mask[L] = 8'h07;
+							3:	pc_mask[L] = 8'h0f;
+							4:	pc_mask[L] = 8'h1f;
+							5:	pc_mask[L] = 8'h3f;
+							6:	pc_mask[L] = 8'h7f;
+							7:	pc_mask[L] = 8'hff;
+							endcase
+						end
+			2'b10:		begin
+							npc_next[L] = r_hist_dest[1];
+							case (r_hist_offset[1]) // synthesis full_case parallel_case
+							0:	pc_replace[L] = 8'h01;
+							1:	pc_replace[L] = 8'h02;
+							2:	pc_replace[L] = 8'h04;
+							3:	pc_replace[L] = 8'h08;
+							4:	pc_replace[L] = 8'h10;
+							5:	pc_replace[L] = 8'h20;
+							6:	pc_replace[L] = 8'h40;
+							7:	pc_replace[L] = 8'h80;
+							endcase
+							case (r_hist_offset[1]) // synthesis full_case parallel_case
+							0:	pc_mask[L] = 8'h01;
+							1:	pc_mask[L] = 8'h03;
+							2:	pc_mask[L] = 8'h07;
+							3:	pc_mask[L] = 8'h0f;
+							4:	pc_mask[L] = 8'h1f;
+							5:	pc_mask[L] = 8'h3f;
+							6:	pc_mask[L] = 8'h7f;
+							7:	pc_mask[L] = 8'hff;
+							endcase
+						end
+			2'b00:	    begin
+							npc_next[L] = r_pc_next[L];
+							pc_mask[L] = 8'hff;
+							pc_replace[L] = 8'h00;
+						end
+			endcase
+			assign pc_history[L] = r_history;
+
+			wire [NUM_HISTORY-1:0]force_alloc;
+			wire [NUM_HISTORY-1:0]mask_busy;
+			wire [NUM_HISTORY-1:0]alloc_here;
+			wire [NUM_HISTORY-1:0]alloc_matches;
+			wire [NUM_HISTORY-1:0]branch_matches;
+			wire [NUM_HISTORY-1:0]branch_exact;
+
+			for (H = 0; H < NUM_HISTORY; H=H+1) begin :h
+
+				wire [NUM_MASKS-1:0]mpredicted;
+				wire [NUM_MASKS-1:0]any_mask_valid;
+				wire [NUM_MASKS-1:0]mask_free;
+				wire [NUM_MASKS-1:0]exact;
+				assign predicted[H] = |mpredicted;
+
+
+				if (H == 0) begin
+					assign force_alloc[H] = &mask_free;
+				end else begin
+					assign force_alloc[H] = &mask_free && &mask_busy[H-1:0];
+				end 
+				assign mask_busy[H] = !&mask_free;
+
+				assign alloc_matches[H] = (branch_matches[H]&&|mask_free);
+				assign alloc_here[H] = (alloc_matches[H] || (!|alloc_matches && force_alloc[H])) && !|branch_exact;
+
+				always @(posedge clk) 
+				if (branch_miss && branch_miss_index == L && alloc_here[H]) begin
+					r_hist_offset[H] <= branch_miss_offset;
+					r_hist_dest[H] <= branch_miss_target;
+				end
+			
+
+				assign branch_matches[H] = r_hist_offset[H] == branch_miss_offset && r_hist_dest[H] == branch_miss_target && |any_mask_valid;
+				assign branch_exact[H] = r_hist_offset[H] == branch_miss_offset && r_hist_dest[H] == branch_miss_target && |exact;
+				
+		
+				for (M = 0; M < NUM_MASKS; M=M+1) begin :m
+
+					assign mpredicted[M] = r_history == r_hist_mask[H][M] && r_hist_counter[H][M]!=0;
+					assign any_mask_valid[M] = r_hist_counter[H][M]!=0;
+					assign mask_free[M] = r_hist_counter[H][M]==0;
+					assign exact[M] = branch_miss_history == r_hist_mask[H][M] && r_hist_counter[H][M]!=0;
+
+					wire next_alloc;
+
+					if (M == 0) begin
+						assign next_alloc = r_hist_counter[H][M]==0;
+					end else begin
+						assign next_alloc = r_hist_counter[H][M]==0 && !|mask_free[M-1:0];
+					end
+
+					always @(posedge clk)
+					if (reset || (trace_write_strobe[0] && write_meta && r_next_use == L)) begin
+						r_hist_counter[H][M] <= 0;
+						r_hist_mask[H][M] <= 0;
+					end else
+					if (branch_miss && branch_miss_index == L) begin
+						if (r_hist_mask[H][M] == branch_miss_history && r_hist_dest[H] == branch_miss_target && r_hist_offset[H] == branch_miss_offset && |branch_miss_history) begin // prediction was bad
+							if (branch_miss_predicted) begin
+								if (r_hist_counter[H][M] == 3) begin
+									r_hist_counter[H][M] <= 1;
+								end else begin
+									r_hist_counter[H][M] <= 0;
+								end
+							end else begin
+								if (r_hist_counter[H][M] != 3) 
+									r_hist_counter[H][M] <= r_hist_counter[H][M]+1;
+							end
+						end else
+						if (next_alloc && alloc_here[H] && |branch_miss_history) begin // allocate
+							r_hist_counter[H][M] <= 2;
+							r_hist_mask[H][M] <= branch_miss_history;
+						end else
+						if (!|branch_exact && !|alloc_here) begin	// all full and none used
+							if (r_hist_counter[H][M] != 0)
+								r_hist_counter[H][M] <= r_hist_counter[H][M]-1;
+						end
+					end else
+					if (r_trace_hit[L] && pc_used && r_hit_predicted && r_hist_mask[H][M] == r_pc_history) begin
+						if (r_hist_counter[H][M] != 3)
+							r_hist_counter[H][M] <= r_hist_counter[H][M]+1;
+					end
+				end
+			end
+		end
 
 		// trace cache:
 		//
@@ -119,7 +320,7 @@ module trace_cache(input clk, input reset,
 		reg  [1:0]c_meta_push_pop;
 		wire [NUM_TRACE_LINES-1:0]use_free;			// can we use this?
 		for (I = 0; I < NUM_TRACE_LINES; I=I+1) begin
-			assign use_free[I] = c_use[I]==0;
+			assign use_free[I] = c_use[I]==0 && !match[I];
 		end
 		reg [$clog2(NUM_TRACE_LINES)-1:0]r_next_use, c_next_use;			// next slot to use
 		reg						 r_next_use_valid, c_next_use_valid;	// slot is valid
@@ -143,6 +344,9 @@ module trace_cache(input clk, input reset,
 		wire dec_use = r_use_counter == 0;
 		always @(posedge clk) 
 		if (reset ||  r_use_counter == 0) begin
+			if (trace_scale == 0) begin
+				r_use_counter <= 8'h3f;	
+			end else
 			case (trace_scale[3:2]) // synthesis full_case parallel_case
 			2'b00: r_use_counter <= {3'b0, trace_scale[1:0],4'hf};	
 			2'b01: r_use_counter <= {2'b0, trace_scale[1:0],5'h1f};	
@@ -166,9 +370,22 @@ module trace_cache(input clk, input reset,
 					if (r_use[I] < 2)
 						c_use[I] = 2;
 				end else
+				if (branch_miss && branch_miss_index == I) begin  
+					if (!branch_miss_predicted)
+					if (r_use[I] > 1) begin
+						c_use[I] = r_use[I]-1;
+					end else begin
+						c_use[I] = 0;
+					end
+				end else
 				if (r_trace_hit[I] && pc_used) begin
-					if (!dec_use && r_use[I] < 7)
-						c_use[I] = r_use[I]+1;
+					if (!dec_use) begin
+						if (!r_hit_predicted) begin
+							if(r_use[I] < 7) begin
+								c_use[I] = r_use[I]+1;
+							end
+						end
+					end
 				end else
 				if (dec_use) begin
 					if (r_use[I] != 0)
@@ -227,14 +444,50 @@ module trace_cache(input clk, input reset,
 		
 		// one-hot mux cache = r_trace_cache[hit-line]
 		reg [NRETIRE*BUNDLE_SIZE-1:0]cache;	
+		reg [VA_SZ-1:1]npc_next[0:NUM_TRACE_LINES-1];
 		reg [VA_SZ-1:1]xpc_next;
 		assign pc_next = xpc_next;
+
+		reg [NRETIRE-1:0]pc_mask[0:NUM_TRACE_LINES-1];
+		reg [NRETIRE-1:0]xpc_mask;
+		reg [NRETIRE-1:0]r_pc_mask;
+		always @(posedge clk)
+		if (!rename_stall) 
+			r_pc_mask <= xpc_mask;
+		assign trace_hit_mask = r_pc_mask;
+		reg [NRETIRE-1:0]pc_replace[0:NUM_TRACE_LINES-1];
+		reg [NRETIRE-1:0]xpc_replace;
+		reg [NRETIRE-1:0]r_pc_replace;
+		always @(posedge clk)
+		if (!rename_stall) 
+			r_pc_replace <= xpc_replace;
+		assign trace_hit_replace = r_pc_replace;
+		reg [VA_SZ-1:0]r_pc_replace_pc;
+		always @(posedge clk)
+		if (!rename_stall) 
+			r_pc_replace_pc <= xpc_next;
+		assign trace_hit_replace_pc = r_pc_replace_pc;
+		wire [TRACE_HISTORY-1:0]pc_history[0:NUM_TRACE_LINES-1];
+		reg [TRACE_HISTORY-1:0]xpc_history;
+		reg [TRACE_HISTORY-1:0]r_pc_history;
+		always @(posedge clk)
+		if (!rename_stall) 
+			r_pc_history <= xpc_history;
+		assign trace_hit_history = r_pc_history;
+
 		reg [1:0]xpc_push_pop;
 		assign pc_push_pop = xpc_push_pop;
 		reg [VA_SZ-1:1]xpc_ret_addr;
 		assign pc_ret_addr = xpc_ret_addr;
 		reg   xpc_ret_addr_short;
 		assign pc_ret_addr_short = xpc_ret_addr_short;
+		reg	[$clog2(NUM_TRACE_LINES)-1:0]xtrace_hit_index;
+		reg [$clog2(NUM_TRACE_LINES)-1:0]r_trace_hit_index;
+		always @(posedge clk)
+		if (!rename_stall)
+			r_trace_hit_index <= xtrace_hit_index;
+		assign trace_hit_index = r_trace_hit_index;
+		
 		reg [NRETIRE-1:0]xbundle_valid;
 		reg [NRETIRE-1:0]r_bundle_valid;	// save this so that it matches the r_pc_next that was read in the same lock
 		always @(posedge clk)
@@ -330,7 +583,7 @@ end
 		//		if there is waiting data and there is space for it:
 		//			1a) if the incoming data can merge with the waiting data write as much of it
 		//					as we can and,
-		//			1b) put the reset of it in the waiting data
+		//			1b) put the rest of it in the waiting data
 		//		if there is waiting data and no space for it
 		//			2a) discard the waiting data
 		//			2b) discard incoming data until the next start
@@ -497,8 +750,9 @@ debug=0;
 
 			c_skip = (current_valid_count > r_skip ? 0:r_skip-current_valid_count);
 			if (r_waiting_valid[0]) begin	// data is waiting
-				if (r_next_use_valid) begin	// somewhere to put it?
-					if (!(trace_in_valid[0]&~ignore_valid[0] && trace_in_pc[0] == r_waiting_next)) begin	// l1a
+				if (r_next_use_valid && !match[r_next_use]) begin	// somewhere to put it?
+					//if (!(trace_in_valid[0]&~ignore_valid[0] && trace_in_pc[0] == r_waiting_next)) begin	// l1a
+					if (!(trace_in_valid[0]&~ignore_valid[0]&&(r_waiting_push_pop==0))) begin	// l1a
 debug=1;
 						trace_write_strobe = |match_waiting?0:r_waiting_valid;
 						trace_write_data = r_waiting;
@@ -594,7 +848,7 @@ debug=4;
 					c_waiting_push_pop = l3_c_waiting_push_pop;	
 					c_waiting_offset = l3_c_waiting_offset;
 				end else
-				if (r_next_use_valid) begin	// somewhere to put it?
+				if (r_next_use_valid && !match[r_next_use]) begin	// somewhere to put it?
 					if (|match_starting) begin	// already got a line in there
 						trace_write_strobe = 0;
 debug=9;

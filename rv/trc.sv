@@ -238,7 +238,7 @@ wire miss = branch_miss && branch_miss_index == L;
 					end
 
 					always @(posedge clk)
-					if (reset || (trace_write_strobe[0] && write_meta && r_next_use == L)) begin
+					if (reset || (trace_write_strobe[0] && write_meta && !write_meta_update && r_next_use == L)) begin
 						r_hist_counter[H][M] <= 0;
 						r_hist_mask[H][M] <= 0;
 					end else
@@ -255,7 +255,7 @@ wire miss = branch_miss && branch_miss_index == L;
 									r_hist_counter[H][M] <= r_hist_counter[H][M]+1;
 							end
 						end else
-						if (next_alloc && alloc_here[H] && |branch_miss_history) begin // allocate
+						if (next_alloc && alloc_here[H] && |branch_miss_history && !|branch_matches) begin // allocate
 							r_hist_counter[H][M] <= 2;
 							r_hist_mask[H][M] <= branch_miss_history;
 						end else

@@ -122,6 +122,8 @@ wire miss = branch_miss && branch_miss_index == L;
 					end
 			end
 
+			wire default_case = branch_miss_target == r_pc_next[L];
+
 			//reg [NUM_HISTORY-1:0]r_hist_valid;
 			reg [1:0]r_hist_counter[0:NUM_HISTORY-1][0:NUM_MASKS-1];
 			reg [TRACE_HISTORY-1:0]r_hist_mask[0:NUM_HISTORY-1][0:NUM_MASKS-1];
@@ -191,6 +193,7 @@ wire miss = branch_miss && branch_miss_index == L;
 			wire [NUM_HISTORY-1:0]alloc_matches;
 			wire [NUM_HISTORY-1:0]branch_matches;
 			wire [NUM_HISTORY-1:0]branch_exact;
+			wire [NUM_HISTORY-1:0]any_exact;
 
 			for (H = 0; H < NUM_HISTORY; H=H+1) begin :h
 
@@ -212,7 +215,7 @@ wire miss = branch_miss && branch_miss_index == L;
 				assign alloc_here[H] = (alloc_matches[H] || (!|alloc_matches && force_alloc[H])) && !|branch_exact;
 
 				always @(posedge clk) 
-				if (branch_miss && branch_miss_index == L && alloc_here[H]) begin
+				if (branch_miss && branch_miss_index == L && alloc_here[H] && !default_case && !|any_exact) begin
 					r_hist_offset[H] <= branch_miss_offset;
 					r_hist_dest[H] <= branch_miss_target;
 				end
@@ -220,6 +223,7 @@ wire miss = branch_miss && branch_miss_index == L;
 
 				assign branch_matches[H] = r_hist_offset[H] == branch_miss_offset && r_hist_dest[H] == branch_miss_target && |any_mask_valid;
 				assign branch_exact[H] = r_hist_offset[H] == branch_miss_offset && r_hist_dest[H] == branch_miss_target && |exact;
+				assign any_exact[H] = |exact;
 				
 		
 				for (M = 0; M < NUM_MASKS; M=M+1) begin :m
@@ -255,7 +259,7 @@ wire miss = branch_miss && branch_miss_index == L;
 									r_hist_counter[H][M] <= r_hist_counter[H][M]+1;
 							end
 						end else
-						if (next_alloc && alloc_here[H] && |branch_miss_history && !|branch_matches) begin // allocate
+						if (next_alloc && alloc_here[H] && |branch_miss_history && !|any_exact && !default_case) begin // allocate
 							r_hist_counter[H][M] <= 2;
 							r_hist_mask[H][M] <= branch_miss_history;
 						end else
@@ -476,7 +480,7 @@ wire miss = branch_miss && branch_miss_index == L;
 		assign trace_hit_history = r_pc_history;
 
 		reg [1:0]xpc_push_pop;
-		assign pc_push_pop = xpc_push_pop;
+		assign pc_push_pop = (c_hit_predicted ? 2'b00 : xpc_push_pop);
 		reg [VA_SZ-1:1]xpc_ret_addr;
 		assign pc_ret_addr = xpc_ret_addr;
 		reg   xpc_ret_addr_short;

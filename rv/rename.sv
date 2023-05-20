@@ -299,7 +299,7 @@ module rename(
 		input			start,
 		input			short,
 		input [CNTRL_SIZE-1:0]control,
-		input  [3:0]unit_type,
+		input  [UNIT_SIZE-1:0]unit_type,
 		input   [VA_SZ-1:1]pc,
 		input   [VA_SZ-1:1]pc_dest,
 		input    [LNCOMMIT-1: 0]next_start,
@@ -355,7 +355,7 @@ module rename(
 		output			 start_out,
 		output			 short_out,
 		output [CNTRL_SIZE-1:0]control_out,
-		output  [3:0]unit_type_out,
+		output  [UNIT_SIZE-1:0]unit_type_out,
 		output   [VA_SZ-1:1]pc_out,
 		output   [VA_SZ-1:1]pc_dest_out,
 		output			will_be_valid,
@@ -414,6 +414,7 @@ module rename(
 		);
 
 	parameter CNTRL_SIZE=7;
+	parameter UNIT_SIZE=4;
 	parameter NDEC = 4; // number of decode stages
 	parameter ADDR=0;
 	parameter HART=0;
@@ -646,7 +647,7 @@ module rename(
 	reg			  r_rs3_fp_out;
 `endif
 	reg [CNTRL_SIZE-1:0]r_control_out;
-	reg  [3:0]r_unit_type_out;
+	reg  [UNIT_SIZE-1:0]r_unit_type_out;
 	reg   [VA_SZ-1:1]r_pc_out;
 	reg   [VA_SZ-1:1]r_pc_dest_out;
 	reg		r_valid_out;

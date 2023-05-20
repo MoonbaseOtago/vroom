@@ -139,6 +139,7 @@ module cpu(input clk, input reset, input [7:0]cpu_id,
 	parameter CACHE_LINE_SIZE=64*8;
 	parameter ACACHE_LINE_SIZE=$clog2(512/8);
 	parameter CNTRL_SIZE=8;
+	parameter UNIT_SIZE=4;
 	parameter NDEC = 4; // number of decode stages
 	parameter LNDEC=2; // log number of decode stages
 	parameter NHART=1;	// number of hyperthreads
@@ -481,7 +482,7 @@ assign pmp[1].valid=0;
 	wire	          [4:0]fpu_exception_commit[0:NHART-1][0:NCOMMIT-1];
 `endif
 	wire      [CNTRL_SIZE-1:0]control_commit[0:NCOMMIT-1][0:NHART-1];
-	wire	            [3: 0]unit_type_commit[0:NCOMMIT-1][0:NHART-1];
+	wire	  [UNIT_SIZE-1: 0]unit_type_commit[0:NCOMMIT-1][0:NHART-1];
 
 `ifdef TRACE_CACHE
 	wire   [2*NDEC-1:0]trace_out_valid[0:NHART-1];
@@ -499,7 +500,7 @@ assign pmp[1].valid=0;
 	wire   [2*NDEC-1:0]trace_out_rs2_fp[0:NHART-1];
 	wire   [2*NDEC-1:0]trace_out_rs3_fp[0:NHART-1];
 `endif
-	wire          [3:0]trace_out_unit_type[0:NHART-1][0:2*NDEC-1];
+	wire[UNIT_SIZE-1:0]trace_out_unit_type[0:NHART-1][0:2*NDEC-1];
 	wire   [2*NDEC-1:0]trace_out_short[0:NHART-1];
 	wire   [2*NDEC-1:0]trace_out_start[0:NHART-1];
 	wire         [31:0]trace_out_immed[0:NHART-1][0:2*NDEC-1];
@@ -725,7 +726,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 			wire	[2*NDEC-1:0]rs3_fp_dec;
 			wire	[2*NDEC-1:0]rd_fp_dec;
 			wire	[2*NDEC-1:0]makes_rd_dec;
-			wire    [3:0]unit_type_dec[0:2*NDEC-1];
+			wire    [UNIT_SIZE-1:0]unit_type_dec[0:2*NDEC-1];
 			wire    [CNTRL_SIZE-1:0]control_dec[0:2*NDEC-1];
 			wire 	[RV-1:1]pc_br_fetch[0:2*NDEC-1];
 			wire 	[VA_SZ-1:1]pc_dec[0:2*NDEC-1];
@@ -826,7 +827,7 @@ wire [NCOMMIT-1:0]store_addr_not_ready0=ls_ready.store_addr_not_ready[0];
 					assign partial_start_in[3]=0;
 				end 
 
-				decode #(.VA_SZ(VA_SZ), .RV(RV), .ADDR(D), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decoder(.reset(reset), .clk(clk),
+				decode #(.VA_SZ(VA_SZ), .RV(RV), .ADDR(D), .CNTRL_SIZE(CNTRL_SIZE), .UNIT_SIZE(UNIT_SIZE), .NHART(NHART), .LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC))decoder(.reset(reset), .clk(clk),
 `ifdef AWS_DEBUG
 					.xxtrig(xxtrig),
 `endif
@@ -1009,7 +1010,7 @@ wire [31:1]sb_is_0; // for debug
 			wire	      rs2_fp_rename[0:2*NDEC-1];
 			wire	      rs3_fp_rename[0:2*NDEC-1];
 `endif
-			wire    [3:0]unit_type_rename[0:2*NDEC-1];
+			wire    [UNIT_SIZE-1:0]unit_type_rename[0:2*NDEC-1];
 			wire    [CNTRL_SIZE-1:0]control_rename[0:2*NDEC-1];
 			wire [$clog2(NUM_PENDING)-1:0]branch_token_rename[0:2*NDEC-1];
 			wire [$clog2(NUM_PENDING_RET)-1:0]branch_token_ret_rename[0:2*NDEC-1];
@@ -1092,7 +1093,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 `ifdef INSTRUCTION_FUSION
 				reg	[31:0]immed2;
 `endif
-				reg    [3:0]unit_type;
+				reg    [UNIT_SIZE-1:0]unit_type;
 				reg    [CNTRL_SIZE-1:0]control;
 				reg 	[RV-1:1]pc, pc_dest;
 				reg    [RA-1:0]renamed_rs1, renamed_rs2, renamed_rs3;
@@ -1142,7 +1143,7 @@ assign gl_type_rename[H] = unit_type_rename[0];
 				assign map_is_move_reg_rename[D] = scoreboard_latest_rename[map_is_reg[D]];
 `endif
 
-				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING),
+				rename #(.VA_SZ(VA_SZ), .RV(RV), .HART(H), .RA(RA), .ADDR(D), .NUM_PENDING(NUM_PENDING), .UNIT_SIZE(UNIT_SIZE),
 `ifdef TRACE_CACHE
 					    .NUM_TRACE_LINES(NUM_TRACE_LINES), .TRACE_HISTORY(TRACE_HISTORY),
 `endif
@@ -1530,7 +1531,7 @@ end
 				reg	  rd_fp, rs1_fp, rs2_fp, rs3_fp;
 `endif
 				reg [CNTRL_SIZE-1:0]control;
-				reg [3:0]unit_type;
+				reg [UNIT_SIZE-1:0]unit_type;
 				reg 	[VA_SZ-1:1]pc_rn;
 				reg 	[VA_SZ-1:1]pc_dest_rn;
 				reg [$clog2(NUM_PENDING)-1:0]branch_token;
@@ -1579,7 +1580,7 @@ end
 `ifdef TRACE_CACHE
 					    .NUM_TRACE_LINES(NUM_TRACE_LINES), .TRACE_HISTORY(TRACE_HISTORY),
 `endif
-						.NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART),
+						.NUM_PENDING_RET(NUM_PENDING_RET), .CNTRL_SIZE(CNTRL_SIZE), .NHART(NHART), .UNIT_SIZE(UNIT_SIZE),
 						.LNHART(LNHART), .NDEC(NDEC), .BDEC(BDEC), .NCOMMIT(NCOMMIT), .LNCOMMIT(LNCOMMIT),
 						.CALL_STACK_SIZE(CALL_STACK_SIZE))commiter(.reset(reset), .clk(clk),
 `ifdef SIMD
@@ -1750,14 +1751,14 @@ end
 			assign commit_br_miss_history[H] = branch_token_trace_history_commit[commit_br_addr[0][H]][H];
 			assign commit_br_miss_predicted[H] = branch_token_trace_predicted_commit[commit_br_addr[0][H]][H];
 
-			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
-			TRACE_BUNDLE #(.NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
+			TRACE_BUNDLE #(.UNIT_SIZE(UNIT_SIZE), .NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_in;
+			TRACE_BUNDLE #(.UNIT_SIZE(UNIT_SIZE), .NRETIRE(NDEC*2), .VA_SZ(VA_SZ), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT))trace_out;
 
 			wire [NDEC*2-1:0]will_trap;
 			wire [NDEC*2-1:0]trace_hit_mask;
 			wire [NDEC*2-1:0]trace_hit_replace;
 			wire [VA_SZ-1:1]trace_hit_replace_pc;
-			trace_cache #(.RV(RV), .VA_SZ(VA_SZ), .TRACE_HISTORY(TRACE_HISTORY), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
+			trace_cache #(.UNIT_SIZE(UNIT_SIZE), .RV(RV), .VA_SZ(VA_SZ), .TRACE_HISTORY(TRACE_HISTORY), .NRETIRE(NDEC*2), .CNTRL_SIZE(CNTRL_SIZE), .LNCOMMIT(LNCOMMIT), .NUM_TRACE_LINES(NUM_TRACE_LINES))trace(.clk(clk), .reset(reset),
 `ifdef SIMD
 					.simd_enable(simd_enable),
 `endif

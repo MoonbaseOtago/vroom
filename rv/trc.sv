@@ -60,10 +60,11 @@ module trace_cache(input clk, input reset,
 	parameter RV=64;
 	parameter NRETIRE=8;
 	parameter CNTRL_SIZE=7;
+	parameter UNIT_SIZE=4;
 	parameter LNCOMMIT=5;
 	parameter NUM_TRACE_LINES=64;
 	parameter VA_SZ=48;   
-	parameter BUNDLE_SIZE=(VA_SZ-1)+4*5+1+1+1+4+CNTRL_SIZE+32+
+	parameter BUNDLE_SIZE=(VA_SZ-1)+4*5+1+1+1+UNIT_SIZE+CNTRL_SIZE+32+
 
 `ifdef INSTRUCTION_FUSION
 						32+
@@ -560,7 +561,7 @@ wire miss = branch_miss && branch_miss_index == L;
 wire [NRETIRE-1:0]short_vec;
 wire [NRETIRE-1:0]valid_vec=trace_in.valid;
 wire [NRETIRE-1:0]start_vec;
-wire [2:0]unit_type[0:NRETIRE-1];
+wire [UNIT_SIZE-1:0]unit_type[0:NRETIRE-1];
 wire [5:0]control[0:NRETIRE-1];
 wire [VA_SZ-1:1]pc_dest[0:NRETIRE-1];
 for (I = 0; I < NRETIRE; I=I+1) begin

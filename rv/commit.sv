@@ -258,7 +258,7 @@ module commit(input clk,
 	input [TRACE_HISTORY-1:0]branch_token_trace_history,
 	input  branch_token_trace_predicted,
 `endif
-	input  [3:0]unit_type,       // 0 ALU, 1 shift, 2 mul/dev, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
+	input  [UNIT_SIZE-1:0]unit_type,       // 0 ALU, 1 shift, 2 mul/dev, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 	input	[NCOMMIT-1:0]commit_ack,
 	input	[NCOMMIT-1:0]commit_completed,
 
@@ -292,7 +292,7 @@ module commit(input clk,
 	output		 fpu_written_out,
 `endif
 	output [CNTRL_SIZE-1:0]control_out,
-	output     [3:0]unit_type_out,
+	output     [UNIT_SIZE-1:0]unit_type_out,
 	output  [VA_SZ-1:1]pc_out,
 	output  [VA_SZ-1:1]branch_dest_out,
 	output  [BDEC-1:1]branch_dec_out,
@@ -368,6 +368,7 @@ module commit(input clk,
 
     parameter RN=7;
     parameter CNTRL_SIZE=7;
+    parameter UNIT_SIZE=4;
     parameter NDEC = 4; // number of decode stages
     parameter ADDR=0;
     parameter LNHART=0;      
@@ -418,7 +419,7 @@ module commit(input clk,
 `endif
 	reg [CNTRL_SIZE-1:0]r_control, c_control;
 	reg [VA_SZ-1:1]r_pc;
-	reg  [3:0]r_unit_type, c_unit_type;
+	reg  [UNIT_SIZE-1:0]r_unit_type, c_unit_type;
 	reg		  ready;
 	assign rs1_out = r_rs1;
 	assign rs2_out = r_rs2;

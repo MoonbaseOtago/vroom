@@ -174,7 +174,7 @@ module decode(input clk,
 		output		needs_rs3_1,
 		output [CNTRL_SIZE-1:0]control_1,
 		output [VA_SZ-1:1]pc_1,
-		output  [3:0]unit_type_1,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
+		output  [UNIT_SIZE-1:0]unit_type_1,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 		output	     jumping_rel_jmp_1,
 		output	     jumping_rel_jmp_end_1,
 		output [RV-1:1]pc_br_fetch_1,
@@ -204,7 +204,7 @@ module decode(input clk,
 		output		needs_rs3_2,
 		output [CNTRL_SIZE-1:0]control_2,
 		output [VA_SZ-1:1]pc_2,
-		output  [3:0]unit_type_2,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
+		output  [UNIT_SIZE-1:0]unit_type_2,	// 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 		output	     jumping_rel_jmp_2,
 		output	     jumping_rel_jmp_end_2,
 		output [RV-1:1]pc_br_fetch_2,
@@ -224,6 +224,7 @@ module decode(input clk,
 	parameter RV=64;
 	parameter RN=7;
 	parameter CNTRL_SIZE=7;
+	parameter UNIT_SIZE=4;
 	parameter NDEC = 4; // number of decode stages
 	parameter ADDR=0;
 	parameter NHART=1;
@@ -381,7 +382,7 @@ module decode(input clk,
 	reg		  c_sub_pop_2;
 	reg		  c_inc2_2;
 
-	reg 	 [3:0]c_unit_type_1, c_unit_type_2; // 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
+	reg 	 [UNIT_SIZE-1:0]c_unit_type_1, c_unit_type_2; // 0 ALU, 1 shift, 2 mul/div, 3 ld, 4 st, 5 fp, 6 jmp, 7 trap
 	reg [CNTRL_SIZE-1:0]c_control_1, c_control_2;
 	reg		c_jumping_term_1, c_jumping_term_2;		// decode no instructions in this cycle after this one
 	reg		c_jumping_stall_1, c_jumping_stall_2;	// stall fetch until this resolves in commit
@@ -646,7 +647,7 @@ module decode(input clk,
 		endcase
 	end
 
-	reg  [3:0]r_unit_type_1, r_unit_type_2;
+	reg  [UNIT_SIZE-1:0]r_unit_type_1, r_unit_type_2;
 	reg [CNTRL_SIZE-1:0]r_control_1, r_control_2;
 	assign unit_type_1 = r_unit_type_1;
 	assign unit_type_2 = r_unit_type_2;

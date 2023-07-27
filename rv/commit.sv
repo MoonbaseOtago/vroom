@@ -444,7 +444,6 @@ module commit(input clk,
 	assign unit_type_out = r_unit_type;
 	assign valid_out = r_valid;
 	assign commit_req = r_commit_req;
-	assign commit_store_req = r_commit_store_req;
 	assign commit_done_out = r_done;
 	assign pc_out = r_pc;
 	
@@ -590,10 +589,7 @@ module commit(input clk,
 	wire lres_ready = commit_first|!r_control[4];
 	wire amod_ready = commit_first|(r_control[5:4]!=2'b01);
 
-    assign valid_out = r_valid;
-    assign commit_req = r_commit_req;
     assign commit_store_req = r_commit_store_req;
-    assign commit_done_out = r_done;
 
 `ifdef FP
 	reg  [3:0]r_fpu_req, c_fpu_req;

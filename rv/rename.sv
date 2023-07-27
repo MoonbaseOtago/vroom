@@ -483,7 +483,6 @@ module rename(
 	assign	renamed_is_add_to_prev = is_add_to_prev;
 	assign	renamed_is_add_to_auipc = is_add_to_auipc;
 	assign	renamed_is_simple_ld_st = is_simple_ld_st;
-	assign	renamed_is_add_to_auipc = is_add_to_auipc;
 	always @(*) begin
 		is_add_const = 0;
 		is_const_branch = 0;

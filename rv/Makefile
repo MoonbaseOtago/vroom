@@ -123,7 +123,7 @@ UART = rvuart.sv uart/raminfr.v uart/uart_receiver.v uart/uart_regs.v uart/uart_
 UART_DEF1 = +incdir+uart 
 UART_DEF2 = -Iuart 
 
-VERILATOR= $(XVERILATOR) --error-limit 10 -j 16 --timescale-override "1ns/1ns" --trace-max-array 64
+VERILATOR= $(XVERILATOR) --error-limit 10 -j 16 --timescale-override "1ns/1ns" --trace-max-array 64 --no-timing
 
 MX = mkinc4.inc mkinc8.inc mkinc16.inc
 MX2 = mk2_4.inc mk2_8.inc mk2_16.inc
@@ -216,7 +216,7 @@ obj_dir/svv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(INCLUDES) a
 
 fvv:	fobj_dir/fvv
 fobj_dir/fvv:	$(SRC) $(MXA) $(UART) testbench.cpp $(SYNTH)  $(DRAM) $(FPINC) $(FPU) $(FMXREG)  $(INCLUDES) aes.sv
-	$(VERILATOR) -cc  --threads 4  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
+	$(VERILATOR) --no-timing -cc  --threads 4  --top-module chip --autoflush -CFLAGS "-g" -LDFLAGS "-g" -Wno-lint +1800-2017ext+sv -o fvv  +define+SIMV +define+SIMD +define+FP $(VSYNTH1) $(SRC) $(DRAM) $(FMXREG)  $(UART_DEF1)  $(UART)  $(SYNTH) $(OPT_FLAG_1) $(FPU) --assert --clk clk  --trace  -sv --compiler gcc --Mdir fobj_dir -exe testbench.cpp
 	make -j 16 -C fobj_dir -f Vchip.mk fvv
 
 svl:	$(SRC) $(MXA) $(UART) $(SYNTH) $(DRAM) $(INCLUDES) aes.sv

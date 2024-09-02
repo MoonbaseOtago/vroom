@@ -5,9 +5,9 @@
 ## A new high-end RISC-V implementation
 Paul Campbell - Feb 2023
 
-paul@taniwha.com @moonbaseotago
+taniwha@gmail.com @moonbaseotago
 
-(C) Copyright Moonbase Otago 2021-23
+(C) Copyright Moonbase Otago 2021-24
 
 ## Executive summary
 * Very high end RISC-V implementation – goal cloud server class
